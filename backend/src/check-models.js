@@ -1,5 +1,5 @@
-const KEY = "";
-
+const KEY = ""; 
+// Джиги здесь в общем добавляете опен роутер ключ и потом вам выведутся модели которые можете использовать
 fetch("https://openrouter.ai/api/v1/models", {
     headers: { "Authorization": `Bearer ${KEY}` }
 })
