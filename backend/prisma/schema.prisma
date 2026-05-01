@@ -1,0 +1,53 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+  enum BotPlatform {
+  TELEGRAM
+  WHATSAPP
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String
+  
+  // --- Added Fields ---
+  email     String?  @unique             // Useful if you plan to add authentication later
+  createdAt DateTime @default(now())     // Standard audit trail
+  updatedAt DateTime @updatedAt
+  
+  // Relation to Bots (One-to-Many)
+  bots      Bot[]
+}
+
+model Bot {
+  id            Int      @id @default(autoincrement())
+  slug          String   @unique         // Slugs should generally be unique for routing/webhooks
+  
+  // Using @db.Text is recommended for prompts since they can exceed standard varchar limits
+  system_prompt String?  @db.Text
+  data_prompt   String?  @db.Text
+  
+  // --- Added Fields ---
+  platform      BotPlatform              // Specifies if it's Telegram or WhatsApp
+  apiToken      String?                  // Needed to authenticate the bot with Telegram/WhatsApp
+  isActive      Boolean  @default(true)  // Allows users to turn bots on/off without deleting them
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Foreign Key and Relation (Matches your diagram)
+  user_id       Int
+  user          User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  // Adding an index on the foreign key improves query performance
+  @@index([user_id])
+}
