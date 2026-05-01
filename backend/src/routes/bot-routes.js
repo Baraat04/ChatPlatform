@@ -21,7 +21,7 @@ async function callTelegramAPI(method, botToken, payload) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
     });
-    
+
     if (!response.ok) {
         const errorData = await response.text();
         throw new Error(`Telegram API Error (${method}): ${errorData}`);
@@ -35,7 +35,19 @@ router.post('/bot', async (req, res, next) => {
         // 1. Basic Validation
         if (!botToken || !user_id) {
             return res.status(400).json({ error: 'botToken and user_id are required.' });
+        }else{
+            const data = await prisma.bot.findFirst({
+                where:{
+                    apiToken: botToken
+                }
+            })
+            if(data){
+                console.log("Bot already exists")
+                return  
+            }
         }
+
+        
 
         // 2. Generate unique slug
         const slug = nanoid(10); // Generates a URL-safe 10-character string
@@ -51,6 +63,7 @@ router.post('/bot', async (req, res, next) => {
                 user_id: Number(user_id) 
             }
         });
+
 
         // 4. Configure Webhook with Telegram
         const baseUrl = process.env.BASE_URL || 'https://your-domain.com';
@@ -141,7 +154,7 @@ router.post('/webhook/:slug', async (req, res) => {
                         role: "user",
                         content: userText
                     }
-                    
+
                 ]
             })
         });
