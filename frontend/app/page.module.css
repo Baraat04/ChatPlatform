@@ -1,0 +1,226 @@
+.container {
+  padding: var(--spacing-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: var(--spacing-sm);
+}
+
+.title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--on-surface);
+  margin-bottom: var(--spacing-xs);
+}
+
+.subtitle {
+  font-size: 1rem;
+  color: var(--on-surface-variant);
+}
+
+.newBotBtn {
+  background-color: var(--primary);
+  color: var(--on-primary);
+  padding: var(--spacing-sm) var(--spacing-lg);
+  border-radius: var(--radius-DEFAULT);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  transition: opacity 0.2s;
+}
+
+.newBotBtn:hover {
+  opacity: 0.9;
+}
+
+.metricsGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--spacing-lg);
+}
+
+@media (min-width: 768px) {
+  .metricsGrid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.metricCard {
+  background-color: var(--surface-container-lowest);
+  border: 1px solid var(--outline-variant);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+
+.metricCard:hover {
+  border-color: var(--primary-fixed-dim);
+}
+
+.metricHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-md);
+}
+
+.metricIcon {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  background-color: var(--surface-container);
+  color: var(--on-surface-variant);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.metricLabel {
+  font-size: 0.8125rem;
+  color: var(--on-surface-variant);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+}
+
+.metricValueContainer {
+  display: flex;
+  align-items: baseline;
+  gap: var(--spacing-sm);
+}
+
+.metricValue {
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: var(--on-surface);
+}
+
+.metricTrend {
+  font-size: 0.875rem;
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+}
+
+.metricSub {
+  font-size: 0.75rem;
+  color: var(--outline);
+  margin-top: var(--spacing-xs);
+}
+
+.lowerSection {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--spacing-lg);
+  flex-grow: 1;
+}
+
+@media (min-width: 1024px) {
+  .lowerSection {
+    grid-template-columns: 2fr 1fr;
+  }
+}
+
+.card {
+  background-color: var(--surface-container-lowest);
+  border: 1px solid var(--outline-variant);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.cardHeader {
+  padding: var(--spacing-md);
+  border-bottom: 1px solid var(--surface-container-high);
+  background-color: var(--surface-container-lowest);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.cardTitle {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--on-surface);
+}
+
+.tableContainer {
+  overflow-x: auto;
+  flex-grow: 1;
+}
+
+.table {
+  width: 100%;
+  text-align: left;
+  border-collapse: collapse;
+}
+
+.table th {
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-size: 0.8125rem;
+  color: var(--outline);
+  text-transform: uppercase;
+  font-weight: 600;
+  border-bottom: 1px solid var(--surface-container);
+  background-color: var(--surface-container-lowest);
+}
+
+.table td {
+  padding: var(--spacing-md);
+  border-bottom: 1px solid var(--surface-container-low);
+  font-size: 0.875rem;
+  color: var(--on-surface-variant);
+}
+
+.emptyState {
+  padding: var(--spacing-xl);
+  text-align: center;
+  color: var(--outline);
+  font-size: 0.875rem;
+}
+
+.insightsList {
+  padding: var(--spacing-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.insightItem {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+.insightDot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background-color: var(--primary);
+  margin-top: 6px;
+  flex-shrink: 0;
+}
+
+.insightText {
+  font-size: 0.875rem;
+  color: var(--on-surface);
+  line-height: 1.4;
+  margin-bottom: 4px;
+}
+
+.insightTime {
+  font-size: 0.6875rem;
+  color: var(--outline);
+}
