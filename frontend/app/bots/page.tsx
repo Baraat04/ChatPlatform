@@ -11,7 +11,7 @@ export default function MyBots() {
   useEffect(() => {
     async function fetchBots() {
       try {
-        const res = await fetch('http://localhost:3500/api/bot');
+        const res = await fetch('http://localhost:3001/api/bot');
         const data = await res.json();
         console.log(data)
 
@@ -67,42 +67,42 @@ export default function MyBots() {
           </div>
         ) : (
           bots.map((bot: any) => (
-            <div key={bot.id} className={styles.botCard}>
-              <div className={styles.cardHeader}>
-                <div className={styles.botInfo}>
-                  <div className={styles.botIcon}>
-                    <Bot size={24} />
+            <Link href={`/bots/${bot.id}`} key={bot.id} style={{ textDecoration: 'none', color: 'inherit' }}>
+              <div className={styles.botCard}>
+                <div className={styles.cardHeader}>
+                  <div className={styles.botInfo}>
+                    <div className={styles.botIcon}>
+                      <Bot size={24} />
+                    </div>
+
+                    <div>
+                      <div className={styles.botName}>{bot.name}</div>
+                      <div className={styles.botSub}>{bot.type}</div>
+                    </div>
                   </div>
 
-                  <div>
-                    <div className={styles.botName}>{bot.name}</div>
-                    <div className={styles.botSub}>{bot.type}</div>
+                  <div className={styles.statusBadge}>
+                    <div className={`${styles.statusDot} ${bot.status === 'ONLINE' ? styles.statusDotOnline : ''}`}></div>
+                    {bot.status}
                   </div>
                 </div>
 
-                <div className={styles.statusBadge}>
-                  <div className={`${styles.statusDot} ${bot.status === 'ONLINE' ? styles.statusDotOnline : ''}`}></div>
-                  {bot.status}
+                <div className={styles.botDesc}>{bot.description}</div>
+
+                <div className={styles.divider}></div>
+
+                <div className={styles.cardFooter}>
+                  <div className={styles.integration}>
+                    <LinkIcon size={16} />
+                    {bot.slug}
+                  </div>
+
+                  <div className={styles.integration}>
+                    Created: {bot.createdAt}
+                  </div>
                 </div>
               </div>
-
-              <div className={styles.botDesc}>{bot.description}</div>
-
-              <div className={styles.divider}></div>
-
-              <div className={styles.cardFooter}>
-                <div className={styles.integration}>
-                  <LinkIcon size={16} />
-                  {bot.slug}
-                </div>
-
-                <div className={styles.integration}>
-                  Created: {bot.createdAt}
-                </div>
-
-                <ArrowRight size={20} className={styles.arrowIcon} />
-              </div>
-            </div>
+            </Link>
           ))
         )}
       </div>

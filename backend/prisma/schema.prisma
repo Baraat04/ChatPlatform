@@ -32,7 +32,6 @@ model User {
 model Bot {
   id            Int      @id @default(autoincrement())
   slug          String   @unique         // Slugs should generally be unique for routing/webhooks
-  
   // Using @db.Text is recommended for prompts since they can exceed standard varchar limits
   system_prompt String?  @db.Text
   data_prompt   String?  @db.Text
@@ -41,13 +40,41 @@ model Bot {
   platform      BotPlatform              // Specifies if it's Telegram or WhatsApp
   apiToken      String?                  // Needed to authenticate the bot with Telegram/WhatsApp
   isActive      Boolean  @default(true)  // Allows users to turn bots on/off without deleting them
+  pausedChats   String[] @default([])    // Array of chat IDs where AI auto-reply is disabled
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   // Foreign Key and Relation (Matches your diagram)
   user_id       Int
   user          User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  whatsappSessions BaileysSession[]
+  messages         Message[]
 
   // Adding an index on the foreign key improves query performance
   @@index([user_id])
+}
+
+model BaileysSession {
+  id        String   @id @default(uuid())
+  botId     Int
+  bot       Bot      @relation(fields: [botId], references: [id], onDelete: Cascade)
+  category  String
+  key       String
+  value     String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([botId, category, key])
+}
+
+model Message {
+  id        Int      @id @default(autoincrement())
+  botId     Int
+  bot       Bot      @relation(fields: [botId], references: [id], onDelete: Cascade)
+  sender    String   // 'user' or 'bot'
+  text      String   @db.Text
+  chatId    String   // phone number or telegram chat id
+  createdAt DateTime @default(now())
+
+  @@index([botId, chatId])
 }
