@@ -26,6 +26,7 @@ export default function CreateBot() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
     setIsSubmitting(true);
     setMessage(null);
     setQrCode(null);
@@ -58,7 +59,7 @@ export default function CreateBot() {
         } else {
           setMessage({ type: 'success', text: '⏳ Generating WhatsApp QR Code...' });
           // Listen to QR and status for this specific bot
-          const botId = data.bot.id;
+          const botId = data.id;
           if (socket) {
             socket.on(`qr-${botId}`, (qrDataUrl) => {
               setQrCode(qrDataUrl);

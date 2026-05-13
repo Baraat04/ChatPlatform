@@ -7,6 +7,14 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 dotenv.config({ path: path.join(__dirname, '../.env') })
 
+// Global error handlers to prevent silent crashes
+process.on('uncaughtException', (err) => {
+    console.error('UNCAUGHT EXCEPTION:', err)
+})
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('UNHANDLED REJECTION at:', promise, 'reason:', reason)
+})
+
 import { createServer } from 'http'
 
 // Dynamic imports so env vars are available when these modules initialize
@@ -20,8 +28,8 @@ const httpServer = createServer(app)
 
 const io = new Server(httpServer, {
     cors: {
-        origin: 'http://localhost:3000',
-        methods: ["GET", "POST"]
+        origin: '*',
+        methods: ["GET", "POST", "PUT", "DELETE"]
     }
 })
 
@@ -29,7 +37,8 @@ const io = new Server(httpServer, {
 app.set('io', io)
 
 app.use(cors({
-    origin: 'http://localhost:3000'
+    origin: '*',
+    methods: ["GET", "POST", "PUT", "DELETE"]
 }))
 app.use(express.json())
 
@@ -48,7 +57,8 @@ httpServer.listen(PORT, async () => {
     
     // Auto-restart active WhatsApp bots on server boot
     try {
-        const { prisma } = await import('./routes/bot-routes.js')
+        const { prisma: getPrisma } = await import('./routes/bot-routes.js')
+        const prisma = getPrisma()
         
         const { startWhatsAppBot } = await import('./services/whatsapp.js')
         

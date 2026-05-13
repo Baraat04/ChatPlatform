@@ -1,379 +1,438 @@
-import express from "express"
-
-import pkg from '@prisma/client';
-const { PrismaClient } = pkg;
-import { nanoid } from 'nanoid';
+import express from 'express'
+import { PrismaClient } from '@prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
+import pkgPg from 'pg'
+const { Pool } = pkgPg
 
 const router = express.Router()
 
+// Lazy Prisma init so DATABASE_URL is already loaded from .env
+let _prisma = null
 function getPrisma() {
+    if (_prisma) return _prisma
     const url = process.env.DATABASE_URL
     if (!url) throw new Error('DATABASE_URL environment variable is not set')
-    const adapter = new PrismaPg(url)
-    return new PrismaClient({ adapter })
+    const pool = new Pool({ connectionString: url })
+    const adapter = new PrismaPg(pool)
+    _prisma = new PrismaClient({ adapter })
+    return _prisma
 }
+export { getPrisma as prisma }
 
-export const prisma = getPrisma();
+// ── BOTS ────────────────────────────────────────────────
 
-async function callTelegramAPI(method, botToken, payload) {
-    const response = await fetch(`https://api.telegram.org/bot${botToken}/${method}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-    });
-
-    if (!response.ok) {
-        const errorData = await response.text();
-        throw new Error(`Telegram API Error (${method}): ${errorData}`);
-    }
-    return response.json();
-}
-
-router.post('/bot', async (req, res, next) => {
-     const { system_prompt, data_prompt, botToken, user_id, platform = 'TELEGRAM' } = req.body;
-
-        // 1. Basic Validation
-        if (!user_id) {
-            return res.status(400).json({ error: 'user_id is required.' });
-        }
-        if (platform === 'TELEGRAM' && !botToken) {
-            return res.status(400).json({ error: 'botToken is required for Telegram.' });
-        }
-
-        if (botToken) {
-            const data = await prisma.bot.findFirst({
-                where:{
-                    apiToken: botToken
-                }
-            })
-            if(data){
-                return res.status(400).json({ error: 'Bot with this token already exists.' });
-            }
-        }
-
-        // 2. Generate unique slug
-        const slug = nanoid(10); // Generates a URL-safe 10-character string
-
-        // 3. Save to Database
-        const newBot = await prisma.bot.create({
-            data: {
-                slug,
-                system_prompt,
-                data_prompt,
-                apiToken: botToken || null,
-                platform: platform,
-                user_id: Number(user_id) 
-            }
-        });
-
-
-        if (platform === 'WHATSAPP') {
-            const io = req.app.get('io')
-            import('../services/whatsapp.js').then(({ startWhatsAppBot }) => {
-                startWhatsAppBot(newBot, prisma, io)
-            })
-
-            return res.status(201).json({
-                message: 'WhatsApp Bot created. Check the dashboard for QR code.',
-                bot: { id: newBot.id, slug: newBot.slug, platform: newBot.platform }
-            })
-        }
-
-        // 4. Configure Webhook with Telegram
-        const baseUrl = process.env.BASE_URL || 'https://your-domain.com';
-        const webhookUrl = `${baseUrl}/api/webhook/${slug}`;
-
-        try {
-            await callTelegramAPI('setWebhook', botToken, {
-                url: webhookUrl,
-                drop_pending_updates: true
-            });
-
-            return res.status(201).json({
-                message: 'Telegram Bot created and webhook configured successfully.',
-                bot: { id: newBot.id, slug: newBot.slug, platform: newBot.platform },
-                webhookUrl
-            });
-        } catch (error) {
-            await prisma.bot.delete({ where: { id: newBot.id } })
-            console.error('Error creating Telegram bot:', error);
-            return res.status(500).json({ error: 'Failed to create Telegram bot or set webhook.', details: error.message });
-        }
-});
-
-
-router.post('/webhook/:slug', async (req, res) => {
+// GET all bots
+router.get('/bot', async (req, res) => {
     try {
-        const { slug } = req.params;
-        const update = req.body;
-
-        console.log("🔥 WEBHOOK HIT:", slug);
-
-        // 1. Find bot in DB
-        const bot = await prisma.bot.findUnique({
-            where: { slug:slug }
-        });
-
-        if (!bot || !bot.isActive) {
-            console.warn(`Webhook for unknown/inactive bot: ${slug}`);
-            return res.status(404).send("Bot not found");
-        }
-
-        const message =
-            update.message ||
-            update.edited_message ||
-            update.channel_post;
-
-        if (!message || !message.text) {
-            return res.status(200).send("OK");
-        }
-
-        const chatId = message.chat.id;
-        const userText = message.text;
-
-        console.log("👤 USER:", userText);
-        
-        // Save incoming Telegram message
-        try {
-            const incomingMsg = await prisma.message.create({
-                data: { botId: bot.id, sender: 'user', text: userText, chatId: String(chatId) }
-            })
-            req.app.get('io')?.emit(`chat-${bot.id}`, incomingMsg)
-        } catch (dbErr) { console.error('DB Error saving user msg:', dbErr) }
-
-        // 3. Build final system context
-        let systemInstructionText = "";
-
-        if (bot.system_prompt) {
-            systemInstructionText += bot.system_prompt + "\n\n";
-        }
-
-        if (bot.data_prompt) {
-            systemInstructionText += "Knowledge Base:\n" + bot.data_prompt;
-        }
-
-        // 4. Call Local LM Studio AI
-        const aiResponse = await fetch("http://127.0.0.1:1234/v1/chat/completions", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                model: "liquid/lfm2.5-1.2b",
-                messages: [
-                    {
-                        role: "system",
-                        content: systemInstructionText
-                    },
-                    {
-                        role: "user",
-                        content: userText
-                    }
-                ]
-            })
-        });
-
-        const aiData = await aiResponse.json();
-
-        console.log("LM STUDIO RAW:", JSON.stringify(aiData, null, 2));
-
-        const aiResponseText =
-            aiData.choices?.[0]?.message?.content ||
-            "Sorry, AI service is temporarily unavailable.";
-
-        console.log("🤖 AI:", aiResponseText);
-
-        // 5. Send response back to Telegram
-        await callTelegramAPI("sendMessage", bot.apiToken, {
-            chat_id: chatId,
-            text: aiResponseText
-        });
-        
-        // Save outgoing Telegram message
-        try {
-            const outgoingMsg = await prisma.message.create({
-                data: { botId: bot.id, sender: 'bot', text: aiResponseText, chatId: String(chatId) }
-            })
-            req.app.get('io')?.emit(`chat-${bot.id}`, outgoingMsg)
-        } catch (dbErr) { console.error('DB Error saving bot msg:', dbErr) }
-
-        return res.status(200).send("OK");
-
-    } catch (error) {
-        console.error("Webhook processing error:", error);
-        return res.status(200).send("OK");
-    }
-});
-
-router.get('/bot', async (req,res) => {
-    const data = await prisma.bot.findMany({
-        omit: {
-            apiToken:true
-        }
-    })
-    res.json(data)
+        const prisma = getPrisma()
+        const bots = await prisma.bot.findMany({ orderBy: { createdAt: 'desc' } })
+        res.json(bots)
+    } catch (e) { res.status(500).json({ error: e.message }) }
 })
 
+// GET single bot
+router.get('/bot/:id', async (req, res) => {
+    try {
+        const prisma = getPrisma()
+        const bot = await prisma.bot.findUnique({ where: { id: Number(req.params.id) } })
+        if (!bot) return res.status(404).json({ error: 'Bot not found' })
+        res.json(bot)
+    } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+// POST create bot
+router.post('/bot', async (req, res) => {
+    try {
+        const prisma = getPrisma()
+        const io = req.app.get('io')
+        const { platform, system_prompt, data_prompt, apiToken } = req.body
+
+        const bot = await prisma.bot.create({
+            data: {
+                slug: `bot-${Date.now()}`,
+                platform,
+                system_prompt: system_prompt || '',
+                data_prompt: data_prompt || '',
+                apiToken: apiToken || null,
+                isActive: false,
+                user_id: 1,
+            }
+        })
+
+        res.json(bot)
+
+        // Auto-start WhatsApp bot after creation
+        if (platform === 'WHATSAPP') {
+            const { startWhatsAppBot } = await import('../services/whatsapp.js')
+            startWhatsAppBot(bot, getPrisma(), io).catch(err => {
+                console.error(`[WhatsApp Bot ${bot.id}] Failed to start:`, err)
+            })
+        }
+    } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+// PUT update bot prompts
+router.put('/bot/:id', async (req, res) => {
+    try {
+        const prisma = getPrisma()
+        const { system_prompt, data_prompt, apiToken } = req.body
+        const bot = await prisma.bot.update({
+            where: { id: Number(req.params.id) },
+            data: { system_prompt, data_prompt, apiToken }
+        })
+        res.json(bot)
+    } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+// DELETE bot
+router.delete('/bot/:id', async (req, res) => {
+    try {
+        const prisma = getPrisma()
+        const botId = Number(req.params.id)
+        const bot = await prisma.bot.findUnique({ where: { id: botId } })
+
+        // Stop WhatsApp session if running
+        if (bot?.platform === 'WHATSAPP') {
+            try {
+                const { stopWhatsAppBot } = await import('../services/whatsapp.js')
+                stopWhatsAppBot(botId)
+            } catch (e) {}
+
+            // Remove session files
+            const { default: fs } = await import('fs')
+            const { default: path } = await import('path')
+            const { fileURLToPath } = await import('url')
+            const __dirname = path.dirname(fileURLToPath(import.meta.url))
+            const sessionDir = path.join(__dirname, `../../sessions/bot_${botId}`)
+            try { fs.rmSync(sessionDir, { recursive: true, force: true }) } catch (e) {}
+        }
+
+        await prisma.bot.delete({ where: { id: botId } })
+        res.json({ success: true })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+// ── BOT STATUS / PAUSE ───────────────────────────────────
+
+// POST /api/bot/:id/pause — полностью останавливает бота (isActive = false + отключает сокет)
+router.post('/bot/:id/pause', async (req, res) => {
+    try {
+        const prisma = getPrisma()
+        const botId = Number(req.params.id)
+
+        const bot = await prisma.bot.update({
+            where: { id: botId },
+            data: { isActive: false }
+        })
+
+        // Disconnect WhatsApp socket
+        if (bot.platform === 'WHATSAPP') {
+            try {
+                const { stopWhatsAppBot } = await import('../services/whatsapp.js')
+                stopWhatsAppBot(botId)
+            } catch (e) {}
+        }
+
+        res.json({ success: true, isActive: false })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+// POST /api/bot/:id/start — запускает бота (isActive = true + reconnect)
+router.post('/bot/:id/start', async (req, res) => {
+    try {
+        const prisma = getPrisma()
+        const io = req.app.get('io')
+        const botId = Number(req.params.id)
+
+        const bot = await prisma.bot.update({
+            where: { id: botId },
+            data: { isActive: true }
+        })
+
+        if (bot.platform === 'WHATSAPP') {
+            const { startWhatsAppBot } = await import('../services/whatsapp.js')
+            startWhatsAppBot(bot, getPrisma(), io)
+        }
+
+        res.json({ success: true, isActive: true })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+// ── MESSAGES / CHATS ─────────────────────────────────────
+
+// GET all messages for a bot (all chats combined)
 router.get('/bot/:id/messages', async (req, res) => {
     try {
-        const messages = await prisma.message.findMany({
+        const prisma = getPrisma()
+        const msgs = await prisma.message.findMany({
             where: { botId: Number(req.params.id) },
             orderBy: { createdAt: 'asc' }
         })
-        res.json(messages)
-    } catch (error) {
-        res.status(500).json({ error: error.message })
-    }
+        res.json(msgs)
+    } catch (e) { res.status(500).json({ error: e.message }) }
 })
 
-router.put('/bot/:id', async (req, res) => {
+// GET list of unique chat contacts for a bot
+// Returns: [{ chatId, lastMessage, lastAt, unreadCount, name }]
+router.get('/bot/:id/chats', async (req, res) => {
+    const botId = Number(req.params.id)
     try {
-        const { system_prompt, data_prompt } = req.body
-        const updatedBot = await prisma.bot.update({
-            where: { id: Number(req.params.id) },
-            data: { system_prompt, data_prompt }
+        const prisma = getPrisma()
+
+        // Get the last message per chatId
+        const allMessages = await prisma.message.findMany({
+            where: { botId },
+            orderBy: { createdAt: 'asc' }
         })
-        res.json(updatedBot)
-    } catch (error) {
-        res.status(500).json({ error: error.message })
+
+        const contacts = await prisma.contact.findMany({
+            where: { botId }
+        })
+        const contactMap = new Map()
+        const realJidMap = new Map()
+        contacts.forEach(c => {
+            contactMap.set(c.chatId, c.name)
+            if (c.realJid) realJidMap.set(c.chatId, c.realJid)
+        })
+
+        // Group by chatId
+        const chatMap = new Map()
+        for (const msg of allMessages) {
+            const rawId = msg.chatId
+            
+            // Пропускаем status@broadcast
+            if (!rawId || rawId.includes('status@broadcast')) {
+                continue
+            }
+
+            chatMap.set(rawId, {
+                chatId: rawId,
+                lastMessage: msg.text,
+                lastAt: msg.createdAt,
+                lastSender: msg.sender,
+                name: contactMap.get(rawId) || '',
+                realJid: realJidMap.get(rawId) || null
+            })
+        }
+
+        // Add contacts that don't have messages yet
+        for (const contact of contacts) {
+            if (!chatMap.has(contact.chatId)) {
+                chatMap.set(contact.chatId, {
+                    chatId: contact.chatId,
+                    lastMessage: '(Нет сообщений)',
+                    lastAt: new Date(0),
+                    lastSender: '',
+                    name: contact.name || ''
+                })
+            }
+        }
+        const chats = Array.from(chatMap.values()).sort(
+            (a, b) => new Date(b.lastAt).getTime() - new Date(a.lastAt).getTime()
+        )
+        console.log(`[Chats] Bot ${botId}: returning ${chats.length} chats (Contacts in DB: ${contacts.length})`)
+        res.json(chats)
+    } catch (e) { 
+        console.error(`[Chats Error] Bot ${botId}:`, e)
+        res.status(500).json({ error: e.message }) 
     }
 })
 
+// POST update contact name
+router.post('/bot/:id/contact/name', async (req, res) => {
+    try {
+        const prisma = getPrisma()
+        const botId = Number(req.params.id)
+        const { chatId, name } = req.body
+
+        if (!chatId || name === undefined) return res.status(400).json({ error: 'chatId and name are required' })
+
+        const contact = await prisma.contact.upsert({
+            where: { botId_chatId: { botId, chatId } },
+            update: { name },
+            create: { botId, chatId, name }
+        })
+
+        res.json({ success: true, contact })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+// POST delete contact (and its messages)
+router.post('/bot/:id/contact/delete', async (req, res) => {
+    try {
+        const prisma = getPrisma()
+        const botId = Number(req.params.id)
+        const { chatId } = req.body
+
+        if (!chatId) return res.status(400).json({ error: 'chatId is required' })
+
+        // Delete all messages first
+        await prisma.message.deleteMany({
+            where: { botId, chatId }
+        })
+
+        // Delete the contact
+        await prisma.contact.delete({
+            where: { botId_chatId: { botId, chatId } }
+        }).catch(() => {}) // Ignore if contact didn't exist
+
+        res.json({ success: true })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+// GET messages for a specific chat (chatId as query param)
+// GET /api/bot/:id/chat?chatId=79991234567
+router.get('/bot/:id/chat', async (req, res) => {
+    try {
+        const prisma = getPrisma()
+        const botId = Number(req.params.id)
+        const { chatId } = req.query
+
+        if (!chatId) return res.status(400).json({ error: 'chatId is required' })
+
+        const msgs = await prisma.message.findMany({
+            where: { botId, chatId: String(chatId) },
+            orderBy: { createdAt: 'asc' }
+        })
+        res.json(msgs)
+    } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+// POST delete all messages for a specific chat (using POST because DELETE is sometimes blocked)
+router.post('/bot/:id/chat/delete', async (req, res) => {
+    try {
+        const prisma = getPrisma()
+        const botId = Number(req.params.id)
+        const { chatId } = req.body // Changed from query to body for POST consistency
+
+        if (!chatId) return res.status(400).json({ error: 'chatId is required' })
+        const rawId = String(chatId)
+        
+        console.log(`[Backend] Deleting chat history: Bot ${botId}, Chat ${rawId}`)
+        
+        const deleted = await prisma.message.deleteMany({
+            where: { botId, chatId: rawId }
+        })
+        
+        console.log(`[Backend] Deleted ${deleted.count} messages for ${rawId}`)
+        res.json({ success: true, count: deleted.count })
+    } catch (e) { 
+        console.error('[Backend] Delete error:', e)
+        res.status(500).json({ error: e.message }) 
+    }
+})
+
+// POST send message to a specific chat
+// Body: { text, chatId }
 router.post('/bot/:id/send', async (req, res) => {
     try {
+        const prisma = getPrisma()
         const botId = Number(req.params.id)
-        const { text, chatId } = req.body
-        
-        if (!text || !chatId) return res.status(400).json({ error: "text and chatId are required" })
+        const io = req.app.get('io')
+        const { text, chatId: rawChatId } = req.body
+
+        if (!text || !rawChatId) return res.status(400).json({ error: 'text and chatId are required' })
+
+        const chatId = rawChatId.includes('@') ? rawChatId : `${rawChatId}@s.whatsapp.net`
 
         const bot = await prisma.bot.findUnique({ where: { id: botId } })
-        if (!bot) return res.status(404).send("Bot not found")
+        if (!bot) return res.status(404).json({ error: 'Bot not found' })
 
         if (bot.platform === 'WHATSAPP') {
             const { getWhatsAppSession } = await import('../services/whatsapp.js')
             const sock = getWhatsAppSession(botId)
-            if (!sock) return res.status(400).json({ error: "WhatsApp session not active. Make sure the bot is connected." })
-            
-            // Use chatId as-is from DB. It should already be a proper JID (@s.whatsapp.net or @lid)
-            const finalChatId = chatId.includes('@') ? chatId : `${chatId}@s.whatsapp.net`
-            
-            console.log(`[Bot ${botId}] Sending manual message to: ${finalChatId}`)
-            try {
-                await sock.sendMessage(finalChatId, { text })
-                console.log(`[Bot ${botId}] Message sent successfully to ${finalChatId}`)
-            } catch (sendErr) {
-                console.error(`[Bot ${botId}] sock.sendMessage failed:`, sendErr)
-                return res.status(500).json({ error: `WhatsApp delivery failed: ${sendErr.message}` })
-            }
-            
-            const outgoingMsg = await prisma.message.create({
-                data: { botId, sender: 'bot', text, chatId: finalChatId }
-            })
-            req.app.get('io')?.emit(`chat-${botId}`, outgoingMsg)
-            return res.json({ success: true, message: outgoingMsg })
+            if (!sock) return res.status(503).json({ error: 'WhatsApp session not active. Start the bot first.' })
 
-        } else if (bot.platform === 'TELEGRAM') {
-            await callTelegramAPI("sendMessage", bot.apiToken, { chat_id: chatId, text })
-            const outgoingMsg = await prisma.message.create({
-                data: { botId, sender: 'bot', text, chatId: String(chatId) }
-            })
-            req.app.get('io')?.emit(`chat-${botId}`, outgoingMsg)
-            return res.json({ success: true, message: outgoingMsg })
+            await sock.sendMessage(chatId, { text })
         }
 
-        res.status(400).json({ error: "Unknown platform" })
-    } catch (error) {
-        console.error('Send error:', error)
-        res.status(500).json({ error: error.message })
-    }
-})
-
-router.post('/bot/:id/resume', async (req, res) => {
-    try {
-        const botId = Number(req.params.id)
-        const { chatId } = req.body
-        const bot = await prisma.bot.findUnique({ where: { id: botId } })
-        if (!bot) return res.status(404).send("Bot not found")
-        
-        await prisma.bot.update({
-            where: { id: bot.id },
-            data: { pausedChats: bot.pausedChats.filter(id => id !== chatId) }
+        // Save sent message to DB
+        const savedMsg = await prisma.message.create({
+            data: { botId, sender: 'bot', text, chatId }
         })
-        res.json({ success: true })
-    } catch (error) {
-        res.status(500).json({ error: error.message })
-    }
+
+        io.emit(`chat-${botId}`, savedMsg)
+        res.json({ success: true, message: savedMsg })
+    } catch (e) { res.status(500).json({ error: e.message }) }
 })
 
+// POST broadcast to multiple numbers
+// Body: { text, chatIds: string[] }
 router.post('/bot/:id/broadcast', async (req, res) => {
     try {
         const botId = Number(req.params.id)
+        const prisma = getPrisma()
+        const io = req.app.get('io')
         const { text, chatIds } = req.body
-        
-        const bot = await prisma.bot.findUnique({ where: { id: botId } })
-        if (!bot) return res.status(404).send("Bot not found")
 
-        let sock;
+        if (!text || !chatIds?.length) return res.status(400).json({ error: 'text and chatIds are required' })
+
+        const bot = await prisma.bot.findUnique({ where: { id: botId } })
+        if (!bot) return res.status(404).json({ error: 'Bot not found' })
+
+        const results = []
+
         if (bot.platform === 'WHATSAPP') {
             const { getWhatsAppSession } = await import('../services/whatsapp.js')
-            sock = getWhatsAppSession(botId)
-            if (!sock) return res.status(400).send("WhatsApp session not active")
-        }
+            const sock = getWhatsAppSession(botId)
+            if (!sock) return res.status(503).json({ error: 'WhatsApp session not active' })
 
-        let successCount = 0;
-        for (const chatId of chatIds) {
-            try {
-                if (bot.platform === 'WHATSAPP') {
-                    const finalChatId = chatId.includes('@') ? chatId : `${chatId}@s.whatsapp.net`
-                    await sock.sendMessage(finalChatId, { text })
-                    
-                    const outgoingMsg = await prisma.message.create({
-                        data: { botId, sender: 'bot', text, chatId: finalChatId }
+            for (const rawId of chatIds) {
+                try {
+                    // Рассылка по номерам - тут дописываем @s.whatsapp.net если это просто цифры
+                    const jid = rawId.includes('@') ? rawId : `${rawId}@s.whatsapp.net`
+                    await sock.sendMessage(jid, { text })
+
+                    const savedMsg = await prisma.message.create({
+                        data: { botId, sender: 'bot', text, chatId: jid }
                     })
-                    req.app.get('io')?.emit(`chat-${botId}`, outgoingMsg)
-                } else if (bot.platform === 'TELEGRAM') {
-                    await callTelegramAPI("sendMessage", bot.apiToken, {
-                        chat_id: chatId,
-                        text: text
-                    });
-                    const outgoingMsg = await prisma.message.create({
-                        data: { botId, sender: 'bot', text, chatId: String(chatId) }
-                    })
-                    req.app.get('io')?.emit(`chat-${botId}`, outgoingMsg)
+                    io.emit(`chat-${botId}`, savedMsg)
+                    results.push({ chatId: jid, success: true })
+
+                    // Rate limit: 1 message per second
+                    await new Promise(r => setTimeout(r, 1000))
+                } catch (err) {
+                    results.push({ chatId, success: false, error: err.message })
                 }
-                successCount++;
-                await new Promise(r => setTimeout(r, 500)); // anti-spam delay
-            } catch(e) {
-                console.error(`Broadcast failed for ${chatId}:`, e);
             }
         }
 
-        res.json({ success: true, sent: successCount, total: chatIds.length })
-    } catch (error) {
-        res.status(500).json({ error: error.message })
-    }
+        res.json({ success: true, results })
+    } catch (e) { res.status(500).json({ error: e.message }) }
 })
 
-router.delete('/bot/:id', async (req, res) => {
+// POST resume AI for a specific chat (was paused per-chat before, kept for compat)
+router.post('/bot/:id/resume', async (req, res) => {
     try {
+        const prisma = getPrisma()
         const botId = Number(req.params.id)
+        const { chatId } = req.body
+
         const bot = await prisma.bot.findUnique({ where: { id: botId } })
-        
-        if (bot?.platform === 'WHATSAPP') {
-            import('fs').then(fs => {
-                const sessionDir = import('path').then(path => {
-                    const dir = path.join(process.cwd(), `../sessions/bot_${botId}`)
-                    try { fs.rmSync(dir, { recursive: true, force: true }) } catch (e) {}
-                })
-            })
-        }
-        
-        await prisma.bot.delete({ where: { id: botId } })
+        if (!bot) return res.status(404).json({ error: 'Bot not found' })
+
+        const pausedChats = (bot.pausedChats || []).filter(c => c !== chatId)
+        await prisma.bot.update({ where: { id: botId }, data: { pausedChats } })
+
         res.json({ success: true })
-    } catch (error) {
-        res.status(500).json({ error: error.message })
-    }
+    } catch (e) { res.status(500).json({ error: e.message }) }
 })
 
-export default router;
+// POST start QR scan for WhatsApp bot
+router.post('/bot/:id/connect', async (req, res) => {
+    try {
+        const prisma = getPrisma()
+        const io = req.app.get('io')
+        const botId = Number(req.params.id)
+
+        const bot = await prisma.bot.findUnique({ where: { id: botId } })
+        if (!bot) return res.status(404).json({ error: 'Bot not found' })
+
+        const { startWhatsAppBot } = await import('../services/whatsapp.js')
+        startWhatsAppBot(bot, getPrisma(), io)
+
+        res.json({ success: true, message: 'Bot connecting, watch for QR event' })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+export default router

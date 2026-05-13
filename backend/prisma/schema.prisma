@@ -78,3 +78,14 @@ model Message {
 
   @@index([botId, chatId])
 }
+
+model Contact {
+  id        Int      @id @default(autoincrement())
+  botId     Int
+  chatId    String
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([botId, chatId])
+}
