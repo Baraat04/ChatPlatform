@@ -11,22 +11,34 @@ datasource db {
   provider = "postgresql"
 }
 
-  enum BotPlatform {
+enum BotPlatform {
   TELEGRAM
   WHATSAPP
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
-  name      String
+  id                Int      @id @default(autoincrement())
+  name              String
   
   // --- Added Fields ---
-  email     String?  @unique             // Useful if you plan to add authentication later
-  createdAt DateTime @default(now())     // Standard audit trail
-  updatedAt DateTime @updatedAt
+  email             String?  @unique
+  password          String?
+  messagesRemaining Int      @default(0)
+  totalMessagesUsed Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
   
   // Relation to Bots (One-to-Many)
-  bots      Bot[]
+  bots                 Bot[]
+  usage                AIUsage[]
+  messageTransactions  MessageTransaction[]
+}
+
+model Session {
+  id        String   @id
+  sid       String   @unique
+  data      String   @db.Text
+  expiresAt DateTime
 }
 
 model Bot {
@@ -49,6 +61,7 @@ model Bot {
   user          User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
   whatsappSessions BaileysSession[]
   messages         Message[]
+  usage            AIUsage[]
 
   // Adding an index on the foreign key improves query performance
   @@index([user_id])
@@ -84,8 +97,66 @@ model Contact {
   botId     Int
   chatId    String
   name      String
+  realJid   String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([botId, chatId])
+}
+
+model AIUsage {
+  id             Int      @id @default(autoincrement())
+
+  userId         Int
+  botId          Int
+
+  provider       String
+  model          String
+
+  inputTokens    Int
+  outputTokens   Int
+  totalTokens    Int
+
+  messagesUsed   Int
+
+  providerCost   Float
+  estimatedRevenue Float
+
+  createdAt      DateTime @default(now())
+
+  user           User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bot            Bot  @relation(fields: [botId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([botId])
+  @@index([createdAt])
+}
+
+model MessageTransaction {
+  id               Int      @id @default(autoincrement())
+
+  userId           Int
+  amount           Int      // positive = purchase, negative = usage
+
+  type             String   // purchase, usage, bonus, refund
+
+  description      String?
+
+  model            String?
+
+  inputTokens      Int?
+  outputTokens     Int?
+  totalTokens      Int?
+
+  messagesUsed     Int?
+
+  providerCost     Float?
+  estimatedRevenue Float?
+
+  createdAt        DateTime @default(now())
+
+  user             User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
 }

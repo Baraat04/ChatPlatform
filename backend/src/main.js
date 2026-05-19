@@ -21,15 +21,23 @@ import { createServer } from 'http'
 const { default: express } = await import('express')
 const { default: cors } = await import('cors')
 const { Server } = await import('socket.io')
+const { default: expressSession } = await import('express-session')
+const connectPgSimple = (await import('connect-pg-simple')).default
+const pgPkg = await import('pg')
+const { prisma: getPrisma } = await import('./routes/bot-routes.js')
 const { default: botRouter } = await import('./routes/bot-routes.js')
+const { default: authRouter } = await import('./routes/auth-routes.js')
+const { default: statisticsRouter, setStatisticsPrisma } = await import('./routes/statistics-routes.js')
+const { setTrackerPrisma } = await import('./services/usage-tracker.js')
 
 const app = express()
 const httpServer = createServer(app)
 
 const io = new Server(httpServer, {
     cors: {
-        origin: '*',
-        methods: ["GET", "POST", "PUT", "DELETE"]
+        origin: 'http://localhost:3000',
+        methods: ["GET", "POST", "PUT", "DELETE"],
+        credentials: true
     }
 })
 
@@ -37,8 +45,9 @@ const io = new Server(httpServer, {
 app.set('io', io)
 
 app.use(cors({
-    origin: '*',
-    methods: ["GET", "POST", "PUT", "DELETE"]
+    origin: 'http://localhost:3000',
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    credentials: true
 }))
 app.use(express.json())
 
@@ -48,7 +57,35 @@ app.use((req, res, next) => {
     next();
 });
 
+// Configure Session Middleware
+// Use connect-pg-simple for persistent sessions that survive restarts
+const PgStore = connectPgSimple(expressSession)
+const sessionPool = new pgPkg.Pool({ connectionString: process.env.DATABASE_URL, max: 2 })
+
+app.use(
+  expressSession({
+    store: new PgStore({
+      pool: sessionPool,
+      tableName: 'user_sessions',
+      createTableIfMissing: true,
+    }),
+    cookie: {
+     maxAge: 7 * 24 * 60 * 60 * 1000 // 1 week
+    },
+    secret: process.env.SESSION_SECRET || 'super_secret_session_key',
+    resave: false,
+    saveUninitialized: false,
+  })
+);
+
+app.use('/api/auth', authRouter)
+app.use('/api/statistics', statisticsRouter)
 app.use('/api', botRouter)
+
+// Initialize services with the shared prisma instance
+const prismaInstance = getPrisma()
+setStatisticsPrisma(prismaInstance)
+setTrackerPrisma(prismaInstance)
 
 const PORT = process.env.PORT || 3001
 
@@ -62,9 +99,55 @@ httpServer.listen(PORT, async () => {
         
         const { startWhatsAppBot } = await import('./services/whatsapp.js')
         
-        const activeBots = await prisma.bot.findMany({
-            where: { platform: 'WHATSAPP', isActive: true }
+        // FIX GHOST BOTS: Only allow ONE active WhatsApp bot per user
+        const allActiveBots = await prisma.bot.findMany({
+            where: { platform: 'WHATSAPP', isActive: true },
+            orderBy: { createdAt: 'desc' }
         })
+        
+        let activeBots = [];
+        const userSeen = new Set();
+        
+        for (const b of allActiveBots) {
+            if (!userSeen.has(b.user_id)) {
+                userSeen.add(b.user_id);
+                activeBots.push(b);
+            } else {
+                console.log(`[Boot] Deactivating old ghost bot ${b.id} for user ${b.user_id}`);
+                await prisma.bot.update({ where: { id: b.id }, data: { isActive: false } });
+            }
+        }
+        
+        // AUTO-CLEANUP: Merge any remaining @lid duplicate messages
+        if (activeBots.length > 0) {
+            const latestBot = activeBots[0];
+            const lidContacts = await prisma.contact.findMany({
+                where: { botId: latestBot.id, chatId: { contains: '@lid' } }
+            });
+            for (const c of lidContacts) {
+                if (c.realJid) {
+                    await prisma.message.updateMany({
+                        where: { botId: latestBot.id, chatId: c.chatId },
+                        data: { chatId: c.realJid }
+                    });
+                    
+                    const existing = await prisma.contact.findUnique({
+                        where: { botId_chatId: { botId: latestBot.id, chatId: c.realJid } }
+                    });
+                    
+                    if (existing && c.name && c.name !== 'Contact') {
+                        await prisma.contact.update({
+                            where: { botId_chatId: { botId: latestBot.id, chatId: c.realJid } },
+                            data: { name: c.name }
+                        });
+                    }
+                    
+                    await prisma.contact.delete({
+                        where: { botId_chatId: { botId: latestBot.id, chatId: c.chatId } }
+                    });
+                }
+            }
+        }
         
         for (const bot of activeBots) {
             console.log(`[Boot] Restoring WhatsApp Bot ${bot.id}...`)

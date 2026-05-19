@@ -1,14 +1,18 @@
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0');
 
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
   /* Colors */
   --background: #f7f9fb;
   --on-background: #191c1e;
   --primary: #003527;
   --on-primary: #ffffff;
-  --primary-container: #064e3b;
-  --on-primary-container: #80bea6;
+  --primary-container: #d1fae5;
+  --on-primary-container: #064e3b;
   --primary-fixed: #b0f0d6;
   --primary-fixed-dim: #95d3ba;
   
@@ -58,6 +62,48 @@
   --radius-lg: 1rem;
   --radius-xl: 1.5rem;
   --radius-full: 9999px;
+  --header-bg: rgba(247, 249, 251, 0.8);
+}
+
+.dark {
+  --header-bg: rgba(15, 17, 18, 0.8);
+  --background: #0f1112;
+  --on-background: #e2e2e6;
+  --primary: #95d3ba;
+  --on-primary: #003829;
+  --primary-container: #00513c;
+  --on-primary-container: #b1f0d6;
+  --primary-fixed: #b0f0d6;
+  --primary-fixed-dim: #95d3ba;
+  
+  --secondary: #bfc6dc;
+  --on-secondary: #293042;
+  --secondary-container: #3f4759;
+  --on-secondary-container: #dae2f9;
+  
+  --tertiary: #ffb4ab;
+  --on-tertiary: #690005;
+  --tertiary-container: #93000a;
+  --on-tertiary-container: #ffdad6;
+  
+  --error: #ffb4ab;
+  --on-error: #690005;
+  --error-container: #93000a;
+  --on-error-container: #ffdad6;
+  
+  --surface: #0f1112;
+  --on-surface: #e2e2e6;
+  --surface-variant: #404944;
+  --on-surface-variant: #bfc9c3;
+  
+  --outline: #8a938e;
+  --outline-variant: #404944;
+  
+  --surface-container-lowest: #0a0c0d;
+  --surface-container-low: #191c1e;
+  --surface-container: #1d2022;
+  --surface-container-high: #282a2d;
+  --surface-container-highest: #333538;
 }
 
 /* Reset & Base Styles */

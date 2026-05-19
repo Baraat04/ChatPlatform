@@ -1,5 +1,5 @@
 .header {
-  background-color: rgba(255, 255, 255, 0.8);
+  background-color: var(--header-bg);
   backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--surface-variant);
   display: flex;
@@ -67,22 +67,6 @@
   color: var(--primary);
 }
 
-.profileAvatar {
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-full);
-  background-color: var(--surface-variant);
-  overflow: hidden;
-  margin-left: var(--spacing-xs);
-  border: 1px solid var(--outline-variant);
-}
-
-.profileImg {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
 .searchContainer {
   position: relative;
   display: none;
@@ -122,4 +106,67 @@
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 1px var(--primary);
+}
+
+.langSelectorWrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: var(--surface-container);
+  border: 1px solid var(--outline-variant);
+  border-radius: var(--radius-full);
+  margin-left: auto;
+  margin-right: 8px;
+  transition: all 0.2s;
+}
+
+.langSelectorWrapper:hover {
+  border-color: var(--primary);
+  background: var(--surface-container-high);
+}
+
+.langValue {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--on-surface);
+  user-select: none;
+}
+
+.langDropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: var(--surface-container-lowest);
+  border: 1px solid var(--outline-variant);
+  border-radius: var(--radius-md);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+  min-width: 120px;
+  overflow: hidden;
+  z-index: 100;
+  padding: 4px;
+}
+
+.langOption {
+  padding: 8px 12px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--on-surface-variant);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: all 0.2s;
+}
+
+.langOption:hover {
+  background: var(--surface-container-high);
+  color: var(--primary);
+}
+
+.langOptionActive {
+  background: var(--primary-container);
+  color: var(--primary);
+}
+
+.langIcon {
+  color: var(--primary);
 }

@@ -2,11 +2,240 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Save, Trash2, Send, Bot, User, Pause, Play, Phone, MessageSquare, Radio, Edit2, Wand2 } from 'lucide-react';
+import { ArrowLeft, Save, Trash2, Send, Bot, User, Users, UserPlus, Pause, Play, Phone, MessageSquare, Radio, Edit2, Wand2, ChevronDown, Check, Plus, Database, BrainCircuit, FileUp } from 'lucide-react';
 import Link from 'next/link';
 import { io } from 'socket.io-client';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 const API = 'http://localhost:3001/api';
+
+
+const TONES = [
+  "Мотивирующий и энергичный",
+  "Дружелюбный и тёплый",
+  "Профессиональный и деловой",
+  "Заботливый и внимательный",
+  "Краткий и лаконичный",
+  "Продающий"
+];
+
+const INDUSTRIES = [
+  "Финансы",
+  "Косметология",
+  "Фитнес и спорт",
+  "Образование",
+  "Кафе и кофейни",
+  "Ресторанный бизнес",
+  "Автомобильный бизнес",
+  "Туризм",
+  "Отельный бизнес",
+  "Розничная торговля",
+  "IT и технологии"
+];
+
+const DATA_FIELDS = [
+  "Имя клиента",
+  "Номер телефона",
+  "Бронирование",
+  "Запись на консультацию",
+  "Адрес",
+  "Цель обращения",
+  "Желаемые сроки",
+  "Количество человек",
+  "Город",
+  "Предпочтения",
+  "Прошлый опыт клиента"
+];
+
+function CustomSelect({ options, value, onChange, placeholder }: any) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [customInput, setCustomInput] = useState('');
+  const [isAddingCustom, setIsAddingCustom] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const addCustom = (e: any) => {
+    e.preventDefault();
+    if (customInput.trim()) {
+      onChange(customInput.trim());
+      setCustomInput('');
+      setIsAddingCustom(false);
+      setIsOpen(false);
+    }
+  };
+
+  return (
+    <div ref={ref} style={{ position: 'relative', width: '100%' }}>
+      <div 
+        onClick={() => setIsOpen(!isOpen)}
+        className="premium-input"
+        style={{ 
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '12px 16px',
+        }}
+      >
+        <span>{value || placeholder}</span>
+        <ChevronDown size={18} style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }} />
+      </div>
+      
+      {isOpen && (
+        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50, background: '#111', border: '1px solid #333', borderRadius: '12px', marginTop: '4px', padding: '8px', maxHeight: '250px', overflowY: 'auto' }}>
+          {options.map((opt: string) => (
+            <div 
+              key={opt}
+              onClick={() => { onChange(opt); setIsOpen(false); }}
+              style={{ padding: '10px 12px', cursor: 'pointer', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: value === opt ? 'rgba(99, 102, 241, 0.1)' : 'transparent', color: value === opt ? '#a855f7' : '#fff' }}
+            >
+              <span>{opt}</span>
+              {value === opt && <Check size={16} />}
+            </div>
+          ))}
+          {!isAddingCustom ? (
+            <div 
+              style={{ padding: '10px 12px', cursor: 'pointer', color: '#a855f7', fontWeight: '600', display: 'flex', alignItems: 'center', justifyContent: 'center', borderTop: '1px solid #333', marginTop: '8px' }}
+              onClick={() => setIsAddingCustom(true)}
+            >
+              <Plus size={16} style={{ marginRight: '8px' }}/> Свой вариант
+            </div>
+          ) : (
+            <div style={{ padding: '8px', borderTop: '1px solid #333', marginTop: '8px' }}>
+              <form onSubmit={addCustom} style={{ display: 'flex', gap: '8px' }}>
+                <input 
+                  type="text" 
+                  value={customInput} 
+                  onChange={(e) => setCustomInput(e.target.value)} 
+                  placeholder="Введите свой..." 
+                  className="premium-input"
+                  style={{ padding: '8px 12px' }}
+                  autoFocus
+                />
+                <button type="submit" className="btn-primary" style={{ padding: '8px 16px', borderRadius: '8px' }}>OK</button>
+              </form>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CustomMultiSelect({ options, value, onChange, placeholder }: any) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [customInput, setCustomInput] = useState('');
+  const [isAddingCustom, setIsAddingCustom] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const toggleOption = (opt: string) => {
+    if (value.includes(opt)) {
+      onChange(value.filter((v: string) => v !== opt));
+    } else {
+      onChange([...value, opt]);
+    }
+  };
+
+  const addCustom = (e: any) => {
+    e.preventDefault();
+    if (customInput.trim() && !value.includes(customInput.trim())) {
+      onChange([...value, customInput.trim()]);
+      setCustomInput('');
+      setIsAddingCustom(false);
+    }
+  };
+
+  return (
+    <div ref={ref} style={{ position: 'relative', width: '100%' }}>
+      <div 
+        onClick={() => setIsOpen(!isOpen)}
+        className="premium-input"
+        style={{ 
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '12px 16px',
+        }}
+      >
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: '8px' }}>
+          {value.length > 0 ? value.join(', ') : placeholder}
+        </span>
+        <ChevronDown size={18} style={{ flexShrink: 0, transform: isOpen ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }} />
+      </div>
+      
+      {isOpen && (
+        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50, background: '#111', border: '1px solid #333', borderRadius: '12px', marginTop: '4px', padding: '8px', maxHeight: '300px', overflowY: 'auto' }}>
+          {options.map((opt: string) => (
+            <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', cursor: 'pointer', borderRadius: '8px' }}>
+              <input 
+                type="checkbox" 
+                checked={value.includes(opt)} 
+                onChange={() => toggleOption(opt)} 
+                style={{ width: '18px', height: '18px', accentColor: '#a855f7', cursor: 'pointer' }}
+              />
+              <span style={{ cursor: 'pointer', userSelect: 'none' }}>{opt}</span>
+            </label>
+          ))}
+          {value.filter((v: string) => !options.includes(v)).map((opt: string) => (
+            <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', cursor: 'pointer', borderRadius: '8px' }}>
+              <input 
+                type="checkbox" 
+                checked={true} 
+                onChange={() => toggleOption(opt)} 
+                style={{ width: '18px', height: '18px', accentColor: '#a855f7', cursor: 'pointer' }}
+              />
+              <span style={{ cursor: 'pointer', userSelect: 'none' }}>{opt} (Свой вариант)</span>
+            </label>
+          ))}
+          {!isAddingCustom ? (
+            <div 
+              style={{ padding: '10px 12px', cursor: 'pointer', color: '#a855f7', fontWeight: '600', display: 'flex', alignItems: 'center', justifyContent: 'center', borderTop: '1px solid #333', marginTop: '8px' }}
+              onClick={() => setIsAddingCustom(true)}
+            >
+              <Plus size={16} style={{ marginRight: '8px' }}/> Добавить своё
+            </div>
+          ) : (
+            <div style={{ padding: '8px', borderTop: '1px solid #333', marginTop: '8px' }}>
+              <form onSubmit={addCustom} style={{ display: 'flex', gap: '8px' }}>
+                <input 
+                  type="text" 
+                  value={customInput} 
+                  onChange={(e) => setCustomInput(e.target.value)} 
+                  placeholder="Введите свой вариант..." 
+                  className="premium-input"
+                  style={{ padding: '8px 12px' }}
+                  autoFocus
+                />
+                <button type="submit" className="btn-primary" style={{ padding: '8px 16px', borderRadius: '8px' }}>OK</button>
+              </form>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 
 interface BotType {
   id: number;
@@ -23,6 +252,7 @@ interface Chat {
   lastAt: string;
   lastSender: string;
   name?: string;
+  realJid?: string | null;
 }
 
 interface Message {
@@ -35,6 +265,7 @@ interface Message {
 }
 
 export default function BotDetails() {
+  const { t } = useLanguage();
   const params = useParams();
   const router = useRouter();
   const botId = params.id as string;
@@ -49,22 +280,137 @@ export default function BotDetails() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isTogglingActive, setIsTogglingActive] = useState(false);
   const [replyText, setReplyText] = useState('');
-  const [activeTab, setActiveTab] = useState<'chats' | 'settings' | 'broadcast'>('chats');
+  const [activeTab, setActiveTab] = useState<'chats' | 'agent' | 'settings' | 'broadcast'>('chats');
+  
+  // Agent Chat States
+  const [agentChatHistory, setAgentChatHistory] = useState<{role: string, content: string}[]>([]);
+  const [agentInput, setAgentInput] = useState('');
+  const [isAgentLoading, setIsAgentLoading] = useState(false);
+  const [isUploadingPdf, setIsUploadingPdf] = useState(false);
   const [broadcastNumbers, setBroadcastNumbers] = useState('');
   const [broadcastMessage, setBroadcastMessage] = useState('');
   const [isBroadcasting, setIsBroadcasting] = useState(false);
+  const [selectedBroadcastContacts, setSelectedBroadcastContacts] = useState<string[]>([]);
+  const [contactSearch, setContactSearch] = useState('');
   const [qrCode, setQrCode] = useState<string | null>(null);
   
-  // Quiz Helper states
-  const [showQuiz, setShowQuiz] = useState(false);
-  const [quizData, setQuizData] = useState({
-    role: '',
-    style: 'вежливый и профессиональный',
-    goals: '',
-    companyInfo: '',
-    prices: '',
-    faq: ''
+  // Full Configuration States
+  const [industry, setIndustry] = useState('Финансы');
+  const [companyName, setCompanyName] = useState('');
+  const [companyDescription, setCompanyDescription] = useState('');
+  const [productDescription, setProductDescription] = useState('');
+  const [botGoal, setBotGoal] = useState('Консультировать клиентов');
+  const [tone, setTone] = useState('Дружелюбный и тёплый');
+  const [dataToCollect, setDataToCollect] = useState<string[]>([]);
+  const [fallbackBehavior, setFallbackBehavior] = useState('Сообщить, что информации нет');
+  const [rules, setRules] = useState({
+    onlyKnowledgeBase: true,
+    noFabrication: true,
+    userLanguage: true,
+    leadToRequest: false
   });
+
+  
+  const [businessInfo, setBusinessInfo] = useState('');
+  const [benefits, setBenefits] = useState('');
+  const [pricing, setPricing] = useState('');
+  const [faq, setFaq] = useState([{ q: '', a: '' }]);
+  const [links, setLinks] = useState([{ title: '', url: '' }]);
+  const [managerContact, setManagerContact] = useState('');
+
+  const parseSystemPrompt = (prompt: string) => {
+    if (!prompt) return;
+    if (!prompt.includes('Сфера деятельности:') && !prompt.includes('Компания занимается:')) {
+      return;
+    }
+    const companyMatch = prompt.match(/Ты AI-консультант компании (.*?)\./);
+    if (companyMatch && companyMatch[1] !== '[Название компании]') setCompanyName(companyMatch[1]);
+    const industryMatch = prompt.match(/Сфера деятельности:\s*(.*)/);
+    if (industryMatch) setIndustry(industryMatch[1]);
+    const companyDescMatch = prompt.match(/Компания занимается:\n([\s\S]*?)\n\nОсновной продукт/);
+    if (companyDescMatch && companyDescMatch[1] !== '[Описание компании]') setCompanyDescription(companyDescMatch[1].trim());
+    const productDescMatch = prompt.match(/Основной продукт или услуга:\n([\s\S]*?)\n\nТвоя задача:/);
+    if (productDescMatch && productDescMatch[1] !== '[Описание продукта]') setProductDescription(productDescMatch[1].trim());
+    const botGoalMatch = prompt.match(/Твоя задача:\n([\s\S]*?)\n\nДанные, которые/);
+    if (botGoalMatch) setBotGoal(botGoalMatch[1].trim());
+    const dataMatch = prompt.match(/Данные, которые необходимо собрать у клиента:\n(.*)/);
+    if (dataMatch && dataMatch[1] && dataMatch[1] !== 'Не требуется') {
+      setDataToCollect(dataMatch[1].split(', ').map((s: string) => s.trim()));
+    } else {
+      setDataToCollect([]);
+    }
+    const toneMatch = prompt.match(/Стиль общения:\n(.*)/);
+    if (toneMatch) setTone(toneMatch[1].trim());
+    setRules({
+      onlyKnowledgeBase: prompt.includes('Отвечай только на основе информации из базы знаний.'),
+      noFabrication: prompt.includes('Не выдумывай информацию.'),
+      userLanguage: prompt.includes('Отвечай на языке пользователя.'),
+      leadToRequest: prompt.includes('привести пользователя к заявке') || prompt.includes('оставить заявку') || prompt.includes('связаться с менеджером')
+    });
+    const fallbackMatch = prompt.match(/Если ответа нет в базе знаний:\n\s*(.*)/);
+    if (fallbackMatch) setFallbackBehavior(fallbackMatch[1].trim());
+  };
+
+  const parseDataPrompt = (prompt: string) => {
+    if (!prompt) return;
+    const businessInfoMatch = prompt.match(/Описание:\n([\s\S]*?)\n\nПреимущества:/);
+    if (businessInfoMatch) setBusinessInfo(businessInfoMatch[1].trim());
+    const benefitsMatch = prompt.match(/Преимущества:\n([\s\S]*?)\n\nЦены и условия:/);
+    if (benefitsMatch) setBenefits(benefitsMatch[1].trim());
+    const pricingMatch = prompt.match(/Цены и условия:\n([\s\S]*?)\n\nFAQ:/);
+    if (pricingMatch) setPricing(pricingMatch[1].trim());
+    const managerContactMatch = prompt.match(/Контакт менеджера:\n(.*)/);
+    if (managerContactMatch) setManagerContact(managerContactMatch[1].trim());
+    const faqSectionMatch = prompt.match(/FAQ:\n([\s\S]*?)\n\nПолезные ссылки:/);
+    if (faqSectionMatch) {
+      const faqText = faqSectionMatch[1].trim();
+      const faqItems = [];
+      const blocks = faqText.split('\n\n');
+      for (const block of blocks) {
+        const qMatch = block.match(/В: (.*)/);
+        const aMatch = block.match(/О: ([\s\S]*)/);
+        if (qMatch && aMatch) faqItems.push({ q: qMatch[1], a: aMatch[1] });
+      }
+      if (faqItems.length > 0) setFaq(faqItems);
+    }
+    const linksSectionMatch = prompt.match(/Полезные ссылки:\n([\s\S]*?)\n\nКонтакт менеджера:/);
+    if (linksSectionMatch) {
+      const linksText = linksSectionMatch[1].trim();
+      const linksItems = [];
+      const lines = linksText.split('\n');
+      for (const line of lines) {
+        const parts = line.split(': ');
+        if (parts.length >= 2) {
+          const url = parts.pop()!;
+          const title = parts.join(': ');
+          linksItems.push({ title, url });
+        }
+      }
+      if (linksItems.length > 0) setLinks(linksItems);
+    }
+  };
+
+  useEffect(() => {
+    let rulesText = '';
+    if (rules.onlyKnowledgeBase) rulesText += '- Отвечай только на основе информации из базы знаний.\n';
+    if (rules.noFabrication) rulesText += '- Не выдумывай информацию.\n';
+    rulesText += `- Если ответа нет в базе знаний:\n  ${fallbackBehavior}\n`;
+    if (rules.userLanguage) rulesText += '- Отвечай на языке пользователя.\n';
+    rulesText += '- Общайся естественно и профессионально.\n';
+    if (rules.leadToRequest) rulesText += '- Если это уместно, помогай пользователю оставить заявку или связаться с менеджером.\n';
+
+    const generated = `Ты AI-консультант компании ${companyName || '[Название компании]'}.\n\nСфера деятельности: ${industry}\n\nКомпания занимается:\n${companyDescription || '[Описание компании]'}\n\nОсновной продукт или услуга:\n${productDescription || '[Описание продукта]'}\n\nТвоя задача:\n${botGoal}\n\nДанные, которые необходимо собрать у клиента:\n${dataToCollect.length > 0 ? dataToCollect.join(', ') : 'Не требуется'}\n\nСтиль общения:\n${tone}\n\nОсновные правила:\n${rulesText}`;
+    setSystemPrompt(generated);
+  }, [industry, companyName, companyDescription, productDescription, botGoal, tone, dataToCollect, fallbackBehavior, rules]);
+
+  useEffect(() => {
+    let faqText = faq.filter(f => f.q || f.a).map(f => `В: ${f.q}\nО: ${f.a}`).join('\n\n');
+    let linksText = links.filter(l => l.title || l.url).map(l => `${l.title}: ${l.url}`).join('\n');
+    const generated = `Компания:\n${companyName}\n\nОписание:\n${businessInfo}\n\nПреимущества:\n${benefits}\n\nЦены и условия:\n${pricing}\n\nFAQ:\n${faqText}\n\nПолезные ссылки:\n${linksText}\n\nКонтакт менеджера:\n${managerContact}`;
+    setDataPrompt(generated);
+  }, [companyName, businessInfo, benefits, pricing, faq, links, managerContact]);
+
+
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -83,12 +429,22 @@ export default function BotDetails() {
           lastAt: newMsg.createdAt,
           lastSender: newMsg.sender,
           name: newMsg.contactName || existing?.name || '',
+          realJid: existing?.realJid || null,
         };
         if (existing) return [updated, ...prev.filter(c => c.chatId !== newMsg.chatId)];
         return [updated, ...prev];
       });
     });
     socket.on(`qr-${botId}`, (qr: string) => setQrCode(qr));
+    socket.on(`contact-update-${botId}`, (updatedContact: any) => {
+      setChats(prev => prev.map(c => {
+        if (c.chatId === updatedContact.chatId) {
+          return { ...c, name: updatedContact.name || c.name, realJid: updatedContact.realJid || c.realJid };
+        }
+        return c;
+      }));
+    });
+
     socket.on(`status-${botId}`, (status: string) => {
       if (status === 'connected') { 
         setQrCode(null); 
@@ -109,22 +465,24 @@ export default function BotDetails() {
   }, [selectedChat]);
 
   async function fetchBot() {
-    const res = await fetch(`${API}/bot/${botId}`);
+    const res = await fetch(`${API}/bot/${botId}`, { credentials: 'include' });
     if (res.ok) {
       const data = await res.json();
       setBot(data);
+      if (data.system_prompt) parseSystemPrompt(data.system_prompt);
+      if (data.data_prompt) parseDataPrompt(data.data_prompt);
       setSystemPrompt(data.system_prompt || '');
       setDataPrompt(data.data_prompt || '');
     }
   }
 
   async function fetchChats() {
-    const res = await fetch(`${API}/bot/${botId}/chats`);
+    const res = await fetch(`${API}/bot/${botId}/chats`, { credentials: 'include' });
     if (res.ok) setChats(await res.json());
   }
 
   async function fetchChatMessages(chatId: string) {
-    const res = await fetch(`${API}/bot/${botId}/chat?chatId=${encodeURIComponent(chatId)}`);
+    const res = await fetch(`${API}/bot/${botId}/chat?chatId=${encodeURIComponent(chatId)}`, { credentials: 'include' });
     if (res.ok) setMessages(await res.json());
   }
 
@@ -134,6 +492,7 @@ export default function BotDetails() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text: replyText, chatId: selectedChat }),
+      credentials: 'include'
     });
     if (res.ok) setReplyText('');
     else alert('Не удалось отправить: ' + (await res.json().catch(() => ({}))).error);
@@ -143,7 +502,7 @@ export default function BotDetails() {
     if (!bot) return;
     setIsTogglingActive(true);
     const endpoint = bot.isActive ? 'pause' : 'start';
-    const res = await fetch(`${API}/bot/${botId}/${endpoint}`, { method: 'POST' });
+    const res = await fetch(`${API}/bot/${botId}/${endpoint}`, { method: 'POST', credentials: 'include' });
     if (res.ok) await fetchBot();
     else alert('Ошибка при изменении статуса бота');
     setIsTogglingActive(false);
@@ -155,40 +514,131 @@ export default function BotDetails() {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ system_prompt: systemPrompt, data_prompt: dataPrompt }),
+      credentials: 'include'
     });
     setIsSaving(false);
   }
 
-  function generateFromQuiz() {
-    const sys = `Ты — ${quizData.role || 'полезный ассистент'}.\nТвой стиль общения: ${quizData.style}.\nТвои цели: ${quizData.goals}.`;
-    const data = `Информация о компании:\n${quizData.companyInfo}\n\nЦены и услуги:\n${quizData.prices}\n\nЧастые вопросы:\n${quizData.faq}`;
+  async function sendToAgent(text: string) {
+    if (!text.trim()) return;
+    const userMsg = { role: 'user', content: text };
+    const newHistory = [...agentChatHistory, userMsg];
+    setAgentChatHistory(newHistory);
+    setIsAgentLoading(true);
+
+    try {
+      const res = await fetch(`${API}/bot/${botId}/agent-chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: userMsg.content, history: agentChatHistory }),
+        credentials: 'include'
+      });
+      if (!res.ok) {
+        throw new Error(`Server returned ${res.status} (Make sure you restarted the backend!)`);
+      }
+      const data = await res.json();
+      setAgentChatHistory([...newHistory, { role: 'assistant', content: data.reply }]);
+      if (data.system_prompt) {
+        setSystemPrompt(data.system_prompt);
+        parseSystemPrompt(data.system_prompt);
+      }
+      if (data.data_prompt) {
+        setDataPrompt(data.data_prompt);
+        parseDataPrompt(data.data_prompt);
+      }
+    } catch (err: any) {
+      console.error(err);
+      setAgentChatHistory([...newHistory, { role: 'assistant', content: `Ошибка при связи с ИИ-агентом: ${err.message}` }]);
+    } finally {
+      setIsAgentLoading(false);
+    }
+  }
+
+  async function handleAgentSend() {
+    if (!agentInput.trim()) return;
+    await sendToAgent(agentInput);
+    setAgentInput('');
+  }
+
+  async function handlePdfUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.type !== 'application/pdf') {
+      alert('Пожалуйста, загрузите PDF файл.');
+      return;
+    }
+
+    setIsUploadingPdf(true);
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const res = await fetch(`${API}/bot/${botId}/upload-pdf`, {
+        method: 'POST',
+        body: formData,
+        credentials: 'include'
+      });
+      const data = await res.json();
+      if (data.text) {
+        const appendedData = `\n\n--- ДАННЫЕ ИЗ PDF (${file.name}) ---\n${data.text}`;
+        setDataPrompt(prev => prev + appendedData);
+        
+        // Автоматически отправляем агенту сообщение о загрузке ПДФ
+        setActiveTab('agent');
+        await sendToAgent(`Я только что загрузил PDF файл "${file.name}". Пожалуйста, подтверди, что ты успешно прочитал и добавил эти данные.`);
+      } else {
+        alert('Не удалось извлечь текст из PDF. Возможно, файл пуст или поврежден.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Ошибка при загрузке PDF.');
+    } finally {
+      setIsUploadingPdf(false);
+      e.target.value = '';
+    }
+  }
+
+  async function handleBroadcast() {
+    if (!broadcastMessage.trim()) return;
     
-    setSystemPrompt(sys);
-    setDataPrompt(data);
-    setShowQuiz(false);
-    alert('Промпты успешно сгенерированы! Не забудьте нажать "Сохранить изменения".');
+    let chatIds: string[] = [];
+    
+    // Mode 1: Manual numbers from textarea
+    if (broadcastNumbers.trim()) {
+      chatIds = broadcastNumbers.split('\n').map(n => n.trim()).filter(n => n);
+    } 
+    // Mode 2: Selected contacts
+    else if (selectedBroadcastContacts.length > 0) {
+      chatIds = selectedBroadcastContacts;
+    }
+    
+    if (chatIds.length === 0) return alert('No recipients selected');
+
+    setIsBroadcasting(true);
+    try {
+      const res = await fetch(`${API}/bot/${botId}/broadcast`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: broadcastMessage, chatIds }),
+        credentials: 'include'
+      });
+      if (res.ok) {
+        alert('Broadcast finished!');
+        setBroadcastMessage('');
+        setBroadcastNumbers('');
+        setSelectedBroadcastContacts([]);
+      }
+    } catch (e) {}
+    setIsBroadcasting(false);
   }
 
   async function handleDelete() {
     if (!confirm('Удалить этого бота и все его сообщения?')) return;
     setIsDeleting(true);
-    await fetch(`${API}/bot/${botId}`, { method: 'DELETE' });
+    await fetch(`${API}/bot/${botId}`, { method: 'DELETE', credentials: 'include' });
     router.push('/bots');
   }
 
-  async function handleBroadcast() {
-    if (!broadcastNumbers.trim() || !broadcastMessage.trim()) return;
-    const chatIds = broadcastNumbers.split('\n').map(n => n.trim()).filter(Boolean);
-    setIsBroadcasting(true);
-    const res = await fetch(`${API}/bot/${botId}/broadcast`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: broadcastMessage, chatIds }),
-    });
-    setIsBroadcasting(false);
-    if (res.ok) { alert('Рассылка завершена!'); setBroadcastMessage(''); setBroadcastNumbers(''); }
-    else alert('Ошибка рассылки');
-  }
 
   async function handleDeleteChat(chatIdToDelete?: string) {
     const id = chatIdToDelete || selectedChat;
@@ -198,7 +648,8 @@ export default function BotDetails() {
     const res = await fetch(`${API}/bot/${botId}/contact/delete`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chatId: id })
+      body: JSON.stringify({ chatId: id }),
+      credentials: 'include'
     });
 
     if (res.ok) {
@@ -220,7 +671,8 @@ export default function BotDetails() {
     const res = await fetch(`${API}/bot/${botId}/contact/name`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chatId, name: newName })
+      body: JSON.stringify({ chatId, name: newName }),
+      credentials: 'include'
     });
 
     if (res.ok) {
@@ -229,6 +681,8 @@ export default function BotDetails() {
       alert('Не удалось сохранить имя');
     }
   }
+
+
 
   const formatTime = (d: string) => new Date(d).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
   const formatDate = (d: string) => new Date(d).toLocaleDateString('ru-RU', { day: '2-digit', month: 'short' });
@@ -247,126 +701,122 @@ export default function BotDetails() {
   return (
     <div className="bot-dashboard-container">
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
-        
         .bot-dashboard-container {
           height: 100vh;
+          height: 100dvh;
           display: flex;
           flex-direction: column;
-          background: radial-gradient(circle at top right, #13111C 0%, #050505 40%, #050505 100%);
-          font-family: 'Outfit', 'Inter', sans-serif;
-          color: #fff;
+          background: var(--background);
+          font-family: 'Plus Jakarta Sans', sans-serif;
+          color: var(--on-surface);
           overflow: hidden;
+          position: relative;
         }
 
         .top-bar {
           display: flex;
           align-items: center;
           gap: 1.5rem;
-          padding: 1rem 2rem;
-          background: rgba(10, 10, 10, 0.6);
-          backdrop-filter: blur(12px);
-          border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+          padding: 0.85rem 1.75rem;
+          background: var(--surface-container-lowest);
+          border-bottom: 1px solid var(--outline-variant);
           flex-shrink: 0;
           z-index: 10;
         }
 
         .back-btn {
-          color: #888;
+          color: var(--on-surface-variant);
           text-decoration: none;
           display: flex;
           align-items: center;
           gap: 0.5rem;
-          font-size: 0.9rem;
+          font-size: 0.875rem;
           font-weight: 500;
-          transition: all 0.3s ease;
-          padding: 0.5rem;
+          transition: all 0.2s ease;
+          padding: 0.4rem 0.75rem;
           border-radius: 8px;
         }
         .back-btn:hover {
-          color: #fff;
-          background: rgba(255, 255, 255, 0.05);
+          color: var(--primary);
+          background: var(--surface-container-high);
           transform: translateX(-2px);
         }
 
         .status-badge {
-          font-size: 0.75rem;
-          padding: 0.3rem 0.8rem;
+          font-size: 0.7rem;
+          padding: 0.25rem 0.75rem;
           border-radius: 999px;
-          font-weight: 600;
+          font-weight: 700;
           letter-spacing: 0.5px;
           text-transform: uppercase;
         }
 
         .btn-action {
-          padding: 0.6rem 1.2rem;
+          padding: 0.55rem 1.1rem;
           border-radius: 10px;
           cursor: pointer;
           display: flex;
           align-items: center;
-          gap: 0.5rem;
-          font-size: 0.85rem;
+          gap: 0.4rem;
+          font-size: 0.82rem;
           font-weight: 600;
-          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-          border: none;
+          transition: all 0.2s ease;
+          border: 1px solid transparent;
         }
         
         .btn-toggle {
-          background: rgba(34, 197, 94, 0.1);
-          color: #22c55e;
-          border: 1px solid rgba(34, 197, 94, 0.2);
+          background: var(--primary-container);
+          color: var(--on-primary-container);
+          border: 1px solid var(--primary);
         }
-        .btn-toggle:hover { background: rgba(34, 197, 94, 0.15); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(34, 197, 94, 0.15); }
+        .btn-toggle:hover { opacity: 0.9; }
         .btn-toggle.paused {
-          background: rgba(255, 107, 107, 0.1);
-          color: #ff6b6b;
-          border: 1px solid rgba(255, 107, 107, 0.2);
+          background: var(--error-container);
+          color: var(--on-error-container);
+          border: 1px solid var(--error);
         }
-        .btn-toggle.paused:hover { background: rgba(255, 107, 107, 0.15); box-shadow: 0 4px 12px rgba(255, 107, 107, 0.15); }
 
         .btn-delete {
-          background: rgba(255, 77, 79, 0.05);
-          color: #ff4d4f;
-          border: 1px solid rgba(255, 77, 79, 0.1);
+          background: var(--error-container);
+          color: var(--on-error-container);
+          border: 1px solid var(--error);
         }
-        .btn-delete:hover { background: rgba(255, 77, 79, 0.15); transform: translateY(-1px); }
+        .btn-delete:hover { opacity: 0.9; }
 
         .tab-bar {
           display: flex;
-          background: rgba(10, 10, 10, 0.4);
-          border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+          background: var(--surface-container-lowest);
+          border-bottom: 1px solid var(--outline-variant);
           padding: 0 1.5rem;
+          flex-shrink: 0;
         }
 
         .tab-btn {
           padding: 1rem 1.5rem;
           background: transparent;
           border: none;
-          color: #666;
+          color: var(--on-surface-variant);
           cursor: pointer;
           display: flex;
           align-items: center;
           gap: 0.5rem;
-          font-size: 0.9rem;
-          font-weight: 500;
-          transition: all 0.3s ease;
+          font-size: 0.875rem;
+          font-weight: 600;
+          transition: all 0.2s ease;
           position: relative;
         }
-        .tab-btn:hover { color: #aaa; }
-        .tab-btn.active { color: #fff; font-weight: 600; }
+        .tab-btn:hover { color: var(--primary); }
+        .tab-btn.active { color: var(--primary); }
         .tab-btn.active::after {
-          content: ''; position: absolute; bottom: 0; left: 0; width: 100%; height: 2px;
-          background: linear-gradient(90deg, #6366f1, #a855f7);
-          border-radius: 2px 2px 0 0;
-          box-shadow: 0 -2px 10px rgba(99, 102, 241, 0.5);
+          content: ''; position: absolute; bottom: -1px; left: 0; width: 100%; height: 3px;
+          background: var(--primary);
+          border-radius: 3px 3px 0 0;
         }
 
-        /* Contacts Sidebar */
         .contacts-sidebar {
-          width: 320px;
-          border-right: 1px solid rgba(255, 255, 255, 0.05);
-          background: rgba(5, 5, 5, 0.7);
-          backdrop-filter: blur(20px);
+          width: 300px;
+          border-right: 1px solid var(--outline-variant);
+          background: var(--surface-container-lowest);
           display: flex;
           flex-direction: column;
         }
@@ -374,124 +824,141 @@ export default function BotDetails() {
         .chat-item {
           padding: 1rem;
           cursor: pointer;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.02);
-          transition: all 0.2s ease;
+          border-bottom: 1px solid var(--outline-variant);
+          transition: background 0.2s ease;
           position: relative;
         }
-        .chat-item:hover { background: rgba(255, 255, 255, 0.02); }
-        .chat-item.active { background: linear-gradient(90deg, rgba(99, 102, 241, 0.1), transparent); }
+        .chat-item:hover { background: var(--background); }
+        .chat-item.active { background: var(--primary-container); }
         .chat-item.active::before {
-          content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
-          background: linear-gradient(180deg, #6366f1, #a855f7);
+          content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+          background: var(--primary);
         }
 
         .avatar {
           width: 40px; height: 40px; border-radius: 12px;
-          background: linear-gradient(135deg, #2a2a35, #1a1a24);
+          background: var(--surface-container-high);
           display: flex; align-items: center; justify-content: center;
-          box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.1);
-          border: 1px solid rgba(255, 255, 255, 0.05);
+          border: 1px solid var(--outline-variant);
+          color: var(--on-surface-variant);
         }
 
-        /* Message Bubbles */
         .msg-bubble {
-          max-width: 70%; padding: 0.8rem 1.2rem;
-          font-size: 0.95rem; line-height: 1.5;
+          max-width: 80%; padding: 0.8rem 1rem;
+          font-size: 0.92rem; line-height: 1.5;
           position: relative;
-          box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+          box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         }
         .msg-bot {
-          background: linear-gradient(135deg, #2e2a4a, #1f1b36);
-          border: 1px solid rgba(99, 102, 241, 0.2);
+          background: var(--surface-container-low);
+          border: 1px solid var(--outline-variant);
           border-radius: 16px 16px 4px 16px;
-          color: #f8f9fa;
+          color: var(--on-surface);
         }
         .msg-user {
-          background: #1a1a1a;
-          border: 1px solid rgba(255, 255, 255, 0.05);
+          background: var(--primary);
           border-radius: 16px 16px 16px 4px;
-          color: #e0e0e0;
+          color: var(--on-primary);
         }
 
         .glass-panel {
-          background: rgba(15, 15, 15, 0.6);
-          backdrop-filter: blur(16px);
-          border: 1px solid rgba(255, 255, 255, 0.05);
+          background: var(--surface-container-lowest);
+          border: 1px solid var(--outline-variant);
           border-radius: 16px;
-          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
         }
 
         .premium-input {
-          width: 100%; background: rgba(0, 0, 0, 0.3);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          border-radius: 12px; padding: 1rem; color: #fff;
-          font-family: inherit; font-size: 0.95rem;
-          transition: all 0.3s ease;
-          box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+          width: 100%;
+          background: var(--surface-container-lowest);
+          border: 1px solid var(--outline);
+          border-radius: 12px;
+          padding: 0.8rem 1rem;
+          color: var(--on-surface);
+          font-family: inherit;
+          font-size: 0.95rem;
+          transition: all 0.2s ease;
           box-sizing: border-box;
         }
         .premium-input:focus {
-          outline: none; border-color: rgba(99, 102, 241, 0.5);
-          box-shadow: inset 0 2px 4px rgba(0,0,0,0.2), 0 0 0 3px rgba(99, 102, 241, 0.1);
+          outline: none;
+          border-color: var(--primary);
+          box-shadow: 0 0 0 3px rgba(0, 53, 39, 0.1);
         }
 
         .btn-primary {
-          background: linear-gradient(135deg, #6366f1, #a855f7);
-          color: #fff; border: none; border-radius: 12px;
-          padding: 0.8rem 2rem; font-weight: 600; font-size: 0.95rem;
-          cursor: pointer; display: flex; align-items: center; gap: 0.5rem;
-          transition: all 0.3s ease;
-          box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+          background: var(--primary);
+          color: var(--on-primary);
+          border: none;
+          border-radius: 12px;
+          padding: 0.8rem 2rem;
+          font-weight: 600;
+          font-size: 0.95rem;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          transition: all 0.2s ease;
         }
         .btn-primary:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 8px 25px rgba(99, 102, 241, 0.4);
+          background: #004d39;
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(0, 53, 39, 0.2);
         }
-        .btn-primary:active { transform: translateY(0); }
-        .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none; }
 
-        /* Custom Scrollbar */
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+        ::-webkit-scrollbar-thumb { background: var(--outline-variant); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--outline); }
+
+        @media (max-width: 768px) {
+          .top-bar { padding: 0.75rem 1rem; }
+          .contacts-sidebar { width: 100%; border-right: none; }
+          .chat-view-container { 
+            background: var(--background); 
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+          }
+          .content-pad { padding: 1rem !important; }
+        }
       `}</style>
 
       {/* ─── TOP BAR ─── */}
       <div className="top-bar">
         <Link href="/bots" className="back-btn">
-          <ArrowLeft size={18} /> Dashboard
+          <ArrowLeft size={18} /> {t.dashboard}
         </Link>
-        <div style={{ width: '1px', height: '24px', background: 'rgba(255,255,255,0.1)' }} />
+        <div style={{ width: '1px', height: '24px', background: 'var(--outline-variant)' }} />
         
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: bot.isActive ? '#22c55e' : '#ff6b6b', boxShadow: bot.isActive ? '0 0 12px #22c55e' : '0 0 12px #ff6b6b', zIndex: 2 }} />
-            {bot.isActive && <div style={{ position: 'absolute', width: '12px', height: '12px', borderRadius: '50%', background: '#22c55e', animation: 'ping 2s cubic-bezier(0, 0, 0.2, 1) infinite' }} />}
+            <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: bot.isActive ? '#1e7e34' : '#d63031', boxShadow: bot.isActive ? '0 0 10px rgba(30,126,52,0.4)' : '0 0 10px rgba(214,48,49,0.4)', zIndex: 2 }} />
+            {bot.isActive && <div style={{ position: 'absolute', width: '12px', height: '12px', borderRadius: '50%', background: '#1e7e34', animation: 'ping 2s cubic-bezier(0, 0, 0.2, 1) infinite' }} />}
           </div>
-          <span style={{ fontWeight: 700, fontSize: '1.2rem', letterSpacing: '0.5px' }}>{bot.platform} Agent</span>
+          <span style={{ fontWeight: 700, fontSize: '1.2rem', letterSpacing: '0.2px', color: 'var(--on-surface)' }}>{bot.platform} Agent</span>
           <span className="status-badge" style={{ 
-            color: bot.isActive ? '#22c55e' : '#ff6b6b', 
-            background: bot.isActive ? 'rgba(34,197,94,0.1)' : 'rgba(255,107,107,0.1)',
-            border: `1px solid ${bot.isActive ? 'rgba(34,197,94,0.2)' : 'rgba(255,107,107,0.2)'}`
+            color: bot.isActive ? '#1e7e34' : '#9b1c1c', 
+            background: bot.isActive ? 'rgba(30,126,52,0.1)' : 'rgba(155,28,28,0.1)',
+            border: `1px solid ${bot.isActive ? '#1e7e3440' : '#9b1c1c40'}`
           }}>
-            {bot.isActive ? 'Online' : 'Paused'}
+            {bot.isActive ? t.online : t.paused}
           </span>
         </div>
 
         <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.75rem' }}>
           <button onClick={handleToggleActive} disabled={isTogglingActive} className={`btn-action btn-toggle ${bot.isActive ? 'paused' : ''}`}>
-            {bot.isActive ? <><Pause size={16} /> Pause Agent</> : <><Play size={16} /> Start Agent</>}
+            {bot.isActive ? <><Pause size={16} /> {t.pauseAgent}</> : <><Play size={16} /> {t.startAgent}</>}
           </button>
           <button onClick={handleDelete} disabled={isDeleting} className="btn-action btn-delete">
-            <Trash2 size={16} /> Terminate
+            <Trash2 size={16} /> {t.terminate}
           </button>
         </div>
       </div>
 
       {/* ─── TAB BAR ─── */}
       <div className="tab-bar">
-        {([['chats', <MessageSquare size={16} />, 'Live Chats'], ['settings', <Bot size={16} />, 'AI Brain'], ['broadcast', <Radio size={16} />, 'Campaigns']] as const).map(([tab, icon, label]) => (
+        {([['chats', <MessageSquare size={16} />, t.liveChats], ['agent', <BrainCircuit size={16} />, 'AI Brain'], ['settings', <Bot size={16} />, t.settings || 'Конфигурация'], ['broadcast', <Radio size={16} />, t.campaigns]] as const).map(([tab, icon, label]) => (
           <button key={tab} onClick={() => setActiveTab(tab as any)} className={`tab-btn ${activeTab === tab ? 'active' : ''}`}>
             {icon} {label}
           </button>
@@ -506,42 +973,40 @@ export default function BotDetails() {
           <div style={{ display: 'flex', width: '100%', height: '100%' }}>
             
             {/* Contacts sidebar */}
-            <div className="contacts-sidebar">
-              <div style={{ padding: '1.2rem', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.85rem', color: '#888', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px' }}>Conversations</span>
-                <span style={{ background: 'rgba(99, 102, 241, 0.1)', color: '#a855f7', padding: '0.2rem 0.6rem', borderRadius: '10px', fontSize: '0.75rem', fontWeight: 700 }}>{chats.length}</span>
+            <div className={`contacts-sidebar ${selectedChat ? 'mobile-hidden' : ''}`}>
+              <div style={{ padding: '1.2rem', borderBottom: '1px solid #e0e3e5', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.85rem', color: 'var(--on-surface-variant)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t.conversations}</span>
+                <span style={{ background: 'var(--primary-container)', color: 'var(--on-primary-container)', padding: '0.2rem 0.6rem', borderRadius: '10px', fontSize: '0.75rem', fontWeight: 700 }}>{chats.length}</span>
               </div>
               
               <div style={{ flex: 1, overflowY: 'auto' }}>
                 {chats.length === 0 ? (
-                  <div style={{ padding: '3rem 2rem', textAlign: 'center', color: '#555' }}>
+                  <div style={{ padding: '3rem 2rem', textAlign: 'center', color: 'var(--on-surface-variant)' }}>
                     <MessageSquare size={32} style={{ opacity: 0.5, marginBottom: '1rem' }} />
-                    <div style={{ fontSize: '0.9rem' }}>No active conversations.<br/>Waiting for incoming messages...</div>
+                    <div style={{ fontSize: '0.9rem' }}>{t.noActiveConv}<br/>{t.waitingMsgs}</div>
                   </div>
                 ) : chats.map(chat => (
                   <div key={chat.chatId} onClick={() => setSelectedChat(chat.chatId)} className={`chat-item ${selectedChat === chat.chatId ? 'active' : ''}`}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                       <div className="avatar">
-                        <User size={18} color={selectedChat === chat.chatId ? '#a855f7' : '#666'} />
+                        <User size={18} color={selectedChat === chat.chatId ? 'var(--primary)' : 'var(--on-surface-variant)'} />
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.2rem' }}>
-                          <div style={{ fontWeight: 600, fontSize: '0.95rem', color: selectedChat === chat.chatId ? '#fff' : '#ddd', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--on-surface)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {chat.name 
-                              ? (chat.chatId.includes('@lid') && (chat as any).realJid 
-                                  ? `${chat.name} (+${((chat as any).realJid).split('@')[0]})` 
-                                  : chat.name)
-                              : (chat.chatId.includes('@lid') ? 'Скрытый номер' : `+${formatChatId(chat.chatId)}`)}
+                              ? (chat.realJid || chat.chatId).includes('@lid') ? chat.name : `+${formatChatId(chat.realJid || chat.chatId)} (${chat.name})`
+                              : ((chat.realJid || chat.chatId).includes('@lid') ? 'Скрытый номер' : `+${formatChatId(chat.realJid || chat.chatId)}`)}
                           </div>
                           <Edit2 size={12} color="#666" style={{ cursor: 'pointer', opacity: 0.7 }} onClick={(e) => handleEditContactName(e, chat.chatId, chat.name || '')} />
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <div style={{ fontSize: '0.8rem', color: '#666', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '65%' }}>
-                            {chat.lastSender === 'bot' && <span style={{ color: '#6366f1', marginRight: '4px' }}>AI:</span>}
+                          <div style={{ fontSize: '0.8rem', color: 'var(--on-surface-variant)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '65%' }}>
+                            {chat.lastSender === 'bot' && <span style={{ color: 'var(--primary)', marginRight: '4px', fontWeight: 600 }}>AI:</span>}
                             {chat.lastMessage}
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <div style={{ fontSize: '0.7rem', color: '#555' }}>{formatTime(chat.lastAt)}</div>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--on-surface-variant)' }}>{formatTime(chat.lastAt)}</div>
                             <Trash2 size={12} color="#444" style={{ cursor: 'pointer', opacity: 0.5 }} onClick={(e) => { e.stopPropagation(); handleDeleteChat(chat.chatId); }} />
                           </div>
                         </div>
@@ -553,13 +1018,13 @@ export default function BotDetails() {
             </div>
 
             {/* Chat view */}
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'rgba(0,0,0,0.2)' }}>
+            <div className={selectedChat ? 'chat-view-container' : 'mobile-hidden'} style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--background)' }}>
               {!selectedChat ? (
-                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '1.5rem', opacity: 0.4 }}>
-                  <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <MessageSquare size={36} color="#fff" />
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '1.5rem', opacity: 0.8 }}>
+                  <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'var(--surface-container-low)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <MessageSquare size={36} color="var(--primary)" />
                   </div>
-                  <span style={{ fontSize: '1.1rem', fontWeight: 500 }}>Select a conversation to view transcript</span>
+                  <span style={{ fontSize: '1.1rem', fontWeight: 500, color: 'var(--on-surface)' }}>{t.selectConv}</span>
                 </div>
               ) : (
                 <>
@@ -567,66 +1032,220 @@ export default function BotDetails() {
                   {(() => {
                     const currentChat = chats.find(c => c.chatId === selectedChat);
                     return (
-                      <div style={{ padding: '1.2rem 2rem', background: 'rgba(10,10,10,0.8)', backdropFilter: 'blur(10px)', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 5 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                          <div className="avatar" style={{ background: 'linear-gradient(135deg, #382c59, #1c1533)' }}>
-                            <User size={20} color="#a855f7" />
+                      <div className="chat-header-mobile" style={{ 
+                        padding: '1rem 1.5rem', 
+                        background: 'var(--surface-container-lowest)', 
+                        borderBottom: '1px solid var(--outline-variant)', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'space-between', 
+                        zIndex: 5,
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                          <button 
+                            onClick={() => setSelectedChat(null)} 
+                            style={{ display: 'block', padding: '0.5rem', background: 'none', border: 'none', color: 'var(--on-surface)', cursor: 'pointer' }}
+                            className="mobile-only-btn"
+                          >
+                            <ArrowLeft size={20} />
+                          </button>
+                          <div className="avatar" style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'var(--primary-container)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <User size={20} color="var(--primary)" />
                           </div>
                           <div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                              <div style={{ fontWeight: 700, fontSize: '1.1rem' }}>
+                              <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--on-surface)' }}>
                                 {currentChat?.name 
-                                  ? (selectedChat.includes('@lid') && (currentChat as any).realJid 
-                                      ? `${currentChat.name} (+${((currentChat as any).realJid).split('@')[0]})` 
-                                      : currentChat.name)
-                                  : (selectedChat.includes('@lid') ? 'Скрытый номер (WhatsApp Privacy)' : `+${formatChatId(selectedChat)}`)}
+                                  ? (currentChat.realJid || selectedChat).includes('@lid') ? currentChat.name : `+${formatChatId(currentChat.realJid || selectedChat)} (${currentChat.name})`
+                                  : ((currentChat?.realJid || selectedChat).includes('@lid') ? 'Скрытый номер' : `+${formatChatId(currentChat?.realJid || selectedChat)}`)}
                               </div>
-                              <Edit2 size={14} color="#888" style={{ cursor: 'pointer' }} onClick={(e) => handleEditContactName(e, selectedChat, currentChat?.name || '')} />
+                              <Edit2 size={12} color="#565e74" style={{ cursor: 'pointer', opacity: 0.7 }} onClick={(e) => handleEditContactName(e, selectedChat, currentChat?.name || '')} />
                             </div>
-                            <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.1rem' }}>ID: {formatChatId(selectedChat)}</div>
+                            <div style={{ fontSize: '0.75rem', color: '#565e74', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#1e7e34' }} />
+                              Active ID: {formatChatId(currentChat?.realJid || selectedChat).slice(-4)}...
+                            </div>
                           </div>
                         </div>
-                        <button onClick={handleDeleteChat} className="btn-action btn-delete" style={{ background: 'transparent' }}>
-                          <Trash2 size={18} /> Clear Chat
+                        <button onClick={() => handleDeleteChat()} className="btn-action" style={{ padding: '0.5rem 0.8rem', fontSize: '0.8rem', background: '#fdf2f2', color: '#9b1c1c', border: '1px solid #fbd5d5' }}>
+                          <Trash2 size={14} /> {t.clearChat}
                         </button>
                       </div>
                     );
                   })()}
 
                   {/* Messages Area */}
-                  <div style={{ flex: 1, overflowY: 'auto', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', scrollBehavior: 'smooth' }}>
+                  <div className="messages-area-mobile" style={{ 
+                    flex: 1, 
+                    overflowY: 'auto', 
+                    padding: '1.5rem', 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    gap: '1rem', 
+                    scrollBehavior: 'smooth',
+                    background: 'var(--background)'
+                  }}>
                     {messages.length === 0 ? (
-                      <div style={{ margin: 'auto', color: '#444', fontSize: '0.9rem' }}>No messages found in this conversation.</div>
+                      <div style={{ margin: 'auto', color: '#565e74', fontSize: '0.9rem', textAlign: 'center' }}>
+                        <MessageSquare size={48} style={{ opacity: 0.1, marginBottom: '1rem' }} />
+                        <div>{t.noMsgsFound}</div>
+                      </div>
                     ) : messages.map((msg, i) => (
-                      <div key={i} style={{ display: 'flex', flexDirection: msg.sender === 'bot' ? 'row-reverse' : 'row', gap: '1rem', alignItems: 'flex-end' }}>
-                        <div className="avatar" style={{ width: '32px', height: '32px', borderRadius: '50%', background: msg.sender === 'bot' ? 'linear-gradient(135deg, #6366f1, #4f46e5)' : 'linear-gradient(135deg, #333, #222)' }}>
-                          {msg.sender === 'bot' ? <Bot size={16} color="#fff" /> : <User size={16} color="#aaa" />}
-                        </div>
-                        <div className={`msg-bubble ${msg.sender === 'bot' ? 'msg-bot' : 'msg-user'}`}>
-                          <div style={{ whiteSpace: 'pre-wrap' }}>{msg.text}</div>
-                          <div style={{ fontSize: '0.65rem', opacity: 0.5, marginTop: '0.5rem', textAlign: msg.sender === 'bot' ? 'left' : 'right' }}>{formatTime(msg.createdAt)}</div>
+                      <div key={i} style={{ display: 'flex', flexDirection: msg.sender === 'bot' ? 'row-reverse' : 'row', gap: '0.75rem', alignItems: 'flex-end', maxWidth: '85%', alignSelf: msg.sender === 'bot' ? 'flex-end' : 'flex-start' }}>
+                        <div className={`msg-bubble ${msg.sender === 'bot' ? 'msg-bot' : 'msg-user'}`} style={{
+                          padding: '0.8rem 1.2rem',
+                          borderRadius: '16px',
+                          fontSize: '0.95rem',
+                          lineHeight: '1.5',
+                          boxShadow: msg.sender === 'bot' ? '0 2px 4px rgba(0,0,0,0.05)' : '0 4px 12px rgba(0,53,39,0.1)',
+                          background: msg.sender === 'bot' ? 'var(--surface-container-lowest)' : 'var(--primary)',
+                          color: msg.sender === 'bot' ? 'var(--on-surface)' : 'var(--on-primary)',
+                          borderBottomRightRadius: msg.sender === 'bot' ? '2px' : '16px',
+                          borderBottomLeftRadius: msg.sender === 'bot' ? '16px' : '2px',
+                          minWidth: '80px',
+                          position: 'relative'
+                        }}>
+                          <div style={{ whiteSpace: 'pre-wrap', paddingRight: msg.sender === 'user' ? '1rem' : '0' }}>{msg.text}</div>
+                          <div style={{ 
+                            fontSize: '0.6rem', 
+                            opacity: 0.6, 
+                            marginTop: '0.4rem', 
+                            textAlign: 'right',
+                            fontWeight: 600,
+                            letterSpacing: '0.2px'
+                          }}>{formatTime(msg.createdAt)}</div>
                         </div>
                       </div>
                     ))}
                     <div ref={messagesEndRef} />
                   </div>
 
-                  {/* Input Area */}
-                  <div style={{ padding: '1.5rem 2rem', background: 'rgba(10,10,10,0.9)', backdropFilter: 'blur(10px)', borderTop: '1px solid rgba(255,255,255,0.05)', display: 'flex', gap: '1rem' }}>
-                    <input
-                      type="text"
-                      className="premium-input"
-                      value={replyText}
-                      onChange={e => setReplyText(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
-                      placeholder="Take over conversation manually..."
-                    />
-                    <button onClick={handleSend} disabled={!replyText.trim()} className="btn-primary" style={{ padding: '0 1.5rem' }}>
-                      <Send size={18} />
-                    </button>
+                  {/* Quick Correction & Input Area */}
+                  <div className="input-area-mobile" style={{ 
+                    padding: '1.2rem 1.5rem', 
+                    background: 'var(--surface-container-lowest)', 
+                    borderTop: '1px solid var(--outline-variant)', 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    gap: '1rem' 
+                  }}>
+                    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', background: 'var(--surface-container-low)', padding: '0.5rem 1rem', borderRadius: '12px', border: '1px solid var(--outline-variant)' }}>
+                      <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <Bot size={14} color="var(--on-primary)" />
+                      </div>
+                      <input
+                        type="text"
+                        style={{ 
+                          flex: 1,
+                          background: 'transparent',
+                          border: 'none',
+                          fontSize: '0.85rem',
+                          color: '#191c1e',
+                          padding: '0.2rem 0',
+                          outline: 'none',
+                          boxShadow: 'none'
+                        }}
+                        onFocus={(e) => e.target.style.boxShadow = 'none'}
+                        placeholder="Направьте бота (например: 'Будь вежливее')"
+                        onKeyDown={async (e) => {
+                          if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                            const newInstruction = e.currentTarget.value.trim();
+                            const updatedPrompt = systemPrompt + `\n\n=== IMPORTANT CORRECTION ===\n${newInstruction}`;
+                            setSystemPrompt(updatedPrompt);
+                            e.currentTarget.value = '';
+                            await fetch(`${API}/bot/${botId}`, {
+                              method: 'PUT',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ system_prompt: updatedPrompt, data_prompt: dataPrompt }),
+                              credentials: 'include'
+                            });
+                          }
+                        }}
+                      />
+                      <div style={{ fontSize: '0.7rem', color: '#565e74', fontWeight: 600, opacity: 0.5 }}>ENTER TO APPLY</div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.75rem' }}>
+                      <input
+                        type="text"
+                        className="premium-input"
+                        value={replyText}
+                        onChange={e => setReplyText(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
+                        placeholder={t.takeOver}
+                        style={{ flex: 1, borderRadius: '14px', padding: '0.8rem 1.2rem' }}
+                      />
+                      <button onClick={handleSend} disabled={!replyText.trim()} className="btn-primary" style={{ width: '48px', height: '48px', borderRadius: '14px', padding: 0, justifyContent: 'center' }}>
+                        <Send size={20} />
+                      </button>
+                    </div>
                   </div>
                 </>
               )}
+            </div>
+          </div>
+        )}
+
+                {/* ══ AGENT TAB ══ */}
+        {activeTab === 'agent' && (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--background)' }}>
+            <div style={{ padding: '1.5rem', background: 'var(--surface-container-lowest)', borderBottom: '1px solid var(--outline-variant)' }}>
+              <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--on-surface)', display: 'flex', alignItems: 'center', gap: '0.75rem', margin: 0 }}>
+                <BrainCircuit size={28} color="var(--primary)" /> Взаимодействие с AI Мозгом
+              </h2>
+              <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.9rem', marginTop: '0.5rem', marginBottom: 0 }}>
+                Общайтесь с агентом напрямую для настройки его поведения и базы знаний.
+              </p>
+            </div>
+            
+            <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {agentChatHistory.length === 0 ? (
+                <div style={{ margin: 'auto', textAlign: 'center', color: '#565e74' }}>
+                  <Bot size={48} style={{ opacity: 0.1, marginBottom: '1rem' }} />
+                  <div>Напишите, что нужно изменить в поведении бота.</div>
+                </div>
+              ) : agentChatHistory.map((msg, i) => (
+                <div key={i} style={{ display: 'flex', flexDirection: msg.role === 'user' ? 'row-reverse' : 'row', gap: '0.75rem', maxWidth: '85%', alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
+                  <div style={{
+                    padding: '0.8rem 1.2rem',
+                    borderRadius: '16px',
+                    fontSize: '0.95rem',
+                    background: msg.role === 'user' ? 'var(--primary)' : 'var(--surface-container-lowest)',
+                    color: msg.role === 'user' ? 'var(--on-primary)' : 'var(--on-surface)',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+                    borderBottomRightRadius: msg.role === 'user' ? '2px' : '16px',
+                    borderBottomLeftRadius: msg.role === 'user' ? '16px' : '2px',
+                    whiteSpace: 'pre-wrap'
+                  }}>
+                    {msg.content}
+                  </div>
+                </div>
+              ))}
+              {isAgentLoading && (
+                <div style={{ alignSelf: 'flex-start', background: 'var(--surface-container-lowest)', padding: '0.8rem 1.2rem', borderRadius: '16px', borderBottomLeftRadius: '2px', color: 'var(--on-surface-variant)', fontSize: '0.9rem' }}>
+                  ИИ думает...
+                </div>
+              )}
+            </div>
+
+            <div style={{ padding: '1.5rem', background: 'var(--surface-container-lowest)', borderTop: '1px solid var(--outline-variant)', display: 'flex', gap: '1rem', alignItems: 'center' }}>
+              <label className="btn-action" style={{ cursor: 'pointer', opacity: isUploadingPdf ? 0.7 : 1, padding: '0.8rem', background: 'var(--surface-container-high)', color: 'var(--on-surface)', borderRadius: '12px', border: '1px solid var(--outline-variant)' }}>
+                <FileUp size={20} />
+                <input type="file" accept="application/pdf" style={{ display: 'none' }} onChange={handlePdfUpload} disabled={isUploadingPdf} />
+              </label>
+              <input
+                type="text"
+                className="premium-input"
+                value={agentInput}
+                onChange={e => setAgentInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleAgentSend()}
+                placeholder="Например: 'Будь более вежливым' или 'Добавь в базу, что мы не работаем по выходным'"
+                style={{ flex: 1 }}
+                disabled={isAgentLoading}
+              />
+              <button onClick={handleAgentSend} disabled={!agentInput.trim() || isAgentLoading} className="btn-primary" style={{ padding: '0 1.5rem' }}>
+                <Send size={18} /> Отправить
+              </button>
             </div>
           </div>
         )}
@@ -637,116 +1256,301 @@ export default function BotDetails() {
             <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
               
               {qrCode && (
-                <div className="glass-panel" style={{ padding: '3rem', textAlign: 'center', marginBottom: '3rem', display: 'flex', flexDirection: 'column', alignItems: 'center', background: 'rgba(99, 102, 241, 0.05)', borderColor: 'rgba(99, 102, 241, 0.2)' }}>
-                  <h3 style={{ margin: '0 0 1rem', color: '#fff', fontSize: '1.5rem' }}>Link WhatsApp Account</h3>
-                  <p style={{ color: '#aaa', marginBottom: '2rem' }}>Open WhatsApp on your phone, go to Linked Devices, and scan this QR code to activate the agent.</p>
-                  <div style={{ background: '#fff', padding: '1rem', borderRadius: '16px', boxShadow: '0 0 40px rgba(99,102,241,0.3)' }}>
+                <div className="glass-panel" style={{ padding: '3rem', textAlign: 'center', marginBottom: '3rem', display: 'flex', flexDirection: 'column', alignItems: 'center', background: '#e6f4ea', borderColor: '#c3e6cb' }}>
+                  <h3 style={{ margin: '0 0 1rem', color: '#003527', fontSize: '1.5rem' }}>{t.linkWhatsapp}</h3>
+                  <p style={{ color: '#565e74', marginBottom: '2rem' }}>{t.scanQr}</p>
+                  <div style={{ background: '#fff', padding: '1rem', borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,53,39,0.1)' }}>
                     <img src={qrCode} alt="QR Code" style={{ width: '260px', height: '260px', display: 'block' }} />
                   </div>
                 </div>
               )}
 
-              <div style={{ marginBottom: '3rem' }}>
-                <button onClick={() => setShowQuiz(!showQuiz)} className="btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '1.2rem', fontSize: '1.1rem', background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(168, 85, 247, 0.1))', border: '1px solid rgba(168, 85, 247, 0.3)', color: '#e0b3ff', boxShadow: 'none' }}>
-                  <Wand2 size={24} /> {showQuiz ? 'Close AI Prompt Builder' : 'Open AI Prompt Builder (Recommended)'}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                <h2 style={{ fontSize: '1.8rem', fontWeight: '800', color: 'var(--on-surface)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <Wand2 size={28} color="var(--primary)" /> Конфигурация AI-бота
+                </h2>
+                <button onClick={handleSave} disabled={isSaving} className="btn-primary">
+                  <Save size={18} /> {isSaving ? t.saving : t.saveChanges}
                 </button>
               </div>
 
-              {showQuiz ? (
-                <div className="glass-panel" style={{ padding: '2.5rem', animation: 'fadeIn 0.4s ease', marginBottom: '3rem' }}>
-                  <h2 style={{ margin: '0 0 2rem', fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem', color: '#fff' }}>
-                    <div style={{ padding: '0.5rem', background: 'rgba(99, 102, 241, 0.2)', borderRadius: '10px' }}><Wand2 size={24} color="#a855f7" /></div>
-                    Generate Agent Personas
-                  </h2>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.9rem', color: '#aaa', marginBottom: '0.5rem', fontWeight: 500 }}>Agent Persona / Role</label>
-                      <input type="text" className="premium-input" value={quizData.role} onChange={e => setQuizData({...quizData, role: e.target.value})} placeholder="e.g. Lead Sales Rep for 'Tech Corp'" />
-                    </div>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.9rem', color: '#aaa', marginBottom: '0.5rem', fontWeight: 500 }}>Tone of Voice</label>
-                      <select className="premium-input" value={quizData.style} onChange={e => setQuizData({...quizData, style: e.target.value})}>
-                        <option value="вежливый и профессиональный">Polite & Professional</option>
-                        <option value="дружелюбный и неформальный">Friendly & Casual</option>
-                        <option value="официальный и строгий">Strictly Formal</option>
-                        <option value="дерзкий и юмористический">Humorous & Witty</option>
-                      </select>
-                    </div>
-                    <div style={{ gridColumn: 'span 2' }}>
-                      <label style={{ display: 'block', fontSize: '0.9rem', color: '#aaa', marginBottom: '0.5rem', fontWeight: 500 }}>Primary Objectives</label>
-                      <textarea className="premium-input" style={{ height: '100px', resize: 'vertical' }} value={quizData.goals} onChange={e => setQuizData({...quizData, goals: e.target.value})} placeholder="e.g. Answer support questions, guide users to purchase, book appointments." />
-                    </div>
-                    <div style={{ gridColumn: 'span 2', margin: '1rem 0' }}>
-                      <div style={{ height: '1px', background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent)' }} />
-                      <h3 style={{ fontSize: '1.1rem', color: '#a855f7', marginTop: '2rem', marginBottom: '0' }}>Knowledge Base Injection</h3>
-                    </div>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.9rem', color: '#aaa', marginBottom: '0.5rem', fontWeight: 500 }}>Company Info & Links</label>
-                      <textarea className="premium-input" style={{ height: '120px', resize: 'vertical' }} value={quizData.companyInfo} onChange={e => setQuizData({...quizData, companyInfo: e.target.value})} placeholder="Location, working hours, website links..." />
-                    </div>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.9rem', color: '#aaa', marginBottom: '0.5rem', fontWeight: 500 }}>Pricing & Catalog</label>
-                      <textarea className="premium-input" style={{ height: '120px', resize: 'vertical' }} value={quizData.prices} onChange={e => setQuizData({...quizData, prices: e.target.value})} placeholder="List of products/services with prices..." />
-                    </div>
+              <div className="glass-panel" style={{ padding: '2.5rem', marginBottom: '2rem' }}>
+                <h3 style={{ fontSize: '1.4rem', color: 'var(--on-surface)', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {t.behavior}
+                </h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.9rem', color: 'var(--on-surface-variant)', marginBottom: '0.5rem', fontWeight: 600 }}>{t.industry}</label>
+                    <CustomSelect options={INDUSTRIES} value={industry} onChange={setIndustry} placeholder="..." />
                   </div>
-                  <div style={{ marginTop: '3rem', display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
-                    <button onClick={() => setShowQuiz(false)} className="btn-action" style={{ padding: '0.8rem 2rem', background: 'rgba(255,255,255,0.05)', color: '#fff' }}>Cancel</button>
-                    <button onClick={generateFromQuiz} className="btn-primary">Generate Prompts <Wand2 size={16}/></button>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.9rem', color: 'var(--on-surface-variant)', marginBottom: '0.5rem', fontWeight: 600 }}>{t.companyName}</label>
+                    <input className="premium-input" type="text" value={companyName} onChange={e => setCompanyName(e.target.value)} placeholder="..." />
+                  </div>
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <label style={{ display: 'block', fontSize: '0.9rem', color: 'var(--on-surface-variant)', marginBottom: '0.5rem', fontWeight: 600 }}>{t.companyDesc}</label>
+                    <textarea className="premium-input" rows={2} style={{ resize: 'vertical' }} value={companyDescription} onChange={e => setCompanyDescription(e.target.value)} placeholder="..." />
+                  </div>
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <label style={{ display: 'block', fontSize: '0.9rem', color: 'var(--on-surface-variant)', marginBottom: '0.5rem', fontWeight: 600 }}>{t.mainProduct}</label>
+                    <input className="premium-input" type="text" value={productDescription} onChange={e => setProductDescription(e.target.value)} placeholder="..." />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.9rem', color: 'var(--on-surface-variant)', marginBottom: '0.5rem', fontWeight: 600 }}>{t.dataToCollect}</label>
+                    <CustomMultiSelect options={DATA_FIELDS} value={dataToCollect} onChange={setDataToCollect} placeholder="..." />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.9rem', color: 'var(--on-surface-variant)', marginBottom: '0.5rem', fontWeight: 600 }}>{t.tone}</label>
+                    <CustomSelect options={TONES} value={tone} onChange={setTone} placeholder="..." />
+                  </div>
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <label style={{ display: 'block', fontSize: '0.9rem', color: 'var(--on-surface-variant)', marginBottom: '0.5rem', fontWeight: 600 }}>{t.fallback}</label>
+                    <CustomSelect options={[t.fallback_noinfo, t.fallback_manager, t.fallback_lead]} value={fallbackBehavior} onChange={setFallbackBehavior} placeholder="..." />
+                  </div>
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <label style={{ display: 'block', fontSize: '0.9rem', color: 'var(--on-surface-variant)', marginBottom: '0.5rem', fontWeight: 600 }}>{t.additionalRules}</label>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '16px', background: 'var(--surface-container-low)', borderRadius: '12px', border: '1px solid var(--outline-variant)' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--on-surface)' }}>
+                        <input type="checkbox" checked={rules.onlyKnowledgeBase} onChange={e => setRules({...rules, onlyKnowledgeBase: e.target.checked})} style={{ width: '18px', height: '18px', accentColor: 'var(--primary)' }} />
+                        {t.onlyKb}
+                      </label>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--on-surface)' }}>
+                        <input type="checkbox" checked={rules.noFabrication} onChange={e => setRules({...rules, noFabrication: e.target.checked})} style={{ width: '18px', height: '18px', accentColor: 'var(--primary)' }} />
+                        {t.noFabrication}
+                      </label>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--on-surface)' }}>
+                        <input type="checkbox" checked={rules.userLanguage} onChange={e => setRules({...rules, userLanguage: e.target.checked})} style={{ width: '18px', height: '18px', accentColor: 'var(--primary)' }} />
+                        {t.userLanguage}
+                      </label>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--on-surface)' }}>
+                        <input type="checkbox" checked={rules.leadToRequest} onChange={e => setRules({...rules, leadToRequest: e.target.checked})} style={{ width: '18px', height: '18px', accentColor: 'var(--primary)' }} />
+                        {t.leadToRequest}
+                      </label>
+                    </div>
                   </div>
                 </div>
-              ) : (
-                <>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
-                    <div className="glass-panel" style={{ padding: '2rem', display: 'flex', flexDirection: 'column' }}>
-                      <div style={{ marginBottom: '1.5rem' }}>
-                        <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 600, color: '#fff', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Bot size={20} color="#6366f1"/> System Prompt</h2>
-                        <p style={{ margin: '0.5rem 0 0', fontSize: '0.85rem', color: '#888' }}>Core identity and instructions for the AI model.</p>
-                      </div>
-                      <textarea className="premium-input" value={systemPrompt} onChange={e => setSystemPrompt(e.target.value)} style={{ flex: 1, minHeight: '350px', background: 'rgba(0,0,0,0.5)', fontFamily: 'monospace', fontSize: '0.85rem', color: '#bba8ff' }} placeholder="You are an AI assistant..." />
-                    </div>
-                    
-                    <div className="glass-panel" style={{ padding: '2rem', display: 'flex', flexDirection: 'column' }}>
-                      <div style={{ marginBottom: '1.5rem' }}>
-                        <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 600, color: '#fff', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Save size={20} color="#a855f7"/> Knowledge Base</h2>
-                        <p style={{ margin: '0.5rem 0 0', fontSize: '0.85rem', color: '#888' }}>Factual data the AI can reference during chats.</p>
-                      </div>
-                      <textarea className="premium-input" value={dataPrompt} onChange={e => setDataPrompt(e.target.value)} style={{ flex: 1, minHeight: '350px', background: 'rgba(0,0,0,0.5)', fontFamily: 'monospace', fontSize: '0.85rem', color: '#99f6e4' }} placeholder="Data facts here..." />
-                    </div>
+              </div>
+
+              <div className="glass-panel" style={{ padding: '2.5rem', marginBottom: '3rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                  <h3 style={{ fontSize: '1.4rem', color: 'var(--on-surface)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Database size={24} color="var(--primary)" /> {t.dataBase}
+                  </h3>
+                  <label className="btn-primary" style={{ cursor: 'pointer', opacity: isUploadingPdf ? 0.7 : 1, padding: '0.6rem 1.2rem', fontSize: '0.85rem' }}>
+                    <FileUp size={16} /> {isUploadingPdf ? 'Загрузка...' : 'Загрузить PDF'}
+                    <input type="file" accept="application/pdf" style={{ display: 'none' }} onChange={handlePdfUpload} disabled={isUploadingPdf} />
+                  </label>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.9rem', color: '#aaa', marginBottom: '0.5rem', fontWeight: 500 }}>Общая информация</label>
+                    <textarea className="premium-input" rows={3} style={{ resize: 'vertical', width: '100%' }} value={businessInfo} onChange={e => setBusinessInfo(e.target.value)} placeholder="История компании, график работы, адреса" />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.9rem', color: '#aaa', marginBottom: '0.5rem', fontWeight: 500 }}>Преимущества</label>
+                    <textarea className="premium-input" rows={2} style={{ resize: 'vertical', width: '100%' }} value={benefits} onChange={e => setBenefits(e.target.value)} placeholder="Почему стоит выбрать именно вас" />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.9rem', color: '#aaa', marginBottom: '0.5rem', fontWeight: 500 }}>Цены и условия</label>
+                    <textarea className="premium-input" rows={3} style={{ resize: 'vertical', width: '100%' }} value={pricing} onChange={e => setPricing(e.target.value)} placeholder="Прайс-лист, условия доставки, гарантии" />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.9rem', color: '#aaa', marginBottom: '0.5rem', fontWeight: 500 }}>Контакт менеджера</label>
+                    <input className="premium-input" type="text" value={managerContact} onChange={e => setManagerContact(e.target.value)} placeholder="Телефон, Telegram, email или ссылка" style={{ width: '100%' }} />
                   </div>
                   
-                  <div style={{ marginTop: '2rem', display: 'flex', justifyContent: 'flex-end' }}>
-                    <button onClick={handleSave} disabled={isSaving} className="btn-primary" style={{ padding: '1rem 3rem', fontSize: '1.1rem' }}>
-                      <Save size={20} /> {isSaving ? 'Deploying...' : 'Save & Deploy'}
+                  <div style={{ background: 'var(--surface-container-low)', padding: '20px', borderRadius: '12px', border: '1px solid var(--outline-variant)' }}>
+                    <label style={{ display: 'block', fontSize: '1rem', color: 'var(--on-surface)', marginBottom: '1rem', fontWeight: 600 }}>Частые вопросы (FAQ)</label>
+                    {faq.map((item, index) => (
+                      <div key={index} style={{ display: 'flex', gap: '12px', marginBottom: '16px', alignItems: 'flex-start' }}>
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          <input className="premium-input" type="text" value={item.q} onChange={e => { const newFaq = [...faq]; newFaq[index].q = e.target.value; setFaq(newFaq); }} placeholder="Вопрос" style={{ padding: '0.8rem 1rem', width: '100%' }} />
+                          <textarea className="premium-input" rows={2} style={{ padding: '0.8rem 1rem', resize: 'vertical', width: '100%' }} value={item.a} onChange={e => { const newFaq = [...faq]; newFaq[index].a = e.target.value; setFaq(newFaq); }} placeholder="Ответ" />
+                        </div>
+                        <button type="button" onClick={() => { const newFaq = faq.filter((_, i) => i !== index); setFaq(newFaq.length ? newFaq : [{q:'', a:''}]); }} style={{ padding: '0.8rem', background: 'rgba(255, 77, 79, 0.1)', color: '#ff4d4f', borderRadius: '8px', border: '1px solid rgba(255, 77, 79, 0.2)', cursor: 'pointer' }}>
+                          <Trash2 size={20} />
+                        </button>
+                      </div>
+                    ))}
+                    <button type="button" onClick={() => setFaq([...faq, { q: '', a: '' }])} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'transparent', border: '1px dashed rgba(255,255,255,0.2)', color: '#fff', padding: '12px', borderRadius: '8px', cursor: 'pointer', width: '100%', justifyContent: 'center', fontWeight: '600' }}>
+                      <Plus size={18} /> Добавить вопрос
                     </button>
                   </div>
-                </>
-              )}
+
+                  <div style={{ background: 'var(--surface-container-low)', padding: '20px', borderRadius: '12px', border: '1px solid var(--outline-variant)' }}>
+                    <label style={{ display: 'block', fontSize: '1rem', color: 'var(--on-surface)', marginBottom: '1rem', fontWeight: 600 }}>{t.usefulLinks}</label>
+                    {links.map((item, index) => (
+                      <div key={index} style={{ display: 'flex', gap: '12px', marginBottom: '12px', alignItems: 'center' }}>
+                        <input className="premium-input" type="text" value={item.title} onChange={e => { const newLinks = [...links]; newLinks[index].title = e.target.value; setLinks(newLinks); }} placeholder="Название (напр. Наш сайт)" style={{ flex: 1, padding: '0.8rem 1rem' }} />
+                        <input className="premium-input" type="text" value={item.url} onChange={e => { const newLinks = [...links]; newLinks[index].url = e.target.value; setLinks(newLinks); }} placeholder="https://..." style={{ flex: 2, padding: '0.8rem 1rem' }} />
+                        <button type="button" onClick={() => { const newLinks = links.filter((_, i) => i !== index); setLinks(newLinks.length ? newLinks : [{title:'', url:''}]); }} style={{ padding: '0.8rem', background: 'rgba(255, 77, 79, 0.1)', color: '#ff4d4f', borderRadius: '8px', border: '1px solid rgba(255, 77, 79, 0.2)', cursor: 'pointer' }}>
+                          <Trash2 size={20} />
+                        </button>
+                      </div>
+                    ))}
+                    <button type="button" onClick={() => setLinks([...links, { title: '', url: '' }])} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'transparent', border: '1px dashed rgba(255,255,255,0.2)', color: '#fff', padding: '12px', borderRadius: '8px', cursor: 'pointer', width: '100%', justifyContent: 'center', fontWeight: '600' }}>
+                      <Plus size={18} /> Добавить ссылку
+                    </button>
+                  </div>
+
+                  <div style={{ background: 'var(--surface-container-low)', padding: '20px', borderRadius: '12px', border: '1px solid var(--outline-variant)' }}>
+                    <label style={{ display: 'block', fontSize: '1rem', color: 'var(--on-surface)', marginBottom: '0.5rem', fontWeight: 600 }}>{t.quickFact}</label>
+                    <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.85rem', marginBottom: '1rem', lineHeight: '1.4' }}>{t.quickFactHint}</p>
+                    <div style={{ display: 'flex', gap: '12px' }}>
+                      <input className="premium-input" type="text" id="customFactInput" placeholder="Введите информацию..." style={{ flex: 1, padding: '0.8rem 1rem' }} onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const val = e.currentTarget.value;
+                          if (val.trim()) { setDataPrompt(prev => prev + '\n\nДополнительный факт: ' + val.trim()); e.currentTarget.value = ''; }
+                        }
+                      }} />
+                      <button type="button" className="btn-primary" onClick={() => {
+                        const input = document.getElementById('customFactInput') as HTMLInputElement;
+                        if (input && input.value.trim()) {
+                          setDataPrompt(prev => prev + '\n\nДополнительный факт: ' + input.value.trim());
+                          input.value = '';
+                        }
+                      }}>
+                        <Plus size={18} /> Добавить
+                      </button>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+
+              <div className="glass-panel" style={{ padding: '2.5rem', marginBottom: '3rem', border: '1px solid var(--outline-variant)' }}>
+                <h3 style={{ fontSize: '1.4rem', color: 'var(--on-surface)', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {t.advancedSettings}
+                </h3>
+                <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.9rem', marginBottom: '2rem' }}>{t.advancedSettingsSub}</p>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '1rem', color: 'var(--on-surface)', marginBottom: '0.5rem', fontWeight: 600 }}>{t.sysPromptFull}</label>
+                    <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.85rem', marginBottom: '1rem', lineHeight: '1.4' }}>{t.sysPromptDesc}</p>
+                    <textarea className="premium-input" rows={8} value={systemPrompt} onChange={e => setSystemPrompt(e.target.value)} style={{ resize: 'vertical', fontFamily: 'monospace', background: 'var(--surface-container-low)', color: 'var(--primary)', width: '100%' }} />
+                  </div>
+                  
+                  <div>
+                    <label style={{ display: 'block', fontSize: '1rem', color: 'var(--on-surface)', marginBottom: '0.5rem', fontWeight: 600 }}>{t.dataPromptFull}</label>
+                    <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.85rem', marginBottom: '1rem', lineHeight: '1.4' }}>{t.dataBaseDesc}</p>
+                    <textarea className="premium-input" rows={12} value={dataPrompt} onChange={e => setDataPrompt(e.target.value)} style={{ resize: 'vertical', fontFamily: 'monospace', background: 'var(--surface-container-low)', color: 'var(--primary)', width: '100%' }} />
+                  </div>
+                </div>
+              </div>
+
             </div>
           </div>
         )}
 
-        {/* ══ BROADCAST TAB ══ */}
         {activeTab === 'broadcast' && (
-          <div style={{ flex: 1, overflowY: 'auto', padding: '3rem 2rem' }}>
-            <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
-              <div style={{ marginBottom: '2rem' }}>
-                <h1 style={{ fontSize: '2rem', fontWeight: 700, margin: '0 0 0.5rem' }}>Mass Campaigns</h1>
-                <p style={{ color: '#888', fontSize: '1rem', margin: 0 }}>Send messages to multiple contacts simultaneously.</p>
+          <div className="content-pad" style={{ flex: 1, overflowY: 'auto', padding: '3rem 2rem' }}>
+            <style>{`
+              @media (max-width: 1024px) { .broadcast-grid { grid-template-columns: 1fr !important; } }
+            `}</style>
+            <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
+                <div>
+                  <h1 style={{ fontSize: '2rem', fontWeight: 800, margin: '0 0 0.5rem', color: 'var(--on-surface)' }}>{t.massCamp}</h1>
+                  <p style={{ color: 'var(--on-surface-variant)', fontSize: '1rem', margin: 0 }}>{t.massCampSub}</p>
+                </div>
               </div>
               
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '2rem' }}>
-                <div className="glass-panel" style={{ padding: '2rem' }}>
-                  <h2 style={{ margin: '0 0 1rem', fontSize: '1.1rem', fontWeight: 600, color: '#fff', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><User size={18} color="#6366f1"/> Target Numbers</h2>
-                  <p style={{ color: '#666', fontSize: '0.85rem', marginBottom: '1.5rem' }}>Enter numbers one per line (include country code).</p>
-                  <textarea className="premium-input" value={broadcastNumbers} onChange={e => setBroadcastNumbers(e.target.value)} style={{ height: '300px', resize: 'vertical', fontFamily: 'monospace' }} placeholder={'77001234567\n79998887766'} />
+              <div className="broadcast-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.2fr', gap: '2rem', alignItems: 'start' }}>
+                {/* 1. Selection from existing contacts */}
+                <div className="glass-panel broadcast-panel" style={{ padding: '2rem', height: '550px', display: 'flex', flexDirection: 'column' }}>
+                  <h2 style={{ margin: '0 0 1rem', fontSize: '1.1rem', fontWeight: 700, color: 'var(--on-surface)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <Users size={18} color="var(--primary)"/> Select from Contacts
+                  </h2>
+                  <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+                    <input 
+                      type="text" 
+                      className="premium-input" 
+                      style={{ padding: '0.5rem 0.8rem', fontSize: '0.8rem' }} 
+                      placeholder="Search..." 
+                      value={contactSearch}
+                      onChange={e => setContactSearch(e.target.value)}
+                    />
+                    <button 
+                      onClick={() => {
+                        if (selectedBroadcastContacts.length === chats.length) setSelectedBroadcastContacts([]);
+                        else setSelectedBroadcastContacts(chats.map(c => c.chatId));
+                      }}
+                      className="btn-action" 
+                      style={{ padding: '0.5rem 1rem', fontSize: '0.75rem', whiteSpace: 'nowrap', background: 'var(--surface-container-high)', color: 'var(--on-surface)' }}
+                    >
+                      {selectedBroadcastContacts.length === chats.length ? 'Deselect All' : 'Select All'}
+                    </button>
+                  </div>
+                  
+                  <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.4rem', paddingRight: '0.5rem' }}>
+                    {chats.filter(c => (c.name || '').toLowerCase().includes(contactSearch.toLowerCase()) || c.chatId.includes(contactSearch)).map(contact => (
+                      <label key={contact.chatId} style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', padding: '0.8rem', borderRadius: '10px', background: selectedBroadcastContacts.includes(contact.chatId) ? 'var(--primary-container)' : 'var(--surface-container-lowest)', cursor: 'pointer', transition: 'all 0.2s', border: selectedBroadcastContacts.includes(contact.chatId) ? '1px solid var(--primary)' : '1px solid var(--outline-variant)' }}>
+                        <input 
+                          type="checkbox" 
+                          checked={selectedBroadcastContacts.includes(contact.chatId)}
+                          onChange={() => {
+                            if (selectedBroadcastContacts.includes(contact.chatId)) {
+                              setSelectedBroadcastContacts(selectedBroadcastContacts.filter(id => id !== contact.chatId));
+                            } else {
+                              setSelectedBroadcastContacts([...selectedBroadcastContacts, contact.chatId]);
+                            }
+                          }}
+                          style={{ accentColor: '#003527' }}
+                        />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--on-surface)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{contact.name || 'Unknown'}</div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>{formatChatId(contact.realJid || contact.chatId)}</div>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                  <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.05)', fontSize: '0.8rem', color: '#aaa' }}>
+                    Selected: <strong>{selectedBroadcastContacts.length}</strong>
+                  </div>
+                </div>
+
+                {/* 2. Manual Input */}
+                <div className="glass-panel" style={{ padding: '2rem', height: '550px', display: 'flex', flexDirection: 'column' }}>
+                  <h2 style={{ margin: '0 0 1rem', fontSize: '1.1rem', fontWeight: 600, color: 'var(--on-surface)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <UserPlus size={18} color="var(--primary)"/> Manual Numbers
+                  </h2>
+                  <p style={{ color: '#666', fontSize: '0.8rem', marginBottom: '1rem' }}>Enter numbers one per line (e.g. 77001112233)</p>
+                  <textarea 
+                    className="premium-input" 
+                    value={broadcastNumbers} 
+                    onChange={e => {
+                      setBroadcastNumbers(e.target.value);
+                      if (e.target.value.trim()) setSelectedBroadcastContacts([]); // Clear selected if typing manually
+                    }} 
+                    style={{ flex: 1, resize: 'none', fontFamily: 'monospace', fontSize: '0.85rem' }} 
+                    placeholder={'77001234567\n79998887766'} 
+                  />
+                  <div style={{ marginTop: '1rem', fontSize: '0.8rem', color: '#666' }}>
+                    * Manual input overrides selected contacts
+                  </div>
                 </div>
                 
-                <div className="glass-panel" style={{ padding: '2rem', display: 'flex', flexDirection: 'column' }}>
-                  <h2 style={{ margin: '0 0 1rem', fontSize: '1.1rem', fontWeight: 600, color: '#fff', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><MessageSquare size={18} color="#a855f7"/> Message Content</h2>
-                  <textarea className="premium-input" value={broadcastMessage} onChange={e => setBroadcastMessage(e.target.value)} style={{ flex: 1, minHeight: '200px', resize: 'vertical', marginBottom: '2rem' }} placeholder="Type your broadcast message here..." />
+                {/* 3. Message & Launch */}
+                <div className="glass-panel" style={{ padding: '2rem', height: '550px', display: 'flex', flexDirection: 'column' }}>
+                  <h2 style={{ margin: '0 0 1rem', fontSize: '1.1rem', fontWeight: 600, color: 'var(--on-surface)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <MessageSquare size={18} color="var(--primary)"/> {t.msgContent}
+                  </h2>
+                  <textarea className="premium-input" value={broadcastMessage} onChange={e => setBroadcastMessage(e.target.value)} style={{ flex: 1, minHeight: '200px', resize: 'none', marginBottom: '2rem' }} placeholder="Type your broadcast message here..." />
                   
-                  <button onClick={handleBroadcast} disabled={isBroadcasting || !broadcastMessage.trim() || !broadcastNumbers.trim()} className="btn-primary" style={{ alignSelf: 'flex-end', width: '100%', justifyContent: 'center', padding: '1.2rem', fontSize: '1.1rem' }}>
-                    <Radio size={20} /> {isBroadcasting ? 'Broadcasting...' : 'Launch Campaign'}
+                  <div style={{ background: 'var(--primary-container)', padding: '1rem', borderRadius: '12px', border: '1px solid var(--primary)', marginBottom: '1.5rem' }}>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--on-surface-variant)', marginBottom: '0.5rem' }}>Campaign Summary:</div>
+                    <div style={{ fontSize: '0.9rem', color: 'var(--on-surface)' }}>Recipients: <strong>{broadcastNumbers.trim() ? broadcastNumbers.split('\n').filter(n => n.trim()).length : selectedBroadcastContacts.length}</strong></div>
+                  </div>
+
+                  <button 
+                    onClick={handleBroadcast} 
+                    disabled={isBroadcasting || !broadcastMessage.trim() || (!broadcastNumbers.trim() && selectedBroadcastContacts.length === 0)} 
+                    className="btn-primary" 
+                    style={{ width: '100%', justifyContent: 'center', padding: '1.2rem', fontSize: '1.1rem' }}
+                  >
+                    <Radio size={20} /> {isBroadcasting ? t.broadcasting : t.launchCamp}
                   </button>
                 </div>
               </div>

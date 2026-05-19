@@ -2,8 +2,11 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Bot, BookOpen, PlusCircle, HelpCircle, LogOut } from 'lucide-react';
+import { LayoutDashboard, Bot, PlusCircle, LogOut, TrendingUp, Activity, User } from 'lucide-react';
 import styles from './Sidebar.module.css';
+import { useLanguage } from '../../contexts/LanguageContext';
+
+import { useAuth } from '../../contexts/AuthContext';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -12,12 +15,16 @@ interface SidebarProps {
 
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
+  const { t, language } = useLanguage();
+  const { logout } = useAuth();
 
   const navItems = [
-    { name: 'Dashboard', path: '/', icon: LayoutDashboard },
-    { name: 'My Bots', path: '/bots', icon: Bot },
-    { name: 'Knowledge', path: '/knowledge', icon: BookOpen },
-    { name: 'Create Bot', path: '/create-bot', icon: PlusCircle },
+    { name: t.navDashboard, path: '/', icon: LayoutDashboard },
+    { name: t.navBots, path: '/bots', icon: Bot },
+    { name: t.navCreateBot, path: '/create-bot', icon: PlusCircle },
+    { name: 'Статистика', path: '/statistics', icon: TrendingUp },
+    { name: language === 'RU' ? 'AI Аналитика' : language === 'KZ' ? 'AI Аналитика' : 'AI Analytics', path: '/admin/analytics', icon: Activity },
+    { name: language === 'RU' ? 'Профиль' : language === 'KZ' ? 'Профиль' : 'Profile', path: '/profile', icon: User },
   ];
 
   return (
@@ -54,13 +61,9 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         </div>
 
         <div className={styles.bottomNav}>
-          <button className={styles.navItem}>
-            <HelpCircle size={20} />
-            <span>Support</span>
-          </button>
-          <button className={styles.navItem}>
+          <button className={styles.navItem} onClick={logout}>
             <LogOut size={20} />
-            <span>Logout</span>
+            <span>{t.navLogout}</span>
           </button>
         </div>
       </nav>

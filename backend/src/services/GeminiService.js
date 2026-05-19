@@ -1,0 +1,104 @@
+import { GoogleGenAI } from '@google/genai';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import fs from 'fs';
+
+// Setup __dirname for ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Construct the absolute path to the google-key.json (in the backend root)
+const keyPath = path.resolve(__dirname, '../../google-key.json');
+
+let projectId = 'gen-lang-client-0537370402';
+let clientEmail = '';
+let privateKey = '';
+
+try {
+    if (fs.existsSync(keyPath)) {
+        const keyData = JSON.parse(fs.readFileSync(keyPath, 'utf8'));
+        if (keyData.project_id) projectId = keyData.project_id;
+        if (keyData.client_email) clientEmail = keyData.client_email;
+        if (keyData.private_key) privateKey = keyData.private_key;
+    } else {
+        console.warn(`GeminiService: google-key.json not found at ${keyPath}`);
+    }
+} catch (error) {
+    console.error('GeminiService: Error reading google-key.json:', error);
+}
+
+// Set credentials for the SDK
+process.env.GOOGLE_APPLICATION_CREDENTIALS = keyPath;
+
+// Initialize using new @google/genai SDK with Vertex AI backend
+const ai = new GoogleGenAI({
+    vertexai: true,
+    project: projectId,
+    location: 'global', // gemini-3.1-flash-lite is available in 'global'
+});
+
+const MODEL_NAME = 'gemini-3.1-flash-lite';
+
+/**
+ * Clean up text to reduce token usage.
+ */
+function sanitizeInput(text) {
+    if (!text) return '';
+    let sanitized = text.replace(/\n{3,}/g, '\n\n');
+    sanitized = sanitized.replace(/ {3,}/g, '  ');
+    return sanitized.trim();
+}
+
+/**
+ * Generate a response using Google Gen AI (Vertex AI backend).
+ * @param {string} userMessage - The new incoming message.
+ * @param {Array} history - Array of { role: 'user'|'model', parts: [{ text: '...' }] }
+ * @param {string} systemInstruction - The bot's role and rules.
+ * @param {string} ragContext - Top 3 retrieved chunks.
+ * @returns {Promise<{text: string, inputTokens: number, outputTokens: number}>}
+ */
+export async function generateGeminiResponse(userMessage, history = [], systemInstruction = '', ragContext = '') {
+    try {
+        // 1. Sliding Window History: last 8 messages (4 turns)
+        let limitedHistory = history.slice(-8).map(h => ({
+            role: h.role === 'bot' || h.role === 'assistant' ? 'model' : 'user',
+            parts: [{ text: sanitizeInput(h.parts?.[0]?.text || h.text || '') }]
+        }));
+
+        // 2. Sanitize inputs
+        const sanitizedSystem = sanitizeInput(systemInstruction);
+        let sanitizedRAG = ragContext ? sanitizeInput(ragContext) : '';
+        if (sanitizedRAG.length > 4000) sanitizedRAG = sanitizedRAG.substring(0, 4000) + '...';
+
+        const fullSystemInstruction = sanitizedSystem +
+            (sanitizedRAG ? `\n\nReference the following knowledge base context to answer user queries:\n${sanitizedRAG}` : '');
+
+        // 3. Build contents array
+        const contents = [
+            ...limitedHistory,
+            { role: 'user', parts: [{ text: sanitizeInput(userMessage) }] }
+        ];
+
+        // 4. Generate content
+        const response = await ai.models.generateContent({
+            model: MODEL_NAME,
+            contents,
+            config: {
+                systemInstruction: fullSystemInstruction,
+                temperature: 0.7,
+                maxOutputTokens: 4096,
+                topP: 0.95,
+            }
+        });
+
+        const responseText = response.candidates?.[0]?.content?.parts?.[0]?.text || response.text || '';
+        const inputTokens = response.usageMetadata?.promptTokenCount || 0;
+        const outputTokens = response.usageMetadata?.candidatesTokenCount || 0;
+
+        return { text: responseText, inputTokens, outputTokens, model: MODEL_NAME };
+
+    } catch (error) {
+        console.error('GeminiService Error:', error?.message || error);
+        throw new Error('Failed to communicate with Vertex AI');
+    }
+}
