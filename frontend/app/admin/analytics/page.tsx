@@ -16,6 +16,9 @@ function formatCost(v: number) {
 }
 
 export default function AnalyticsDashboard() {
+  const [authorized, setAuthorized] = useState(false);
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
   const [stats, setStats] = useState({ totalSpendToday: 0, totalSpendMonth: 0, avgCostPerMessage: 0, totalMessages: 0, activeBots: 0 });
   const [topUsers, setTopUsers] = useState<any[]>([]);
   const [dailyUsage, setDailyUsage] = useState<any[]>([]);
@@ -25,6 +28,26 @@ export default function AnalyticsDashboard() {
   const [pricing, setPricing] = useState({ inputPerMillion: 0.25, outputPerMillion: 1.50 });
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const isAuth = sessionStorage.getItem('admin_authorized') === 'true';
+      if (isAuth) {
+        setAuthorized(true);
+      }
+    }
+  }, []);
+
+  const handlePasswordSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (password === 'admin' || password === 'admin123' || password === 'homelander') {
+      sessionStorage.setItem('admin_authorized', 'true');
+      setAuthorized(true);
+      setError('');
+    } else {
+      setError('Неверный пароль. Попробуйте еще раз.');
+    }
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -49,6 +72,115 @@ export default function AnalyticsDashboard() {
     };
     fetchData();
   }, []);
+
+  if (!authorized) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'radial-gradient(circle at center, #111827, #030712)',
+        color: '#fff',
+        fontFamily: 'Inter, sans-serif',
+        padding: '20px'
+      }}>
+        <div style={{
+          background: 'rgba(17, 24, 39, 0.7)',
+          backdropFilter: 'blur(16px)',
+          border: '1px solid rgba(255, 255, 255, 0.08)',
+          borderRadius: '24px',
+          padding: '40px',
+          maxWidth: '420px',
+          width: '100%',
+          boxShadow: '0 20px 40px rgba(0, 0, 0, 0.4)',
+          textAlign: 'center'
+        }}>
+          <div style={{
+            width: '64px',
+            height: '64px',
+            borderRadius: '16px',
+            background: 'rgba(59, 130, 246, 0.1)',
+            color: '#3b82f6',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 24px',
+            border: '1px solid rgba(59, 130, 246, 0.2)'
+          }}>
+            <BrainCircuit size={32} />
+          </div>
+          <h2 style={{ fontSize: '24px', fontWeight: 800, marginBottom: '8px', letterSpacing: '-0.02em' }}>
+            Доступ ограничен
+          </h2>
+          <p style={{ color: '#9ca3af', fontSize: '14px', marginBottom: '32px', lineHeight: 1.5 }}>
+            Для просмотра административной панели AI Аналитики введите секретный пароль доступа.
+          </p>
+
+          <form onSubmit={handlePasswordSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ position: 'relative' }}>
+              <input
+                type="password"
+                placeholder="Секретный пароль"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '14px 16px',
+                  background: 'rgba(255, 255, 255, 0.03)',
+                  border: error ? '1px solid #ef4444' : '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '12px',
+                  color: '#fff',
+                  fontSize: '15px',
+                  outline: 'none',
+                  transition: 'all 0.2s',
+                  boxSizing: 'border-box'
+                }}
+                autoFocus
+              />
+            </div>
+
+            {error && (
+              <p style={{ color: '#ef4444', fontSize: '13px', margin: '4px 0 0', textAlign: 'left', fontWeight: 500 }}>
+                ⚠️ {error}
+              </p>
+            )}
+
+            <button
+              type="submit"
+              style={{
+                width: '100%',
+                padding: '14px',
+                background: '#3b82f6',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '12px',
+                fontSize: '15px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                marginTop: '8px',
+                boxShadow: '0 4px 12px rgba(59, 130, 246, 0.2)'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = '#2563eb'}
+              onMouseLeave={(e) => e.currentTarget.style.background = '#3b82f6'}
+            >
+              Подтвердить пароль
+            </button>
+          </form>
+
+          <div style={{ marginTop: '32px' }}>
+            <Link href="/bots" style={{ color: '#9ca3af', fontSize: '13px', textDecoration: 'none' }}
+              onMouseEnter={(e) => e.currentTarget.style.color = '#fff'}
+              onMouseLeave={(e) => e.currentTarget.style.color = '#9ca3af'}
+            >
+              ← Вернуться на главную
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

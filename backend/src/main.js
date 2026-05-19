@@ -62,6 +62,26 @@ app.use((req, res, next) => {
 const PgStore = connectPgSimple(expressSession)
 const sessionPool = new pgPkg.Pool({ connectionString: process.env.DATABASE_URL, max: 2 })
 
+// Ensure user_sessions table exists in PostgreSQL database
+try {
+  await sessionPool.query(`
+    CREATE TABLE IF NOT EXISTS "user_sessions" (
+      "sid" varchar NOT NULL COLLATE "default",
+      "sess" json NOT NULL,
+      "expire" timestamp(6) NOT NULL
+    ) WITH (OIDS=FALSE);
+  `);
+  try {
+    await sessionPool.query(`ALTER TABLE "user_sessions" ADD CONSTRAINT "session_pkey" PRIMARY KEY ("sid") NOT DEFERRABLE INITIALLY IMMEDIATE;`);
+  } catch (pkeyErr) {
+    // Primary key already exists
+  }
+  await sessionPool.query(`CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "user_sessions" ("expire");`);
+  console.log('[Sessions] user_sessions table created/verified successfully.');
+} catch (tableErr) {
+  console.error('[Sessions] Error verifying/creating user_sessions table:', tableErr);
+}
+
 app.use(
   expressSession({
     store: new PgStore({
@@ -77,6 +97,14 @@ app.use(
     saveUninitialized: false,
   })
 );
+
+import fs from 'fs'
+
+const uploadDir = path.join(__dirname, '../../uploads')
+if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true })
+}
+app.use('/uploads', express.static(uploadDir))
 
 app.use('/api/auth', authRouter)
 app.use('/api/statistics', statisticsRouter)

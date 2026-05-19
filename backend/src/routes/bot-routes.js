@@ -7,9 +7,15 @@ import { requireAuth } from '../middleware/auth.js'
 import { trackUsage, hasEnoughMessages } from '../services/usage-tracker.js'
 import { generateGeminiResponse } from '../services/GeminiService.js';
 import multer from 'multer'
+import fs from 'fs'
+import path from 'path'
+import { fileURLToPath } from 'url'
 import { createRequire } from 'module'
 const require = createRequire(import.meta.url)
 const pdfParse = require('pdf-parse')
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
 const upload = multer({ storage: multer.memoryStorage() })
 const router = express.Router()
@@ -107,11 +113,13 @@ router.post('/bot', requireAuth, async (req, res) => {
         // Telegram Webhook Setup
         if (platform === 'TELEGRAM' && apiToken) {
             try {
-                const webhookUrl = `${process.env.APP_URL || 'https://yourdomain.com'}/api/webhook/telegram/${bot.slug}`
-                await callTelegramAPI('setWebhook', apiToken, { url: webhookUrl })
-                console.log(`Telegram webhook set to ${webhookUrl}`)
+                let baseUrl = process.env.BASE_URL || process.env.APP_URL || 'https://yourdomain.com';
+                baseUrl = baseUrl.replace(/\/+$/, '');
+                const webhookUrl = `${baseUrl}/api/webhook/telegram/${bot.slug}`;
+                await callTelegramAPI('setWebhook', apiToken, { url: webhookUrl });
+                console.log(`Telegram webhook set to ${webhookUrl}`);
             } catch (err) {
-                console.error(`Failed to set Telegram Webhook for bot ${bot.id}:`, err.message)
+                console.error(`Failed to set Telegram Webhook for bot ${bot.id}:`, err.message);
             }
         }
 
@@ -214,6 +222,16 @@ router.post('/bot/:id/start', async (req, res) => {
         if (bot.platform === 'WHATSAPP') {
             const { startWhatsAppBot } = await import('../services/whatsapp.js')
             startWhatsAppBot(bot, getPrisma(), io)
+        } else if (bot.platform === 'TELEGRAM' && bot.apiToken) {
+            try {
+                let baseUrl = process.env.BASE_URL || process.env.APP_URL || 'https://yourdomain.com';
+                baseUrl = baseUrl.replace(/\/+$/, '');
+                const webhookUrl = `${baseUrl}/api/webhook/telegram/${bot.slug}`;
+                await callTelegramAPI('setWebhook', bot.apiToken, { url: webhookUrl });
+                console.log(`Telegram webhook refreshed to ${webhookUrl}`);
+            } catch (err) {
+                console.error(`Failed to refresh Telegram Webhook for bot ${bot.id}:`, err.message);
+            }
         }
 
         res.json({ success: true, isActive: true })
@@ -241,31 +259,62 @@ router.get('/bot/:id/chats', async (req, res) => {
     try {
         const prisma = getPrisma()
 
-        // ONE-TIME FIX: Merge legacy number-only chatIds with @s.whatsapp.net
-        const legacyContacts = await prisma.contact.findMany({
-            where: { botId, chatId: { not: { contains: '@' } } }
-        });
+        const bot = await prisma.bot.findUnique({ where: { id: botId } });
         
-        for (const lc of legacyContacts) {
-            const newId = `${lc.chatId}@s.whatsapp.net`;
-            try {
-                // Update messages
-                await prisma.message.updateMany({
-                    where: { botId, chatId: lc.chatId },
-                    data: { chatId: newId }
-                });
-                
-                // Try to update contact or merge name if exists
-                const existing = await prisma.contact.findUnique({ where: { botId_chatId: { botId, chatId: newId } } });
-                if (existing) {
-                    if (lc.name && lc.name !== 'Contact') {
-                        await prisma.contact.update({ where: { botId_chatId: { botId, chatId: newId } }, data: { name: lc.name } });
+        if (bot && bot.platform === 'WHATSAPP') {
+            // ONE-TIME FIX: Merge legacy number-only chatIds with @s.whatsapp.net
+            const legacyContacts = await prisma.contact.findMany({
+                where: { botId, chatId: { not: { contains: '@' } } }
+            });
+            
+            for (const lc of legacyContacts) {
+                const newId = `${lc.chatId}@s.whatsapp.net`;
+                try {
+                    // Update messages
+                    await prisma.message.updateMany({
+                        where: { botId, chatId: lc.chatId },
+                        data: { chatId: newId }
+                    });
+                    
+                    // Try to update contact or merge name if exists
+                    const existing = await prisma.contact.findUnique({ where: { botId_chatId: { botId, chatId: newId } } });
+                    if (existing) {
+                        if (lc.name && lc.name !== 'Contact') {
+                            await prisma.contact.update({ where: { botId_chatId: { botId, chatId: newId } }, data: { name: lc.name } });
+                        }
+                        await prisma.contact.delete({ where: { botId_chatId: { botId, chatId: lc.chatId } } });
+                    } else {
+                        await prisma.contact.update({ where: { botId_chatId: { botId, chatId: lc.chatId } }, data: { chatId: newId } });
                     }
-                    await prisma.contact.delete({ where: { botId_chatId: { botId, chatId: lc.chatId } } });
-                } else {
-                    await prisma.contact.update({ where: { botId_chatId: { botId, chatId: lc.chatId } }, data: { chatId: newId } });
-                }
-            } catch (e) { console.error('Error migrating legacy contact:', e); }
+                } catch (e) { console.error('Error migrating legacy contact:', e); }
+            }
+        } else if (bot && bot.platform === 'TELEGRAM') {
+            // ONE-TIME FIX: Strip @s.whatsapp.net from corrupted Telegram contacts
+            const corruptedContacts = await prisma.contact.findMany({
+                where: { botId, chatId: { contains: '@' } }
+            });
+            
+            for (const cc of corruptedContacts) {
+                const cleanId = cc.chatId.split('@')[0];
+                try {
+                    // Update messages
+                    await prisma.message.updateMany({
+                        where: { botId, chatId: cc.chatId },
+                        data: { chatId: cleanId }
+                    });
+                    
+                    // Try to update contact or merge name if exists
+                    const existing = await prisma.contact.findUnique({ where: { botId_chatId: { botId, chatId: cleanId } } });
+                    if (existing) {
+                        if (cc.name && cc.name !== 'Contact' && existing.name === 'Contact') {
+                            await prisma.contact.update({ where: { botId_chatId: { botId, chatId: cleanId } }, data: { name: cc.name } });
+                        }
+                        await prisma.contact.delete({ where: { botId_chatId: { botId, chatId: cc.chatId } } });
+                    } else {
+                        await prisma.contact.update({ where: { botId_chatId: { botId, chatId: cc.chatId } }, data: { chatId: cleanId } });
+                    }
+                } catch (e) { console.error('Error fixing corrupted telegram contact:', e); }
+            }
         }
 
         // Get the last message per chatId
@@ -435,17 +484,22 @@ router.post('/bot/:id/send', async (req, res) => {
 
         if (!text || !rawChatId) return res.status(400).json({ error: 'text and chatId are required' })
 
-        const chatId = rawChatId.includes('@') ? rawChatId : `${rawChatId}@s.whatsapp.net`
-
         const bot = await prisma.bot.findUnique({ where: { id: botId } })
         if (!bot) return res.status(404).json({ error: 'Bot not found' })
 
+        let chatId = rawChatId;
         if (bot.platform === 'WHATSAPP') {
-            const { getWhatsAppSession } = await import('../services/whatsapp.js')
-            const sock = getWhatsAppSession(botId)
-            if (!sock) return res.status(503).json({ error: 'WhatsApp session not active. Start the bot first.' })
-
-            await sock.sendMessage(chatId, { text })
+            chatId = rawChatId.includes('@') ? rawChatId : `${rawChatId}@s.whatsapp.net`;
+            const { getWhatsAppSession } = await import('../services/whatsapp.js');
+            const sock = getWhatsAppSession(botId);
+            if (!sock) return res.status(503).json({ error: 'WhatsApp session not active. Start the bot first.' });
+            await sock.sendMessage(chatId, { text });
+        } else if (bot.platform === 'TELEGRAM') {
+            if (!bot.apiToken) return res.status(503).json({ error: 'Telegram API token missing.' });
+            await callTelegramAPI('sendMessage', bot.apiToken, {
+                chat_id: chatId,
+                text: text
+            });
         }
 
         // Save sent message to DB
@@ -481,7 +535,6 @@ router.post('/bot/:id/broadcast', async (req, res) => {
 
             for (const rawId of chatIds) {
                 try {
-                    // Рассылка по номерам - тут дописываем @s.whatsapp.net если это просто цифры
                     const jid = rawId.includes('@') ? rawId : `${rawId}@s.whatsapp.net`
                     await sock.sendMessage(jid, { text })
 
@@ -491,8 +544,28 @@ router.post('/bot/:id/broadcast', async (req, res) => {
                     io.emit(`chat-${botId}`, savedMsg)
                     results.push({ chatId: jid, success: true })
 
-                    // Rate limit: 1 message per second
                     await new Promise(r => setTimeout(r, 1000))
+                } catch (err) {
+                    results.push({ chatId: rawId, success: false, error: err.message })
+                }
+            }
+        } else if (bot.platform === 'TELEGRAM') {
+            if (!bot.apiToken) return res.status(503).json({ error: 'Telegram API token missing.' })
+            
+            for (const chatId of chatIds) {
+                try {
+                    await callTelegramAPI('sendMessage', bot.apiToken, {
+                        chat_id: chatId,
+                        text: text
+                    })
+
+                    const savedMsg = await prisma.message.create({
+                        data: { botId, sender: 'bot', text, chatId: chatId }
+                    })
+                    io.emit(`chat-${botId}`, savedMsg)
+                    results.push({ chatId, success: true })
+
+                    await new Promise(r => setTimeout(r, 500)) // Rate limit for Telegram (approx 30 msgs/sec limit, but 0.5s is safe)
                 } catch (err) {
                     results.push({ chatId, success: false, error: err.message })
                 }
@@ -574,10 +647,37 @@ router.post('/webhook/telegram/:slug', async (req, res) => {
         if (!bot || !bot.isActive || bot.platform !== 'TELEGRAM') return
 
         const update = req.body
-        if (!update.message || !update.message.text) return
+        if (!update.message) return
+
+        let text = update.message.text || '';
+        let telegramAudioBuffer = null;
+        let mimeType = null;
+
+        if (update.message.voice || update.message.audio) {
+            const fileId = update.message.voice?.file_id || update.message.audio?.file_id;
+            try {
+                const fileData = await fetch(`https://api.telegram.org/bot${bot.apiToken}/getFile?file_id=${fileId}`).then(r=>r.json());
+                if (fileData.ok) {
+                    const filePath = fileData.result.file_path;
+                    const audioRes = await fetch(`https://api.telegram.org/file/bot${bot.apiToken}/${filePath}`);
+                    const arrayBuffer = await audioRes.arrayBuffer();
+                    telegramAudioBuffer = Buffer.from(arrayBuffer);
+                    mimeType = update.message.voice?.mime_type || update.message.audio?.mime_type || 'audio/ogg';
+                    
+                    const ext = filePath.split('.').pop() || 'ogg';
+                    const filename = `tg_audio_${Date.now()}_${Math.floor(Math.random()*1000)}.${ext}`;
+                    const localPath = path.join(__dirname, '../../uploads', filename);
+                    fs.writeFileSync(localPath, telegramAudioBuffer);
+                    
+                    const audioTag = `[AUDIO]/uploads/${filename}`;
+                    text = text ? `${text}\n${audioTag}` : audioTag;
+                }
+            } catch(e) { console.error('Telegram Audio error', e) }
+        }
+
+        if (!text && !telegramAudioBuffer) return
 
         const telegramChatId = update.message.chat.id.toString()
-        const text = update.message.text
         const senderName = update.message.from?.first_name || 'User'
 
         const io = req.app.get('io')
@@ -633,7 +733,7 @@ router.post('/webhook/telegram/:slug', async (req, res) => {
         let outputTokens = 0;
 
         try {
-            const geminiResult = await generateGeminiResponse(userMessage, history, systemInstruction, ragContext);
+            const geminiResult = await generateGeminiResponse(userMessage, history, systemInstruction, ragContext, telegramAudioBuffer, mimeType);
             aiResponseText = geminiResult.text;
             inputTokens = geminiResult.inputTokens;
             outputTokens = geminiResult.outputTokens;
@@ -690,7 +790,7 @@ router.post('/bot/:id/agent-chat', requireAuth, async (req, res) => {
         const bot = await prisma.bot.findUnique({ where: { id: botId, user_id: req.session.userId } })
         if (!bot) return res.status(404).json({ error: 'Bot not found' })
 
-        const systemInstruction = `You are an expert AI configuration agent. Your task is to update the system prompt and data prompt for a WhatsApp bot based on user requests.
+        const systemInstruction = `You are an expert AI configuration agent. Your task is to update the system prompt and data prompt for a bot based on user requests.
 Current system_prompt:
 ${bot.system_prompt}
 
@@ -704,6 +804,32 @@ Respond with a JSON object ONLY, in this exact format:
   "new_system_prompt": "The complete updated system prompt",
   "new_data_prompt": "The complete updated data prompt"
 }
+
+CRITICAL RULES FOR new_data_prompt:
+You MUST format new_data_prompt EXACTLY like this with these specific headers, otherwise the system will break:
+Компания:
+[Name]
+
+Описание:
+[Description]
+
+Преимущества:
+[Benefits]
+
+Цены и условия:
+[Pricing]
+
+FAQ:
+В: [Question]
+О: [Answer]
+
+Полезные ссылки:
+[Title]: [URL]
+
+Контакт менеджера:
+[Contact]
+
+Do not change or omit the headers!
 Ensure the output is strictly valid JSON. Do not add markdown blocks around JSON.`;
 
         const geminiHistory = [];
@@ -767,5 +893,22 @@ Ensure the output is strictly valid JSON. Do not add markdown blocks around JSON
         res.status(500).json({ error: e.message })
     }
 })
+
+// ── SUPPORT TICKETS ────────────────────────────────────────
+router.post('/support', async (req, res) => {
+    const { name, email, message } = req.body;
+    if (!name || !email || !message) return res.status(400).json({ error: 'All fields are required' });
+    try {
+        const prisma = getPrisma();
+        console.log(`[Support Ticket] From: ${name} <${email}>\n${message}`);
+        await prisma.supportTicket.create({
+            data: { name, email, message }
+        });
+        res.json({ success: true });
+    } catch (e) {
+        console.error('Support route error:', e);
+        res.status(500).json({ error: e.message });
+    }
+});
 
 export default router

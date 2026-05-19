@@ -69,16 +69,6 @@ export default function MyBots() {
         </div>
       </div>
 
-      <div style={{ background: '#111827', border: '1px solid #374151', borderRadius: '12px', padding: '20px', marginBottom: '32px', display: 'flex', gap: '32px' }}>
-        <div>
-          <div style={{ color: '#9ca3af', fontSize: '14px', marginBottom: '4px' }}>{t.totalMessages}</div>
-          <div style={{ color: '#fff', fontSize: '24px', fontWeight: 'bold' }}>{stats.messageCount}</div>
-        </div>
-        <div>
-          <div style={{ color: '#9ca3af', fontSize: '14px', marginBottom: '4px' }}>{t.estCost}</div>
-          <div style={{ color: '#22c55e', fontSize: '24px', fontWeight: 'bold' }}>${stats.cost}</div>
-        </div>
-      </div>
 
       <div className={styles.botsGrid}>
         {bots.length === 0 ? (

@@ -318,6 +318,28 @@ export default function BotDetails() {
   const [links, setLinks] = useState([{ title: '', url: '' }]);
   const [managerContact, setManagerContact] = useState('');
 
+  const API_BASE = 'http://localhost:3001';
+  const renderMessageContent = (text: string) => {
+    if (!text) return null;
+    const parts = text.split(/(\[AUDIO\]\/uploads\/[^\s\n]+)/g);
+    return parts.map((part, i) => {
+      if (part.startsWith('[AUDIO]/uploads/')) {
+        const filePath = part.replace('[AUDIO]', '');
+        const audioUrl = `${API_BASE}${filePath}`;
+        return (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '12px', padding: '8px 12px' }}>
+            <span style={{ fontSize: '1.2rem' }}>🎤</span>
+            <audio controls style={{ height: '32px', flex: 1, minWidth: '180px', accentColor: 'var(--primary)' }}>
+              <source src={audioUrl} />
+              Голосовое сообщение
+            </audio>
+          </div>
+        );
+      }
+      return part ? <span key={i} style={{ whiteSpace: 'pre-wrap' }}>{part}</span> : null;
+    });
+  };
+
   const parseSystemPrompt = (prompt: string) => {
     if (!prompt) return;
     if (!prompt.includes('Сфера деятельности:') && !prompt.includes('Компания занимается:')) {
@@ -473,6 +495,13 @@ export default function BotDetails() {
       if (data.data_prompt) parseDataPrompt(data.data_prompt);
       setSystemPrompt(data.system_prompt || '');
       setDataPrompt(data.data_prompt || '');
+      if (data.agentHistory) {
+        try {
+          setAgentChatHistory(JSON.parse(data.agentHistory));
+        } catch (e) {
+          console.error("Failed to parse agent history", e);
+        }
+      }
     }
   }
 
@@ -581,7 +610,16 @@ export default function BotDetails() {
       const data = await res.json();
       if (data.text) {
         const appendedData = `\n\n--- ДАННЫЕ ИЗ PDF (${file.name}) ---\n${data.text}`;
-        setDataPrompt(prev => prev + appendedData);
+        const newDataPrompt = dataPrompt + appendedData;
+        setDataPrompt(newDataPrompt);
+        
+        // Save to backend so agent can see it
+        await fetch(`${API}/bot/${botId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ system_prompt: systemPrompt, data_prompt: newDataPrompt }),
+          credentials: 'include'
+        });
         
         // Автоматически отправляем агенту сообщение о загрузке ПДФ
         setActiveTab('agent');
@@ -994,9 +1032,11 @@ export default function BotDetails() {
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.2rem' }}>
                           <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--on-surface)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {chat.name 
-                              ? (chat.realJid || chat.chatId).includes('@lid') ? chat.name : `+${formatChatId(chat.realJid || chat.chatId)} (${chat.name})`
-                              : ((chat.realJid || chat.chatId).includes('@lid') ? 'Скрытый номер' : `+${formatChatId(chat.realJid || chat.chatId)}`)}
+                            {bot?.platform === 'TELEGRAM' 
+                              ? (chat.name || chat.chatId)
+                              : (chat.name 
+                                  ? (chat.realJid || chat.chatId).includes('@lid') ? chat.name : `+${formatChatId(chat.realJid || chat.chatId)} (${chat.name})`
+                                  : ((chat.realJid || chat.chatId).includes('@lid') ? 'Скрытый номер' : `+${formatChatId(chat.realJid || chat.chatId)}`))}
                           </div>
                           <Edit2 size={12} color="#666" style={{ cursor: 'pointer', opacity: 0.7 }} onClick={(e) => handleEditContactName(e, chat.chatId, chat.name || '')} />
                         </div>
@@ -1056,9 +1096,11 @@ export default function BotDetails() {
                           <div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                               <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--on-surface)' }}>
-                                {currentChat?.name 
-                                  ? (currentChat.realJid || selectedChat).includes('@lid') ? currentChat.name : `+${formatChatId(currentChat.realJid || selectedChat)} (${currentChat.name})`
-                                  : ((currentChat?.realJid || selectedChat).includes('@lid') ? 'Скрытый номер' : `+${formatChatId(currentChat?.realJid || selectedChat)}`)}
+                                {bot?.platform === 'TELEGRAM'
+                                  ? (currentChat?.name || selectedChat)
+                                  : (currentChat?.name 
+                                      ? (currentChat.realJid || selectedChat).includes('@lid') ? currentChat.name : `+${formatChatId(currentChat.realJid || selectedChat)} (${currentChat.name})`
+                                      : ((currentChat?.realJid || selectedChat).includes('@lid') ? 'Скрытый номер' : `+${formatChatId(currentChat?.realJid || selectedChat)}`))}
                               </div>
                               <Edit2 size={12} color="#565e74" style={{ cursor: 'pointer', opacity: 0.7 }} onClick={(e) => handleEditContactName(e, selectedChat, currentChat?.name || '')} />
                             </div>
@@ -1106,7 +1148,7 @@ export default function BotDetails() {
                           minWidth: '80px',
                           position: 'relative'
                         }}>
-                          <div style={{ whiteSpace: 'pre-wrap', paddingRight: msg.sender === 'user' ? '1rem' : '0' }}>{msg.text}</div>
+                          <div style={{ paddingRight: msg.sender === 'user' ? '1rem' : '0' }}>{renderMessageContent(msg.text)}</div>
                           <div style={{ 
                             fontSize: '0.6rem', 
                             opacity: 0.6, 
@@ -1255,7 +1297,7 @@ export default function BotDetails() {
           <div style={{ flex: 1, overflowY: 'auto', padding: '3rem 2rem' }}>
             <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
               
-              {qrCode && (
+              {qrCode && bot.platform === 'WHATSAPP' && (
                 <div className="glass-panel" style={{ padding: '3rem', textAlign: 'center', marginBottom: '3rem', display: 'flex', flexDirection: 'column', alignItems: 'center', background: '#e6f4ea', borderColor: '#c3e6cb' }}>
                   <h3 style={{ margin: '0 0 1rem', color: '#003527', fontSize: '1.5rem' }}>{t.linkWhatsapp}</h3>
                   <p style={{ color: '#565e74', marginBottom: '2rem' }}>{t.scanQr}</p>

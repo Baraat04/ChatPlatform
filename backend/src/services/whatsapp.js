@@ -442,9 +442,30 @@ export const startWhatsAppBot = async (bot, prisma, io) => {
                 }
             }
 
-            const textMessage = msg.message.conversation || msg.message.extendedTextMessage?.text
+            let textMessage = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
+            let audioBuffer = null;
+            let audioMimeType = null;
+
+            if (msg.message.audioMessage || msg.message.ptvMessage) {
+                const mediaMsg = msg.message.audioMessage || msg.message.ptvMessage;
+                try {
+                    const { downloadMediaMessage } = await import('@whiskeysockets/baileys');
+                    audioBuffer = await downloadMediaMessage(msg, 'buffer', {}, { logger: pino({ level: 'silent' }) });
+                    audioMimeType = mediaMsg.mimetype || 'audio/ogg';
+                    const ext = audioMimeType.includes('mp4') ? 'mp4' : 'ogg';
+                    const filename = `wa_audio_${Date.now()}_${Math.floor(Math.random()*1000)}.${ext}`;
+                    const filepath = path.join(__dirname, '../../uploads', filename);
+                    fs.writeFileSync(filepath, audioBuffer);
+                    
+                    const audioTag = `[AUDIO]/uploads/${filename}`;
+                    textMessage = textMessage ? `${textMessage}\n${audioTag}` : audioTag;
+                    console.log(`[WhatsApp Bot ${botId}] Downloaded audio to ${filename}`);
+                } catch (e) {
+                    console.error(`[WhatsApp Bot ${botId}] Error downloading audio:`, e);
+                }
+            }
             
-            if (!textMessage) return
+            if (!textMessage && !audioBuffer) return
 
             console.log(`[WhatsApp Bot ${botId}] ${isFromMe ? 'Sent to' : 'Received from'} ${senderNumber}: ${textMessage}`)
 
@@ -507,7 +528,7 @@ export const startWhatsAppBot = async (bot, prisma, io) => {
             }
 
             // Call Gemini
-            const geminiResult = await generateGeminiResponse(userMessage, history, systemInstruction, ragContext);
+            const geminiResult = await generateGeminiResponse(userMessage, history, systemInstruction, ragContext, audioBuffer, audioMimeType);
             const aiResponseText = geminiResult.text;
 
             // Track usage with existing trackUsage function

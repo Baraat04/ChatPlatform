@@ -789,9 +789,19 @@ ${managerContact}`;
                   placeholder="1234567890:ABCDefGhIjKlMnOpQrStUvWxYz"
                   type="text" value={botToken}
                   onChange={(e) => setBotToken(e.target.value)} required style={{ border: '1px solid var(--outline)' }} />
-                <p style={{ color: 'var(--on-surface-variant)', fontSize: '14px', marginTop: '12px' }}>
-                  Получите токен в Telegram у <strong>@BotFather</strong>.
-                </p>
+                <div style={{ padding: '16px', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.3)', borderRadius: 'var(--radius-md)', marginTop: '16px', color: 'var(--on-surface)', fontSize: '14px', lineHeight: '1.6' }}>
+                  <h4 style={{ margin: '0 0 12px 0', color: '#3b82f6', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <MessageCircle size={18} /> Как получить токен в Telegram:
+                  </h4>
+                  <ol style={{ margin: 0, paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <li>Откройте Telegram и найдите официального бота <strong>@BotFather</strong></li>
+                    <li>Нажмите <strong>Start</strong> или отправьте команду <code>/newbot</code></li>
+                    <li>Введите имя для вашего бота (например, "Мой Консультант")</li>
+                    <li>Введите уникальное системное имя (должно заканчиваться на "bot", например "MyAI_bot")</li>
+                    <li>BotFather пришлет вам сообщение с токеном (длинная строка символов)</li>
+                    <li>Скопируйте и вставьте этот токен в поле выше</li>
+                  </ol>
+                </div>
               </div>
             )}
             

@@ -36,7 +36,7 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!loading && !user) {
-      router.replace('/login');
+      router.replace('/landing');
     }
   }, [user, loading, router]);
 

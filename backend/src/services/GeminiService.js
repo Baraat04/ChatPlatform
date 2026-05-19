@@ -57,7 +57,7 @@ function sanitizeInput(text) {
  * @param {string} ragContext - Top 3 retrieved chunks.
  * @returns {Promise<{text: string, inputTokens: number, outputTokens: number}>}
  */
-export async function generateGeminiResponse(userMessage, history = [], systemInstruction = '', ragContext = '') {
+export async function generateGeminiResponse(userMessage, history = [], systemInstruction = '', ragContext = '', audioBuffer = null, audioMimeType = null) {
     try {
         // 1. Sliding Window History: last 8 messages (4 turns)
         let limitedHistory = history.slice(-8).map(h => ({
@@ -74,9 +74,26 @@ export async function generateGeminiResponse(userMessage, history = [], systemIn
             (sanitizedRAG ? `\n\nReference the following knowledge base context to answer user queries:\n${sanitizedRAG}` : '');
 
         // 3. Build contents array
+        const userParts = [];
+        if (userMessage) {
+            userParts.push({ text: sanitizeInput(userMessage) });
+        }
+        if (audioBuffer) {
+            userParts.push({
+                inlineData: {
+                    mimeType: audioMimeType || 'audio/ogg',
+                    data: audioBuffer.toString('base64')
+                }
+            });
+        }
+        // If empty (e.g. only audio was sent and it failed), fallback
+        if (userParts.length === 0) {
+            userParts.push({ text: '[Голосовое сообщение]' });
+        }
+
         const contents = [
             ...limitedHistory,
-            { role: 'user', parts: [{ text: sanitizeInput(userMessage) }] }
+            { role: 'user', parts: userParts }
         ];
 
         // 4. Generate content

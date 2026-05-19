@@ -14,7 +14,114 @@ import {
   ShieldAlert
 } from 'lucide-react';
 
+import { useLanguage } from '../contexts/LanguageContext';
+
 const API = 'http://localhost:3001/api/statistics';
+
+const statsDict = {
+  RU: {
+    title: 'Аналитика интеллекта',
+    totalUsed: 'Всего использовано',
+    avgTokens: 'Ср. токенов / сообщ.',
+    usedToday: 'Использовано сегодня',
+    remaining: 'Осталось сообщений',
+    msg: 'сообщ.',
+    balance: 'Баланс сообщений',
+    spent: 'Потрачено',
+    messages: 'сообщений',
+    perReq: 'На каждый запрос',
+    oneMsg: '1 сообщение',
+    chartTitle: 'Кумулятивный рост использования (7д)',
+    expand: 'Увеличить лимит',
+    popular: 'ПОПУЛЯРНО',
+    growthBonus: 'Growth (Бонус 20%)',
+    proBonus: 'Pro Unlimited (Бонус 50%)',
+    efficiency: 'Внутренняя эффективность',
+    ledgerTitle: 'Журнал эффективности ботов',
+    botIdSlug: 'ID БОТА / СЛАГ',
+    platform: 'ПЛАТФОРМА',
+    throughput: 'ПРОПУСКНАЯ СПОСОБНОСТЬ',
+    messagesCol: 'СООБЩЕНИЯ',
+    efficiencyCol: 'ЭФФЕКТИВНОСТЬ',
+    txLogTitle: 'Глобальный журнал транзакций',
+    timestamp: 'ВРЕМЯ',
+    type: 'ТИП',
+    delta: 'ИЗМЕНЕНИЕ',
+    description: 'ОПИСАНИЕ',
+    loadingText: 'Анализ нейронной сети...',
+    purchaseSuccess: 'Успешно добавлено {amount} сообщений!',
+    purchaseError: 'Ошибка покупки',
+    networkError: 'Ошибка сети',
+  },
+  KZ: {
+    title: 'Интеллект аналитикасы',
+    totalUsed: 'Барлығы пайдаланылды',
+    avgTokens: 'Орташа токен / хабарлама',
+    usedToday: 'Бүгін пайдаланылды',
+    remaining: 'Қалған хабарламалар',
+    msg: 'хаб.',
+    balance: 'Хабарламалар теңгерімі',
+    spent: 'Жұмсалды',
+    messages: 'хабарлама',
+    perReq: 'Әрбір сұранысқа',
+    oneMsg: '1 хабарлама',
+    chartTitle: 'Жиынтық пайдалану өсімі (7 күн)',
+    expand: 'Сыйымдылықты арттыру',
+    popular: 'ТАҢДАУЛЫ',
+    growthBonus: 'Growth (20% бонус)',
+    proBonus: 'Pro Unlimited (50% бонус)',
+    efficiency: 'Ішкі тиімділік',
+    ledgerTitle: 'Боттардың тиімділік журналы',
+    botIdSlug: 'БОТ ID / СЛАГ',
+    platform: 'ПЛАТФОРМА',
+    throughput: 'ӨТКІЗГІШТІК ҚАБІЛЕТІ',
+    messagesCol: 'ХАБАРЛАМАЛАР',
+    efficiencyCol: 'ТИІМДІЛІК',
+    txLogTitle: 'Жалпы транзакциялар журналы',
+    timestamp: 'УАҚЫТЫ',
+    type: 'ТҮРІ',
+    delta: 'ӨЗГЕРІС',
+    description: 'СИПАТТАМАСЫ',
+    loadingText: 'Нейрондық желіні талдау...',
+    purchaseSuccess: 'Сәтті түрде {amount} хабарлама қосылды!',
+    purchaseError: 'Сатып алу қатесі',
+    networkError: 'Желі қатесі',
+  },
+  EN: {
+    title: 'Intelligence Analytics',
+    totalUsed: 'Total Used',
+    avgTokens: 'Avg. Tokens / Msg',
+    usedToday: 'Used Today',
+    remaining: 'Messages Remaining',
+    msg: 'msg',
+    balance: 'Messages Balance',
+    spent: 'Spent',
+    messages: 'messages',
+    perReq: 'On each request',
+    oneMsg: '1 message',
+    chartTitle: 'Cumulative Usage Growth (7d)',
+    expand: 'Expand Capacity',
+    popular: 'POPULAR',
+    growthBonus: 'Growth (20% bonus)',
+    proBonus: 'Pro Unlimited (50% bonus)',
+    efficiency: 'Internal efficiency',
+    ledgerTitle: 'Bot Performance Ledger',
+    botIdSlug: 'BOT ID / SLUG',
+    platform: 'PLATFORM',
+    throughput: 'THROUGHPUT',
+    messagesCol: 'MESSAGES',
+    efficiencyCol: 'EFFICIENCY',
+    txLogTitle: 'Global Transaction Log',
+    timestamp: 'TIMESTAMP',
+    type: 'TYPE',
+    delta: 'DELTA',
+    description: 'DESCRIPTION',
+    loadingText: 'Analyzing neural network...',
+    purchaseSuccess: 'Successfully added {amount} messages!',
+    purchaseError: 'Purchase error',
+    networkError: 'Network error',
+  }
+};
 
 type Overview = {
   messagesRemaining: number;
@@ -48,6 +155,9 @@ type Transaction = {
 };
 
 export default function StatisticsPage() {
+  const { language } = useLanguage();
+  const t = statsDict[language] || statsDict.RU;
+
   const { user, refreshProfile } = useAuth();
   const [overview, setOverview] = useState<Overview | null>(null);
   const [bots, setBots] = useState<BotStat[]>([]);
@@ -97,16 +207,16 @@ export default function StatisticsPage() {
       });
       const data = await res.json();
       if (data.success) {
-        showBanner('success', `Успешно добавлено ${data.added} сообщений!`);
+        showBanner('success', t.purchaseSuccess.replace('{amount}', data.added.toString()));
         await refreshProfile();
         // Refresh overview
         const o = await fetch(`${API}/overview`, { credentials: 'include' }).then(r => r.json());
         setOverview(o);
       } else {
-        showBanner('error', data.error || 'Ошибка покупки');
+        showBanner('error', data.error || t.purchaseError);
       }
     } catch (e) {
-      showBanner('error', 'Ошибка сети');
+      showBanner('error', t.networkError);
     } finally {
       setPurchaseLoading(null);
     }
@@ -116,7 +226,7 @@ export default function StatisticsPage() {
     return (
       <div className={styles.loadingWrap}>
         <div className={styles.spinner} />
-        <p>Анализ нейронной сети...</p>
+        <p>{t.loadingText}</p>
       </div>
     );
   }
@@ -164,27 +274,27 @@ export default function StatisticsPage() {
 
       <div className={styles.header}>
         <div>
-          <h1 className={styles.title}>Intelligence Analytics</h1>
+          <h1 className={styles.title}>{t.title}</h1>
         </div>
       </div>
 
       {/* Metrics Row */}
       <div className={styles.metricsRow}>
         <div className={styles.metricCard}>
-          <div className={styles.metricLabel}><MessageSquare size={14} /> Total Used</div>
-          <div className={styles.metricValue}>{(overview?.totalMessagesUsed ?? 0).toLocaleString()} msg</div>
+          <div className={styles.metricLabel}><MessageSquare size={14} /> {t.totalUsed}</div>
+          <div className={styles.metricValue}>{(overview?.totalMessagesUsed ?? 0).toLocaleString()} {t.msg}</div>
         </div>
         <div className={styles.metricCard}>
-          <div className={styles.metricLabel}><Zap size={14} /> Avg. Tokens / Msg</div>
+          <div className={styles.metricLabel}><Zap size={14} /> {t.avgTokens}</div>
           <div className={styles.metricValue}>{(overview?.avgTokensPerMessage ?? 0).toLocaleString()}</div>
         </div>
         <div className={styles.metricCard}>
-          <div className={styles.metricLabel}><TrendingUp size={14} /> Used Today</div>
-          <div className={styles.metricValue} style={{ color: 'var(--primary)' }}>{(overview?.todayUsage ?? 0).toLocaleString()} msg</div>
+          <div className={styles.metricLabel}><TrendingUp size={14} /> {t.usedToday}</div>
+          <div className={styles.metricValue} style={{ color: 'var(--primary)' }}>{(overview?.todayUsage ?? 0).toLocaleString()} {t.msg}</div>
         </div>
         <div className={styles.metricCard}>
-          <div className={styles.metricLabel}><Wallet size={14} /> Messages Remaining</div>
-          <div className={styles.metricValue} style={{ color: 'var(--primary)' }}>{(overview?.messagesRemaining ?? 0).toLocaleString()} msg</div>
+          <div className={styles.metricLabel}><Wallet size={14} /> {t.remaining}</div>
+          <div className={styles.metricValue} style={{ color: 'var(--primary)' }}>{(overview?.messagesRemaining ?? 0).toLocaleString()} {t.msg}</div>
         </div>
       </div>
 
@@ -193,7 +303,7 @@ export default function StatisticsPage() {
         <div className={styles.metricCard} style={{ marginBottom: '16px', padding: '20px 24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
             <div className={styles.metricLabel} style={{ fontSize: '14px' }}>
-              <Wallet size={14} /> Баланс сообщений
+              <Wallet size={14} /> {t.balance}
             </div>
             <div style={{ fontWeight: 800, fontSize: '16px', color: 'var(--primary)' }}>
               {overview.messagesRemaining.toLocaleString()} / {(overview.messagesRemaining + overview.totalMessagesUsed).toLocaleString()}
@@ -210,8 +320,8 @@ export default function StatisticsPage() {
             }} />
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', fontSize: '12px', color: 'var(--on-surface-variant)' }}>
-            <span>Потрачено: <strong style={{ color: 'var(--on-surface)' }}>{overview.totalMessagesUsed}</strong> сообщений</span>
-            <span>На каждый запрос: <strong style={{ color: 'var(--primary)' }}>1 сообщение</strong></span>
+            <span>{t.spent}: <strong style={{ color: 'var(--on-surface)' }}>{overview.totalMessagesUsed}</strong> {t.messages}</span>
+            <span>{t.perReq}: <strong style={{ color: 'var(--primary)' }}>{t.oneMsg}</strong></span>
           </div>
         </div>
       )}
@@ -219,7 +329,7 @@ export default function StatisticsPage() {
       <div className={styles.mainGrid}>
         {/* SVG Chart */}
         <div className={styles.chartCard}>
-          <h3 className={styles.cardTitle}>Cumulative Usage Growth (7d)</h3>
+          <h3 className={styles.cardTitle}>{t.chartTitle}</h3>
           <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className={styles.chartSvg}>
             <defs>
               <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
@@ -247,7 +357,7 @@ export default function StatisticsPage() {
                 textAnchor="middle"
                 opacity="0.9"
               >
-                {new Date(p.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}
+                {new Date(p.date).toLocaleDateString(language === 'RU' ? 'ru-RU' : language === 'KZ' ? 'kk-KZ' : 'en-US', { day: 'numeric', month: 'short' })}
               </text>
             ))}
 
@@ -288,10 +398,10 @@ export default function StatisticsPage() {
               <foreignObject x={Math.max(10, Math.min(chartWidth - 150, tooltip.x - 70))} y={Math.max(10, tooltip.y - 95)} width="150" height="85" style={{ pointerEvents: 'none' }}>
                 <div className={styles.tooltip}>
                   <div style={{ fontWeight: 800, color: 'var(--primary)' }}>
-                    {new Date(tooltip.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}
+                    {new Date(tooltip.date).toLocaleDateString(language === 'RU' ? 'ru-RU' : language === 'KZ' ? 'kk-KZ' : 'en-US', { day: 'numeric', month: 'long' })}
                   </div>
-                  <div style={{ fontSize: '11px', opacity: 0.8, marginTop: '4px' }}>Рост за день: {tooltip.val} msg</div>
-                  <div style={{ fontSize: '12px', fontWeight: 700, marginTop: '2px' }}>Всего: {tooltip.cumulative} msg</div>
+                  <div style={{ fontSize: '11px', opacity: 0.8, marginTop: '4px' }}>{language === 'RU' ? 'Рост:' : language === 'KZ' ? 'Өсім:' : 'Daily:'} {tooltip.val} {t.msg}</div>
+                  <div style={{ fontSize: '12px', fontWeight: 700, marginTop: '2px' }}>{language === 'RU' ? 'Всего:' : language === 'KZ' ? 'Барлығы:' : 'Total:'} {tooltip.cumulative} {t.msg}</div>
                 </div>
               </foreignObject>
             )}
@@ -300,21 +410,21 @@ export default function StatisticsPage() {
 
         {/* Purchase Bundles */}
         <div className={styles.bundlesStack}>
-          <h3 className={styles.cardTitle}>Expand Capacity</h3>
+          <h3 className={styles.cardTitle}>{t.expand}</h3>
           
           <div className={styles.bundle} onClick={() => handlePurchase('starter')}>
             <div>
               <div className={styles.bundleName}>Starter</div>
-              <div className={styles.bundleInfo}>1,000 Messages</div>
+              <div className={styles.bundleInfo}>1,000 {t.messages}</div>
             </div>
             <div className={styles.bundlePrice}>{purchaseLoading === 'starter' ? <Loader2 className={styles.spin} /> : '$10'}</div>
           </div>
 
           <div className={`${styles.bundle} ${styles.bundlePopular}`} onClick={() => handlePurchase('growth')}>
-            <div className={styles.popularLabel}>POPULAR</div>
+            <div className={styles.popularLabel}>{t.popular}</div>
             <div>
               <div className={styles.bundleName}>Growth</div>
-              <div className={styles.bundleInfo}>6,000 Messages (20% bonus)</div>
+              <div className={styles.bundleInfo}>{t.growthBonus}</div>
             </div>
             <div className={styles.bundlePrice}>{purchaseLoading === 'growth' ? <Loader2 className={styles.spin} /> : '$50'}</div>
           </div>
@@ -322,14 +432,14 @@ export default function StatisticsPage() {
           <div className={styles.bundle} onClick={() => handlePurchase('pro')}>
             <div>
               <div className={styles.bundleName}>Pro Unlimited</div>
-              <div className={styles.bundleInfo}>30,000 Messages (50% bonus)</div>
+              <div className={styles.bundleInfo}>{t.proBonus}</div>
             </div>
             <div className={styles.bundlePrice}>{purchaseLoading === 'pro' ? <Loader2 className={styles.spin} /> : '$200'}</div>
           </div>
 
           <div style={{ padding: '16px', background: 'var(--surface-container-low)', borderRadius: '16px', fontSize: '12px', color: 'var(--on-surface-variant)' }}>
             <Activity size={14} style={{ marginRight: 8 }} />
-            Internal efficiency: {((overview?.totalMessagesUsed ?? 0) / (overview?.totalRequests ?? 1)).toFixed(2)} messages/req
+            {t.efficiency}: {((overview?.totalMessagesUsed ?? 0) / (overview?.totalRequests ?? 1)).toFixed(2)} {t.msg}/req
           </div>
         </div>
       </div>
@@ -337,16 +447,16 @@ export default function StatisticsPage() {
       {/* Tables */}
       <div className={styles.tableSection}>
         <div className={styles.tableCard}>
-          <h3 className={styles.cardTitle}>Bot Performance Ledger</h3>
+          <h3 className={styles.cardTitle}>{t.ledgerTitle}</h3>
           <div className={styles.tableContainer}>
             <table className={styles.table}>
               <thead>
                 <tr>
-                  <th>BOT ID / SLUG</th>
-                  <th>PLATFORM</th>
-                  <th>THROUGHPUT</th>
-                  <th>MESSAGES</th>
-                  <th>EFFICIENCY</th>
+                  <th>{t.botIdSlug}</th>
+                  <th>{t.platform}</th>
+                  <th>{t.throughput}</th>
+                  <th>{t.messagesCol}</th>
+                  <th>{t.efficiencyCol}</th>
                 </tr>
               </thead>
               <tbody>
@@ -369,28 +479,28 @@ export default function StatisticsPage() {
         </div>
 
         <div className={styles.tableCard}>
-          <h3 className={styles.cardTitle}>Global Transaction Log</h3>
+          <h3 className={styles.cardTitle}>{t.txLogTitle}</h3>
           <div className={styles.tableContainer}>
             <table className={styles.table}>
               <thead>
                 <tr>
-                  <th>TIMESTAMP</th>
-                  <th>TYPE</th>
-                  <th>DELTA</th>
-                  <th>DESCRIPTION</th>
+                  <th>{t.timestamp}</th>
+                  <th>{t.type}</th>
+                  <th>{t.delta}</th>
+                  <th>{t.description}</th>
                 </tr>
               </thead>
               <tbody>
-                {transactions.map(t => (
-                  <tr key={t.id}>
-                    <td style={{ color: 'var(--on-surface-variant)', fontSize: '12px' }}>{new Date(t.createdAt).toLocaleString('ru-RU')}</td>
+                {transactions.map(tTx => (
+                  <tr key={tTx.id}>
+                    <td style={{ color: 'var(--on-surface-variant)', fontSize: '12px' }}>{new Date(tTx.createdAt).toLocaleString(language === 'RU' ? 'ru-RU' : language === 'KZ' ? 'kk-KZ' : 'en-US')}</td>
                     <td>
-                      <span style={{ fontWeight: 800, color: t.type === 'usage' ? '#ef4444' : '#22c55e', fontSize: '11px', textTransform: 'uppercase' }}>
-                        {t.type}
+                      <span style={{ fontWeight: 800, color: tTx.type === 'usage' ? '#ef4444' : '#22c55e', fontSize: '11px', textTransform: 'uppercase' }}>
+                        {tTx.type === 'usage' ? (language === 'RU' ? 'расход' : language === 'KZ' ? 'шығын' : 'usage') : (language === 'RU' ? 'покупка' : language === 'KZ' ? 'сатып алу' : 'purchase')}
                       </span>
                     </td>
-                    <td style={{ fontWeight: 700 }}>{t.amount > 0 ? `+${t.amount}` : t.amount}</td>
-                    <td>{t.description}</td>
+                    <td style={{ fontWeight: 700 }}>{tTx.amount > 0 ? `+${tTx.amount}` : tTx.amount}</td>
+                    <td>{tTx.description}</td>
                   </tr>
                 ))}
               </tbody>

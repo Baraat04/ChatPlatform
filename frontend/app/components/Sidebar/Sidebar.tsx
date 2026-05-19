@@ -2,11 +2,13 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Bot, PlusCircle, LogOut, TrendingUp, Activity, User } from 'lucide-react';
+import { LayoutDashboard, Bot, PlusCircle, LogOut, TrendingUp, BookOpen, LifeBuoy, User } from 'lucide-react';
 import styles from './Sidebar.module.css';
 import { useLanguage } from '../../contexts/LanguageContext';
 
 import { useAuth } from '../../contexts/AuthContext';
+
+import { useState, useEffect } from 'react';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -17,13 +19,20 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
   const { t, language } = useLanguage();
   const { logout } = useAuth();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setIsAdmin(sessionStorage.getItem('admin_authorized') === 'true');
+    }
+  }, []);
 
   const navItems = [
     { name: t.navDashboard, path: '/', icon: LayoutDashboard },
     { name: t.navBots, path: '/bots', icon: Bot },
     { name: t.navCreateBot, path: '/create-bot', icon: PlusCircle },
-    { name: 'Статистика', path: '/statistics', icon: TrendingUp },
-    { name: language === 'RU' ? 'AI Аналитика' : language === 'KZ' ? 'AI Аналитика' : 'AI Analytics', path: '/admin/analytics', icon: Activity },
+    { name: language === 'RU' ? 'Статистика' : language === 'KZ' ? 'Статистика' : 'Statistics', path: '/statistics', icon: TrendingUp },
+    { name: language === 'RU' ? 'Документация' : language === 'KZ' ? 'Құжаттама' : 'Documentation', path: '/docs', icon: BookOpen },
     { name: language === 'RU' ? 'Профиль' : language === 'KZ' ? 'Профиль' : 'Profile', path: '/profile', icon: User },
   ];
 

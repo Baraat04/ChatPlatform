@@ -53,6 +53,7 @@ model Bot {
   apiToken      String?                  // Needed to authenticate the bot with Telegram/WhatsApp
   isActive      Boolean  @default(true)  // Allows users to turn bots on/off without deleting them
   pausedChats   String[] @default([])    // Array of chat IDs where AI auto-reply is disabled
+  agentHistory  String?  @db.Text        // Stores chat history with the AI configuration agent
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -160,3 +161,12 @@ model MessageTransaction {
   @@index([userId])
   @@index([createdAt])
 }
+
+model SupportTicket {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String
+  message   String   @db.Text
+  createdAt DateTime @default(now())
+}
+
