@@ -14,13 +14,14 @@ import {
   ShieldAlert
 } from 'lucide-react';
 
+import { API_URL } from '../config';
 import { useLanguage } from '../contexts/LanguageContext';
 
-const API = 'http://localhost:3001/api/statistics';
+const API = `${API_URL}/statistics`;
 
 const statsDict = {
   RU: {
-    title: 'Аналитика интеллекта',
+    title: 'Статистика',
     totalUsed: 'Всего использовано',
     avgTokens: 'Ср. токенов / сообщ.',
     usedToday: 'Использовано сегодня',
@@ -54,7 +55,7 @@ const statsDict = {
     networkError: 'Ошибка сети',
   },
   KZ: {
-    title: 'Интеллект аналитикасы',
+    title: 'Статистика',
     totalUsed: 'Барлығы пайдаланылды',
     avgTokens: 'Орташа токен / хабарлама',
     usedToday: 'Бүгін пайдаланылды',
@@ -88,7 +89,7 @@ const statsDict = {
     networkError: 'Желі қатесі',
   },
   EN: {
-    title: 'Intelligence Analytics',
+    title: 'Statistics',
     totalUsed: 'Total Used',
     avgTokens: 'Avg. Tokens / Msg',
     usedToday: 'Used Today',
@@ -164,8 +165,6 @@ export default function StatisticsPage() {
   const [history, setHistory] = useState<HistoryPoint[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
-  const [purchaseLoading, setPurchaseLoading] = useState<string | null>(null);
-  const [banner, setBanner] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
   const [tooltip, setTooltip] = useState<{ x: number; y: number; val: number; cumulative: number; date: string } | null>(null);
 
   useEffect(() => {
@@ -191,36 +190,6 @@ export default function StatisticsPage() {
     load();
   }, [user]);
 
-  const showBanner = (type: 'success' | 'error', msg: string) => {
-    setBanner({ type, msg });
-    setTimeout(() => setBanner(null), 4000);
-  };
-
-  const handlePurchase = async (plan: string) => {
-    setPurchaseLoading(plan);
-    try {
-      const res = await fetch(`${API}/purchase`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan }),
-        credentials: 'include'
-      });
-      const data = await res.json();
-      if (data.success) {
-        showBanner('success', t.purchaseSuccess.replace('{amount}', data.added.toString()));
-        await refreshProfile();
-        // Refresh overview
-        const o = await fetch(`${API}/overview`, { credentials: 'include' }).then(r => r.json());
-        setOverview(o);
-      } else {
-        showBanner('error', data.error || t.purchaseError);
-      }
-    } catch (e) {
-      showBanner('error', t.networkError);
-    } finally {
-      setPurchaseLoading(null);
-    }
-  };
 
   if (loading) {
     return (
@@ -233,7 +202,7 @@ export default function StatisticsPage() {
 
   // SVG Chart Logic
   const chartWidth = 1000;
-  const chartHeight = 400;
+  const chartHeight = 500;
   const padding = 60;
   const maxVal = Math.max(...history.map(p => p.value), 10);
   
@@ -270,7 +239,6 @@ export default function StatisticsPage() {
 
   return (
     <div className={styles.container}>
-      {banner && <div className={`${styles.banner} ${banner.type === 'success' ? styles.bannerSuccess : styles.bannerError}`}>{banner.msg}</div>}
 
       <div className={styles.header}>
         <div>
@@ -395,51 +363,28 @@ export default function StatisticsPage() {
             })}
 
             {tooltip && (
-              <foreignObject x={Math.max(10, Math.min(chartWidth - 150, tooltip.x - 70))} y={Math.max(10, tooltip.y - 95)} width="150" height="85" style={{ pointerEvents: 'none' }}>
+              <foreignObject x={Math.max(10, Math.min(chartWidth - 200, tooltip.x - 100))} y={Math.max(10, tooltip.y - 120)} width="200" height="110" style={{ pointerEvents: 'none' }}>
                 <div className={styles.tooltip}>
-                  <div style={{ fontWeight: 800, color: 'var(--primary)' }}>
-                    {new Date(tooltip.date).toLocaleDateString(language === 'RU' ? 'ru-RU' : language === 'KZ' ? 'kk-KZ' : 'en-US', { day: 'numeric', month: 'long' })}
+                  <div style={{ fontWeight: 800, color: 'var(--primary)', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '4px', marginBottom: '4px' }}>
+                    {new Date(tooltip.date).toLocaleDateString(language === 'RU' ? 'ru-RU' : language === 'KZ' ? 'kk-KZ' : 'en-US', { day: 'numeric', month: 'long', year: 'numeric' })}
                   </div>
-                  <div style={{ fontSize: '11px', opacity: 0.8, marginTop: '4px' }}>{language === 'RU' ? 'Рост:' : language === 'KZ' ? 'Өсім:' : 'Daily:'} {tooltip.val} {t.msg}</div>
-                  <div style={{ fontSize: '12px', fontWeight: 700, marginTop: '2px' }}>{language === 'RU' ? 'Всего:' : language === 'KZ' ? 'Барлығы:' : 'Total:'} {tooltip.cumulative} {t.msg}</div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginTop: '6px' }}>
+                    <span style={{ opacity: 0.7 }}>{language === 'RU' ? 'За день:' : language === 'KZ' ? 'Күніне:' : 'Daily:'}</span>
+                    <span style={{ fontWeight: 600 }}>{tooltip.val} {t.msg}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginTop: '4px' }}>
+                    <span style={{ opacity: 0.7 }}>{language === 'RU' ? 'Всего:' : language === 'KZ' ? 'Барлығы:' : 'Total:'}</span>
+                    <span style={{ fontWeight: 800, color: '#10b981' }}>{tooltip.cumulative} {t.msg}</span>
+                  </div>
                 </div>
               </foreignObject>
             )}
           </svg>
-        </div>
-
-        {/* Purchase Bundles */}
-        <div className={styles.bundlesStack}>
-          <h3 className={styles.cardTitle}>{t.expand}</h3>
           
-          <div className={styles.bundle} onClick={() => handlePurchase('starter')}>
-            <div>
-              <div className={styles.bundleName}>Starter</div>
-              <div className={styles.bundleInfo}>1,000 {t.messages}</div>
-            </div>
-            <div className={styles.bundlePrice}>{purchaseLoading === 'starter' ? <Loader2 className={styles.spin} /> : '$10'}</div>
-          </div>
-
-          <div className={`${styles.bundle} ${styles.bundlePopular}`} onClick={() => handlePurchase('growth')}>
-            <div className={styles.popularLabel}>{t.popular}</div>
-            <div>
-              <div className={styles.bundleName}>Growth</div>
-              <div className={styles.bundleInfo}>{t.growthBonus}</div>
-            </div>
-            <div className={styles.bundlePrice}>{purchaseLoading === 'growth' ? <Loader2 className={styles.spin} /> : '$50'}</div>
-          </div>
-
-          <div className={styles.bundle} onClick={() => handlePurchase('pro')}>
-            <div>
-              <div className={styles.bundleName}>Pro Unlimited</div>
-              <div className={styles.bundleInfo}>{t.proBonus}</div>
-            </div>
-            <div className={styles.bundlePrice}>{purchaseLoading === 'pro' ? <Loader2 className={styles.spin} /> : '$200'}</div>
-          </div>
-
-          <div style={{ padding: '16px', background: 'var(--surface-container-low)', borderRadius: '16px', fontSize: '12px', color: 'var(--on-surface-variant)' }}>
-            <Activity size={14} style={{ marginRight: 8 }} />
-            {t.efficiency}: {((overview?.totalMessagesUsed ?? 0) / (overview?.totalRequests ?? 1)).toFixed(2)} {t.msg}/req
+          <div style={{ marginTop: '24px', padding: '16px', background: 'var(--surface-container-low)', borderRadius: '16px', fontSize: '13px', color: 'var(--on-surface-variant)', display: 'flex', alignItems: 'center' }}>
+            <Activity size={16} style={{ marginRight: 10, color: 'var(--primary)' }} />
+            <span style={{ fontWeight: 600 }}>{t.efficiency}:</span>
+            <span style={{ marginLeft: 8, fontWeight: 800, color: 'var(--on-surface)' }}>{((overview?.totalMessagesUsed ?? 0) / (overview?.totalRequests ?? 1)).toFixed(2)} {t.msg}/req</span>
           </div>
         </div>
       </div>

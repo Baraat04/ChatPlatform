@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { Filter, Plus, Bot, ArrowRight, Link as LinkIcon } from 'lucide-react';
 import styles from './page.module.css';
 import { useLanguage } from '../contexts/LanguageContext';
+import { API_URL } from '../config';
 
 export default function MyBots() {
   const { t } = useLanguage();
@@ -14,7 +15,7 @@ export default function MyBots() {
   useEffect(() => {
     async function fetchStats() {
       try {
-        const res = await fetch('http://localhost:3001/api/stats', { credentials: 'include' });
+        const res = await fetch(`${API_URL}/stats`, { credentials: 'include' });
         if (res.ok) {
           setStats(await res.json());
         }
@@ -25,7 +26,7 @@ export default function MyBots() {
     fetchStats();
     async function fetchBots() {
       try {
-        const res = await fetch('http://localhost:3001/api/bot', { credentials: 'include' });
+        const res = await fetch(`${API_URL}/bot`, { credentials: 'include' });
         const data = await res.json();
         console.log(data)
 

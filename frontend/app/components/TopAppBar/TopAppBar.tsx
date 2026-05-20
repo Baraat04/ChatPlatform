@@ -40,14 +40,7 @@ export default function TopAppBar({ onMenuClick }: TopAppBarProps) {
         <span className={styles.brandMobile}>BotFlow</span>
       </div>
 
-      <div className={styles.searchContainer}>
-        <Search size={20} className={styles.searchIcon} />
-        <input 
-          type="text" 
-          placeholder="Search bots, analytics, or knowledge..." 
-          className={styles.searchInput}
-        />
-      </div>
+
 
       <div className={styles.langSelectorWrapper} onClick={() => setIsLangOpen(!isLangOpen)} ref={langRef}>
         <Globe size={16} className={styles.langIcon} />

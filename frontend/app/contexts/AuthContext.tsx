@@ -2,8 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-
-const API_URL = 'http://localhost:3001/api'; // Or process.env.NEXT_PUBLIC_API_URL
+import { API_URL } from '../config';
 
 interface User {
   id: number;

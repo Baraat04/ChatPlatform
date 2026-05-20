@@ -5,6 +5,7 @@ import { ArrowRight, ArrowLeft, Bot, Database, Key, MessageCircle, Phone, Plus, 
 import styles from './page.module.css';
 import { io, Socket } from 'socket.io-client';
 import { useLanguage } from '../contexts/LanguageContext';
+import { API_URL, SOCKET_URL } from '../config';
 
 const TONES = [
   "Мотивирующий и энергичный",
@@ -374,7 +375,7 @@ ${managerContact}`;
   const [socket, setSocket] = useState<Socket | null>(null);
 
   useEffect(() => {
-    const newSocket = io('http://localhost:3001');
+    const newSocket = io(SOCKET_URL);
     setSocket(newSocket);
     return () => { newSocket.disconnect(); }
   }, []);
@@ -387,7 +388,7 @@ ${managerContact}`;
     setWaStatus(null);
     
     try {
-      const response = await fetch('http://localhost:3001/api/bot', {
+      const response = await fetch(`${API_URL}/bot`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

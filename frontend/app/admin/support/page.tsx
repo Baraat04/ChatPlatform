@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { LifeBuoy, Trash2, Mail, User, Clock, ShieldAlert, ArrowLeft, Lock } from 'lucide-react';
 import Link from 'next/link';
+import { API_URL } from '../../config';
 
 interface Ticket {
   id: number;
@@ -49,7 +50,7 @@ export default function AdminSupportTickets() {
     try {
       setLoading(true);
       const adminPass = sessionStorage.getItem('admin_password') || '';
-      const res = await fetch('http://localhost:3001/api/statistics/admin-support', {
+      const res = await fetch(`${API_URL}/statistics/admin-support`, {
         credentials: 'include',
         headers: {
           'x-admin-password': adminPass
@@ -76,7 +77,7 @@ export default function AdminSupportTickets() {
     if (!confirm('Вы уверены, что хотите удалить это обращение?')) return;
     try {
       const adminPass = sessionStorage.getItem('admin_password') || '';
-      const res = await fetch(`http://localhost:3001/api/statistics/admin-support/${id}`, {
+      const res = await fetch(`${API_URL}/statistics/admin-support/${id}`, {
         method: 'DELETE',
         credentials: 'include',
         headers: {

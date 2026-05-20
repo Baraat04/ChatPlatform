@@ -8,7 +8,9 @@ import {
   Bot, MessageSquare, Zap, TrendingUp, Wallet, ArrowRight
 } from 'lucide-react';
 
-const API = 'http://localhost:3001/api';
+import { API_URL } from './config';
+
+const API = API_URL;
 
 type Overview = {
   messagesRemaining: number;

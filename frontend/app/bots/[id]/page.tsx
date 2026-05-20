@@ -6,8 +6,10 @@ import { ArrowLeft, Save, Trash2, Send, Bot, User, Users, UserPlus, Pause, Play,
 import Link from 'next/link';
 import { io } from 'socket.io-client';
 import { useLanguage } from '../../contexts/LanguageContext';
+import { translations } from '../../locales/translations';
+import { API_URL, API_BASE as CONFIG_API_BASE, SOCKET_URL } from '../../config';
 
-const API = 'http://localhost:3001/api';
+const API = API_URL;
 
 
 const TONES = [
@@ -47,11 +49,16 @@ const DATA_FIELDS = [
   "Прошлый опыт клиента"
 ];
 
-function CustomSelect({ options, value, onChange, placeholder }: any) {
+function CustomSelect({ options, displayOptions, value, onChange, placeholder }: any) {
+  const { t } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
   const [customInput, setCustomInput] = useState('');
   const [isAddingCustom, setIsAddingCustom] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+
+  const disp = displayOptions || options;
+  const selectedIndex = options.indexOf(value);
+  const displayVal = selectedIndex !== -1 ? disp[selectedIndex] : value;
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -86,42 +93,42 @@ function CustomSelect({ options, value, onChange, placeholder }: any) {
           padding: '12px 16px',
         }}
       >
-        <span>{value || placeholder}</span>
+        <span>{displayVal || placeholder}</span>
         <ChevronDown size={18} style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }} />
       </div>
       
       {isOpen && (
-        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50, background: '#111', border: '1px solid #333', borderRadius: '12px', marginTop: '4px', padding: '8px', maxHeight: '250px', overflowY: 'auto' }}>
-          {options.map((opt: string) => (
+        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50, background: 'var(--surface-container-lowest)', border: '1px solid var(--outline-variant)', borderRadius: '12px', marginTop: '4px', padding: '8px', maxHeight: '250px', overflowY: 'auto' }}>
+          {options.map((opt: string, idx: number) => (
             <div 
               key={opt}
               onClick={() => { onChange(opt); setIsOpen(false); }}
-              style={{ padding: '10px 12px', cursor: 'pointer', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: value === opt ? 'rgba(99, 102, 241, 0.1)' : 'transparent', color: value === opt ? '#a855f7' : '#fff' }}
+              style={{ padding: '10px 12px', cursor: 'pointer', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: value === opt ? 'var(--primary-container)' : 'transparent', color: value === opt ? 'var(--primary)' : 'var(--on-surface)' }}
             >
-              <span>{opt}</span>
+              <span>{disp[idx]}</span>
               {value === opt && <Check size={16} />}
             </div>
           ))}
           {!isAddingCustom ? (
             <div 
-              style={{ padding: '10px 12px', cursor: 'pointer', color: '#a855f7', fontWeight: '600', display: 'flex', alignItems: 'center', justifyContent: 'center', borderTop: '1px solid #333', marginTop: '8px' }}
+              style={{ padding: '10px 12px', cursor: 'pointer', color: 'var(--primary)', fontWeight: '600', display: 'flex', alignItems: 'center', justifyContent: 'center', borderTop: '1px solid var(--outline-variant)', marginTop: '8px' }}
               onClick={() => setIsAddingCustom(true)}
             >
-              <Plus size={16} style={{ marginRight: '8px' }}/> Свой вариант
+              <Plus size={16} style={{ marginRight: '8px' }}/> {t.addCustom}
             </div>
           ) : (
-            <div style={{ padding: '8px', borderTop: '1px solid #333', marginTop: '8px' }}>
+            <div style={{ padding: '8px', borderTop: '1px solid var(--outline-variant)', marginTop: '8px' }}>
               <form onSubmit={addCustom} style={{ display: 'flex', gap: '8px' }}>
                 <input 
                   type="text" 
                   value={customInput} 
                   onChange={(e) => setCustomInput(e.target.value)} 
-                  placeholder="Введите свой..." 
+                  placeholder={t.enterCustom} 
                   className="premium-input"
                   style={{ padding: '8px 12px' }}
                   autoFocus
                 />
-                <button type="submit" className="btn-primary" style={{ padding: '8px 16px', borderRadius: '8px' }}>OK</button>
+                <button type="submit" className="btn-primary" style={{ padding: '8px 16px', borderRadius: '8px' }}>{t.ok}</button>
               </form>
             </div>
           )}
@@ -131,11 +138,18 @@ function CustomSelect({ options, value, onChange, placeholder }: any) {
   );
 }
 
-function CustomMultiSelect({ options, value, onChange, placeholder }: any) {
+function CustomMultiSelect({ options, displayOptions, value, onChange, placeholder }: any) {
+  const { t } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
   const [customInput, setCustomInput] = useState('');
   const [isAddingCustom, setIsAddingCustom] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+
+  const disp = displayOptions || options;
+  const displayValues = value.map((val: string) => {
+    const idx = options.indexOf(val);
+    return idx !== -1 ? disp[idx] : val;
+  });
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -178,22 +192,22 @@ function CustomMultiSelect({ options, value, onChange, placeholder }: any) {
         }}
       >
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: '8px' }}>
-          {value.length > 0 ? value.join(', ') : placeholder}
+          {displayValues.length > 0 ? displayValues.join(', ') : placeholder}
         </span>
         <ChevronDown size={18} style={{ flexShrink: 0, transform: isOpen ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }} />
       </div>
       
       {isOpen && (
-        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50, background: '#111', border: '1px solid #333', borderRadius: '12px', marginTop: '4px', padding: '8px', maxHeight: '300px', overflowY: 'auto' }}>
-          {options.map((opt: string) => (
+        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50, background: 'var(--surface-container-lowest)', border: '1px solid var(--outline-variant)', borderRadius: '12px', marginTop: '4px', padding: '8px', maxHeight: '300px', overflowY: 'auto' }}>
+          {options.map((opt: string, idx: number) => (
             <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', cursor: 'pointer', borderRadius: '8px' }}>
               <input 
                 type="checkbox" 
                 checked={value.includes(opt)} 
                 onChange={() => toggleOption(opt)} 
-                style={{ width: '18px', height: '18px', accentColor: '#a855f7', cursor: 'pointer' }}
+                style={{ width: '18px', height: '18px', accentColor: 'var(--primary)', cursor: 'pointer' }}
               />
-              <span style={{ cursor: 'pointer', userSelect: 'none' }}>{opt}</span>
+              <span style={{ cursor: 'pointer', userSelect: 'none', color: 'var(--on-surface)' }}>{disp[idx]}</span>
             </label>
           ))}
           {value.filter((v: string) => !options.includes(v)).map((opt: string) => (
@@ -202,31 +216,31 @@ function CustomMultiSelect({ options, value, onChange, placeholder }: any) {
                 type="checkbox" 
                 checked={true} 
                 onChange={() => toggleOption(opt)} 
-                style={{ width: '18px', height: '18px', accentColor: '#a855f7', cursor: 'pointer' }}
+                style={{ width: '18px', height: '18px', accentColor: 'var(--primary)', cursor: 'pointer' }}
               />
-              <span style={{ cursor: 'pointer', userSelect: 'none' }}>{opt} (Свой вариант)</span>
+              <span style={{ cursor: 'pointer', userSelect: 'none', color: 'var(--on-surface)' }}>{opt} ({t.addCustom})</span>
             </label>
           ))}
           {!isAddingCustom ? (
             <div 
-              style={{ padding: '10px 12px', cursor: 'pointer', color: '#a855f7', fontWeight: '600', display: 'flex', alignItems: 'center', justifyContent: 'center', borderTop: '1px solid #333', marginTop: '8px' }}
+              style={{ padding: '10px 12px', cursor: 'pointer', color: 'var(--primary)', fontWeight: '600', display: 'flex', alignItems: 'center', justifyContent: 'center', borderTop: '1px solid var(--outline-variant)', marginTop: '8px' }}
               onClick={() => setIsAddingCustom(true)}
             >
-              <Plus size={16} style={{ marginRight: '8px' }}/> Добавить своё
+              <Plus size={16} style={{ marginRight: '8px' }}/> {t.addCustom}
             </div>
           ) : (
-            <div style={{ padding: '8px', borderTop: '1px solid #333', marginTop: '8px' }}>
+            <div style={{ padding: '8px', borderTop: '1px solid var(--outline-variant)', marginTop: '8px' }}>
               <form onSubmit={addCustom} style={{ display: 'flex', gap: '8px' }}>
                 <input 
                   type="text" 
                   value={customInput} 
                   onChange={(e) => setCustomInput(e.target.value)} 
-                  placeholder="Введите свой вариант..." 
+                  placeholder={t.enterCustom} 
                   className="premium-input"
                   style={{ padding: '8px 12px' }}
                   autoFocus
                 />
-                <button type="submit" className="btn-primary" style={{ padding: '8px 16px', borderRadius: '8px' }}>OK</button>
+                <button type="submit" className="btn-primary" style={{ padding: '8px 16px', borderRadius: '8px' }}>{t.ok}</button>
               </form>
             </div>
           )}
@@ -318,7 +332,7 @@ export default function BotDetails() {
   const [links, setLinks] = useState([{ title: '', url: '' }]);
   const [managerContact, setManagerContact] = useState('');
 
-  const API_BASE = 'http://localhost:3001';
+  const API_BASE = CONFIG_API_BASE;
   const renderMessageContent = (text: string) => {
     if (!text) return null;
     const parts = text.split(/(\[AUDIO\]\/uploads\/[^\s\n]+)/g);
@@ -331,7 +345,7 @@ export default function BotDetails() {
             <span style={{ fontSize: '1.2rem' }}>🎤</span>
             <audio controls style={{ height: '32px', flex: 1, minWidth: '180px', accentColor: 'var(--primary)' }}>
               <source src={audioUrl} />
-              Голосовое сообщение
+              {t.voiceMessage}
             </audio>
           </div>
         );
@@ -375,11 +389,11 @@ export default function BotDetails() {
 
   const parseDataPrompt = (prompt: string) => {
     if (!prompt) return;
-    const businessInfoMatch = prompt.match(/Описание:\n([\s\S]*?)\n\nПреимущества:/);
+    const businessInfoMatch = prompt.match(/Описание:\n([\s\S]*?)\n\n{t.benefits}:/);
     if (businessInfoMatch) setBusinessInfo(businessInfoMatch[1].trim());
-    const benefitsMatch = prompt.match(/Преимущества:\n([\s\S]*?)\n\nЦены и условия:/);
+    const benefitsMatch = prompt.match(/{t.benefits}:\n([\s\S]*?)\n\n{t.pricingTerms}:/);
     if (benefitsMatch) setBenefits(benefitsMatch[1].trim());
-    const pricingMatch = prompt.match(/Цены и условия:\n([\s\S]*?)\n\nFAQ:/);
+    const pricingMatch = prompt.match(/{t.pricingTerms}:\n([\s\S]*?)\n\nFAQ:/);
     if (pricingMatch) setPricing(pricingMatch[1].trim());
     const managerContactMatch = prompt.match(/Контакт менеджера:\n(.*)/);
     if (managerContactMatch) setManagerContact(managerContactMatch[1].trim());
@@ -428,7 +442,7 @@ export default function BotDetails() {
   useEffect(() => {
     let faqText = faq.filter(f => f.q || f.a).map(f => `В: ${f.q}\nО: ${f.a}`).join('\n\n');
     let linksText = links.filter(l => l.title || l.url).map(l => `${l.title}: ${l.url}`).join('\n');
-    const generated = `Компания:\n${companyName}\n\nОписание:\n${businessInfo}\n\nПреимущества:\n${benefits}\n\nЦены и условия:\n${pricing}\n\nFAQ:\n${faqText}\n\nПолезные ссылки:\n${linksText}\n\nКонтакт менеджера:\n${managerContact}`;
+    const generated = `Компания:\n${companyName}\n\nОписание:\n${businessInfo}\n\n{t.benefits}:\n${benefits}\n\n{t.pricingTerms}:\n${pricing}\n\nFAQ:\n${faqText}\n\nПолезные ссылки:\n${linksText}\n\nКонтакт менеджера:\n${managerContact}`;
     setDataPrompt(generated);
   }, [companyName, businessInfo, benefits, pricing, faq, links, managerContact]);
 
@@ -440,7 +454,7 @@ export default function BotDetails() {
     fetchBot();
     fetchChats();
 
-    const socket = io('http://localhost:3001');
+    const socket = io(SOCKET_URL);
     socket.on(`chat-${botId}`, (newMsg: any) => {
       setMessages(prev => [...prev, newMsg]);
       setChats(prev => {
@@ -593,7 +607,7 @@ export default function BotDetails() {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.type !== 'application/pdf') {
-      alert('Пожалуйста, загрузите PDF файл.');
+      alert(t.uploadPdfError);
       return;
     }
 
@@ -625,11 +639,11 @@ export default function BotDetails() {
         setActiveTab('agent');
         await sendToAgent(`Я только что загрузил PDF файл "${file.name}". Пожалуйста, подтверди, что ты успешно прочитал и добавил эти данные.`);
       } else {
-        alert('Не удалось извлечь текст из PDF. Возможно, файл пуст или поврежден.');
+        alert(t.extractPdfError);
       }
     } catch (err) {
       console.error(err);
-      alert('Ошибка при загрузке PDF.');
+      alert(t.extractPdfError);
     } finally {
       setIsUploadingPdf(false);
       e.target.value = '';
@@ -650,7 +664,7 @@ export default function BotDetails() {
       chatIds = selectedBroadcastContacts;
     }
     
-    if (chatIds.length === 0) return alert('No recipients selected');
+    if (chatIds.length === 0) return alert(t.broadcastNoRecipients);
 
     setIsBroadcasting(true);
     try {
@@ -661,7 +675,7 @@ export default function BotDetails() {
         credentials: 'include'
       });
       if (res.ok) {
-        alert('Broadcast finished!');
+        alert(t.broadcastFinished);
         setBroadcastMessage('');
         setBroadcastNumbers('');
         setSelectedBroadcastContacts([]);
@@ -671,7 +685,7 @@ export default function BotDetails() {
   }
 
   async function handleDelete() {
-    if (!confirm('Удалить этого бота и все его сообщения?')) return;
+    if (!confirm(t.deleteBotConfirm)) return;
     setIsDeleting(true);
     await fetch(`${API}/bot/${botId}`, { method: 'DELETE', credentials: 'include' });
     router.push('/bots');
@@ -681,7 +695,7 @@ export default function BotDetails() {
   async function handleDeleteChat(chatIdToDelete?: string) {
     const id = chatIdToDelete || selectedChat;
     if (!id) return;
-    if (!confirm(`Полностью удалить контакт ${id} и всю историю?`)) return;
+    if (!confirm(t.deleteContactConfirm.replace('{id}', id))) return;
     
     const res = await fetch(`${API}/bot/${botId}/contact/delete`, {
       method: 'POST',
@@ -697,13 +711,13 @@ export default function BotDetails() {
       }
       fetchChats();
     } else {
-      alert('Не удалось удалить контакт');
+      alert(t.deleteContactError);
     }
   }
 
   async function handleEditContactName(e: React.MouseEvent, chatId: string, currentName: string) {
     e.stopPropagation();
-    const newName = prompt('Введите имя для этого контакта:', currentName);
+    const newName = prompt(t.enterContactName, currentName);
     if (newName === null || newName === currentName) return;
 
     const res = await fetch(`${API}/bot/${botId}/contact/name`, {
@@ -716,7 +730,7 @@ export default function BotDetails() {
     if (res.ok) {
       fetchChats();
     } else {
-      alert('Не удалось сохранить имя');
+      alert(t.saveNameError);
     }
   }
 
@@ -1309,7 +1323,7 @@ export default function BotDetails() {
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
                 <h2 style={{ fontSize: '1.8rem', fontWeight: '800', color: 'var(--on-surface)', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <Wand2 size={28} color="var(--primary)" /> Конфигурация AI-бота
+                  <Wand2 size={28} color="var(--primary)" /> {t.configAiBot}
                 </h2>
                 <button onClick={handleSave} disabled={isSaving} className="btn-primary">
                   <Save size={18} /> {isSaving ? t.saving : t.saveChanges}
@@ -1323,7 +1337,7 @@ export default function BotDetails() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.9rem', color: 'var(--on-surface-variant)', marginBottom: '0.5rem', fontWeight: 600 }}>{t.industry}</label>
-                    <CustomSelect options={INDUSTRIES} value={industry} onChange={setIndustry} placeholder="..." />
+                    <CustomSelect options={INDUSTRIES} displayOptions={t.industries} value={industry} onChange={setIndustry} placeholder="..." />
                   </div>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.9rem', color: 'var(--on-surface-variant)', marginBottom: '0.5rem', fontWeight: 600 }}>{t.companyName}</label>
@@ -1339,15 +1353,15 @@ export default function BotDetails() {
                   </div>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.9rem', color: 'var(--on-surface-variant)', marginBottom: '0.5rem', fontWeight: 600 }}>{t.dataToCollect}</label>
-                    <CustomMultiSelect options={DATA_FIELDS} value={dataToCollect} onChange={setDataToCollect} placeholder="..." />
+                    <CustomMultiSelect options={DATA_FIELDS} displayOptions={t.dataFields} value={dataToCollect} onChange={setDataToCollect} placeholder="..." />
                   </div>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.9rem', color: 'var(--on-surface-variant)', marginBottom: '0.5rem', fontWeight: 600 }}>{t.tone}</label>
-                    <CustomSelect options={TONES} value={tone} onChange={setTone} placeholder="..." />
+                    <CustomSelect options={TONES} displayOptions={t.tones} value={tone} onChange={setTone} placeholder="..." />
                   </div>
                   <div style={{ gridColumn: '1 / -1' }}>
                     <label style={{ display: 'block', fontSize: '0.9rem', color: 'var(--on-surface-variant)', marginBottom: '0.5rem', fontWeight: 600 }}>{t.fallback}</label>
-                    <CustomSelect options={[t.fallback_noinfo, t.fallback_manager, t.fallback_lead]} value={fallbackBehavior} onChange={setFallbackBehavior} placeholder="..." />
+                    <CustomSelect options={[translations.RU.fallback_noinfo, translations.RU.fallback_manager, translations.RU.fallback_lead]} displayOptions={[t.fallback_noinfo, t.fallback_manager, t.fallback_lead]} value={fallbackBehavior} onChange={setFallbackBehavior} placeholder="..." />
                   </div>
                   <div style={{ gridColumn: '1 / -1' }}>
                     <label style={{ display: 'block', fontSize: '0.9rem', color: 'var(--on-surface-variant)', marginBottom: '0.5rem', fontWeight: 600 }}>{t.additionalRules}</label>
@@ -1379,30 +1393,30 @@ export default function BotDetails() {
                     <Database size={24} color="var(--primary)" /> {t.dataBase}
                   </h3>
                   <label className="btn-primary" style={{ cursor: 'pointer', opacity: isUploadingPdf ? 0.7 : 1, padding: '0.6rem 1.2rem', fontSize: '0.85rem' }}>
-                    <FileUp size={16} /> {isUploadingPdf ? 'Загрузка...' : 'Загрузить PDF'}
+                    <FileUp size={16} /> {isUploadingPdf ? t.uploading : t.uploadPdf}
                     <input type="file" accept="application/pdf" style={{ display: 'none' }} onChange={handlePdfUpload} disabled={isUploadingPdf} />
                   </label>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.9rem', color: '#aaa', marginBottom: '0.5rem', fontWeight: 500 }}>Общая информация</label>
-                    <textarea className="premium-input" rows={3} style={{ resize: 'vertical', width: '100%' }} value={businessInfo} onChange={e => setBusinessInfo(e.target.value)} placeholder="История компании, график работы, адреса" />
+                    <label style={{ display: 'block', fontSize: '0.9rem', color: '#aaa', marginBottom: '0.5rem', fontWeight: 500 }}>{t.genInfo}</label>
+                    <textarea className="premium-input" rows={3} style={{ resize: 'vertical', width: '100%' }} value={businessInfo} onChange={e => setBusinessInfo(e.target.value)} placeholder={t.genInfoHint} />
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.9rem', color: '#aaa', marginBottom: '0.5rem', fontWeight: 500 }}>Преимущества</label>
-                    <textarea className="premium-input" rows={2} style={{ resize: 'vertical', width: '100%' }} value={benefits} onChange={e => setBenefits(e.target.value)} placeholder="Почему стоит выбрать именно вас" />
+                    <label style={{ display: 'block', fontSize: '0.9rem', color: '#aaa', marginBottom: '0.5rem', fontWeight: 500 }}>{t.benefits}</label>
+                    <textarea className="premium-input" rows={2} style={{ resize: 'vertical', width: '100%' }} value={benefits} onChange={e => setBenefits(e.target.value)} placeholder={t.benefitsHint} />
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.9rem', color: '#aaa', marginBottom: '0.5rem', fontWeight: 500 }}>Цены и условия</label>
-                    <textarea className="premium-input" rows={3} style={{ resize: 'vertical', width: '100%' }} value={pricing} onChange={e => setPricing(e.target.value)} placeholder="Прайс-лист, условия доставки, гарантии" />
+                    <label style={{ display: 'block', fontSize: '0.9rem', color: '#aaa', marginBottom: '0.5rem', fontWeight: 500 }}>{t.pricingTerms}</label>
+                    <textarea className="premium-input" rows={3} style={{ resize: 'vertical', width: '100%' }} value={pricing} onChange={e => setPricing(e.target.value)} placeholder={t.pricingHint} />
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.9rem', color: '#aaa', marginBottom: '0.5rem', fontWeight: 500 }}>Контакт менеджера</label>
-                    <input className="premium-input" type="text" value={managerContact} onChange={e => setManagerContact(e.target.value)} placeholder="Телефон, Telegram, email или ссылка" style={{ width: '100%' }} />
+                    <label style={{ display: 'block', fontSize: '0.9rem', color: '#aaa', marginBottom: '0.5rem', fontWeight: 500 }}>{t.managerContact}</label>
+                    <input className="premium-input" type="text" value={managerContact} onChange={e => setManagerContact(e.target.value)} placeholder={t.managerContact} style={{ width: '100%' }} />
                   </div>
                   
                   <div style={{ background: 'var(--surface-container-low)', padding: '20px', borderRadius: '12px', border: '1px solid var(--outline-variant)' }}>
-                    <label style={{ display: 'block', fontSize: '1rem', color: 'var(--on-surface)', marginBottom: '1rem', fontWeight: 600 }}>Частые вопросы (FAQ)</label>
+                    <label style={{ display: 'block', fontSize: '1rem', color: 'var(--on-surface)', marginBottom: '1rem', fontWeight: 600 }}>{t.faqTitle}</label>
                     {faq.map((item, index) => (
                       <div key={index} style={{ display: 'flex', gap: '12px', marginBottom: '16px', alignItems: 'flex-start' }}>
                         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -1503,14 +1517,14 @@ export default function BotDetails() {
                 {/* 1. Selection from existing contacts */}
                 <div className="glass-panel broadcast-panel" style={{ padding: '2rem', height: '550px', display: 'flex', flexDirection: 'column' }}>
                   <h2 style={{ margin: '0 0 1rem', fontSize: '1.1rem', fontWeight: 700, color: 'var(--on-surface)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <Users size={18} color="var(--primary)"/> Select from Contacts
+                    <Users size={18} color="var(--primary)"/> {t.selectFromContacts}
                   </h2>
                   <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
                     <input 
                       type="text" 
                       className="premium-input" 
                       style={{ padding: '0.5rem 0.8rem', fontSize: '0.8rem' }} 
-                      placeholder="Search..." 
+                      placeholder={t.searchPlaceholder} 
                       value={contactSearch}
                       onChange={e => setContactSearch(e.target.value)}
                     />
@@ -1522,7 +1536,7 @@ export default function BotDetails() {
                       className="btn-action" 
                       style={{ padding: '0.5rem 1rem', fontSize: '0.75rem', whiteSpace: 'nowrap', background: 'var(--surface-container-high)', color: 'var(--on-surface)' }}
                     >
-                      {selectedBroadcastContacts.length === chats.length ? 'Deselect All' : 'Select All'}
+                      {selectedBroadcastContacts.length === chats.length ? t.deselectAll : t.selectAll}
                     </button>
                   </div>
                   
@@ -1542,23 +1556,23 @@ export default function BotDetails() {
                           style={{ accentColor: '#003527' }}
                         />
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--on-surface)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{contact.name || 'Unknown'}</div>
+                          <div style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--on-surface)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{contact.name || t.unknown}</div>
                           <div style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>{formatChatId(contact.realJid || contact.chatId)}</div>
                         </div>
                       </label>
                     ))}
                   </div>
                   <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.05)', fontSize: '0.8rem', color: '#aaa' }}>
-                    Selected: <strong>{selectedBroadcastContacts.length}</strong>
+                    {t.selectedCount} <strong>{selectedBroadcastContacts.length}</strong>
                   </div>
                 </div>
 
                 {/* 2. Manual Input */}
                 <div className="glass-panel" style={{ padding: '2rem', height: '550px', display: 'flex', flexDirection: 'column' }}>
                   <h2 style={{ margin: '0 0 1rem', fontSize: '1.1rem', fontWeight: 600, color: 'var(--on-surface)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <UserPlus size={18} color="var(--primary)"/> Manual Numbers
+                    <UserPlus size={18} color="var(--primary)"/> {t.manualNumbers}
                   </h2>
-                  <p style={{ color: '#666', fontSize: '0.8rem', marginBottom: '1rem' }}>Enter numbers one per line (e.g. 77001112233)</p>
+                  <p style={{ color: '#666', fontSize: '0.8rem', marginBottom: '1rem' }}>{t.enterNumbersHint}</p>
                   <textarea 
                     className="premium-input" 
                     value={broadcastNumbers} 
@@ -1570,7 +1584,7 @@ export default function BotDetails() {
                     placeholder={'77001234567\n79998887766'} 
                   />
                   <div style={{ marginTop: '1rem', fontSize: '0.8rem', color: '#666' }}>
-                    * Manual input overrides selected contacts
+                    {t.manualOverrideNote}
                   </div>
                 </div>
                 
@@ -1579,11 +1593,11 @@ export default function BotDetails() {
                   <h2 style={{ margin: '0 0 1rem', fontSize: '1.1rem', fontWeight: 600, color: 'var(--on-surface)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <MessageSquare size={18} color="var(--primary)"/> {t.msgContent}
                   </h2>
-                  <textarea className="premium-input" value={broadcastMessage} onChange={e => setBroadcastMessage(e.target.value)} style={{ flex: 1, minHeight: '200px', resize: 'none', marginBottom: '2rem' }} placeholder="Type your broadcast message here..." />
+                  <textarea className="premium-input" value={broadcastMessage} onChange={e => setBroadcastMessage(e.target.value)} style={{ flex: 1, minHeight: '200px', resize: 'none', marginBottom: '2rem' }} placeholder={t.typeBroadcastMsg} />
                   
                   <div style={{ background: 'var(--primary-container)', padding: '1rem', borderRadius: '12px', border: '1px solid var(--primary)', marginBottom: '1.5rem' }}>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--on-surface-variant)', marginBottom: '0.5rem' }}>Campaign Summary:</div>
-                    <div style={{ fontSize: '0.9rem', color: 'var(--on-surface)' }}>Recipients: <strong>{broadcastNumbers.trim() ? broadcastNumbers.split('\n').filter(n => n.trim()).length : selectedBroadcastContacts.length}</strong></div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--on-surface-variant)', marginBottom: '0.5rem' }}>{t.campaignSummary}</div>
+                    <div style={{ fontSize: '0.9rem', color: 'var(--on-surface)' }}>{t.recipients} <strong>{broadcastNumbers.trim() ? broadcastNumbers.split('\n').filter(n => n.trim()).length : selectedBroadcastContacts.length}</strong></div>
                   </div>
 
                   <button 

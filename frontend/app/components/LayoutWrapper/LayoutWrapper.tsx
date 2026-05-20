@@ -10,6 +10,8 @@ import { ThemeProvider } from '../../contexts/ThemeContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { LifeBuoy, X, Send, CheckCircle } from 'lucide-react';
 
+import { API_URL } from '../../config';
+
 interface LayoutWrapperProps {
   children: React.ReactNode;
 }
@@ -24,7 +26,7 @@ function SupportWidget() {
     e.preventDefault();
     setLoading(true);
     try {
-      await fetch('http://localhost:3001/api/support', {
+      await fetch(`${API_URL}/support`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

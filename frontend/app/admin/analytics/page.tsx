@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 import { Activity, Zap, MessageSquare, DollarSign, BrainCircuit, Users, ChevronDown, ChevronUp, ArrowDown, ArrowUp } from 'lucide-react';
 import Link from 'next/link';
+import { API_URL } from '../../config';
 
 const INPUT_COLOR = '#3b82f6';
 const OUTPUT_COLOR = '#ec4899';
@@ -53,7 +54,7 @@ export default function AnalyticsDashboard() {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const res = await fetch('http://localhost:3001/api/statistics/admin-analytics', { credentials: 'include' });
+        const res = await fetch(`${API_URL}/statistics/admin-analytics`, { credentials: 'include' });
         if (res.ok) {
           const data = await res.json();
           setStats(data.stats);

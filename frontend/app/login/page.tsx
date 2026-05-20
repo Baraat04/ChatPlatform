@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import Link from 'next/link';
+import { API_URL } from '../config';
 
 const localT = {
   EN: {
@@ -43,6 +44,8 @@ const localT = {
   }
 };
 
+
+
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -59,7 +62,7 @@ export default function Login() {
     setIsLoggingIn(true);
     
     try {
-      const res = await fetch('http://localhost:3001/api/auth/login', {
+      const res = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

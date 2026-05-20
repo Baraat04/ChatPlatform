@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { API_URL } from '../config';
 import {
   BookOpen, Bot, Zap, MessageSquare, BarChart2, ChevronDown, ChevronUp,
   Send, CheckCircle, Terminal, QrCode, Brain, Layers, ArrowRight,
@@ -15,43 +16,43 @@ interface FaqItem { q: string; a: string; }
 const docsDict = {
   RU: {
     navTitle: 'Документация',
-    heroTitle: 'BotFlow Enterprise AI',
-    sub: 'Профессиональная платформа для создания, настройки и управления AI-ботами в Telegram и WhatsApp',
-    howItWorks: 'Как это работает',
+    heroTitle: 'Документация и руководство пользователя',
+    sub: 'BotFlow — это платформа для создания и управления умными помощниками в Telegram и WhatsApp без навыков программирования. Бот обучается на текстовых данных компании и берет на себя автоматическое общение с клиентами.',
+    howItWorks: 'Пошаговое руководство: Создание и запуск бота',
     steps: [
-      { icon: Bot, title: 'Создание бота', desc: 'Выберите платформу (Telegram или WhatsApp) и создайте бота за несколько кликов.', color: '#6366f1' },
-      { icon: Brain, title: 'Настройка AI Brain', desc: 'Задайте личность бота через System Prompt и загрузите базу знаний — тексты, PDF, FAQ.', color: '#0ea5e9' },
-      { icon: Zap, title: 'Деплой', desc: 'Подключите токен Telegram или отсканируйте QR-код WhatsApp — бот активируется мгновенно.', color: '#10b981' },
-      { icon: BarChart2, title: 'Мониторинг', desc: 'Смотрите диалоги в реальном времени, вмешивайтесь вручную и анализируйте статистику.', color: '#f59e0b' },
+      { icon: Bot, title: 'Выбор платформы', desc: 'Пользователь выбирает мессенджер, в котором будет работать ассистент: Telegram или WhatsApp.' },
+      { icon: Brain, title: 'Обучение и настройка', desc: 'Укажите роль бота и заполните базу знаний — график работы, цены, услуги и ответы на вопросы.' },
+      { icon: Zap, title: 'Подключение к мессенджеру', desc: 'Вставьте текстовый ключ для Telegram или отсканируйте QR-код для WhatsApp. Бот моментально активируется.' },
+      { icon: BarChart2, title: 'Активация', desc: 'После сохранения бот автоматически начинает обрабатывать входящие сообщения в режиме 24/7.' },
     ],
-    aiBrain: 'AI Brain — как это работает',
+    aiBrain: 'Как бот понимает вопросы',
     aiBlocks: [
-      { label: 'System Prompt', desc: 'Роль бота, тон голоса, цели, запреты', color: '#6366f1', icon: Terminal },
-      { label: 'Knowledge Base', desc: 'Компания, цены, FAQ, ссылки, PDF', color: '#0ea5e9', icon: Database },
-      { label: 'История чата', desc: 'Последние 8 сообщений диалога', color: '#f59e0b', icon: MessageSquare },
+      { label: 'Роль и поведение', desc: 'Описание того, кем является бот и в каком стиле он должен общаться.', icon: Terminal },
+      { label: 'База знаний', desc: 'Текстовая информация о компании, которую бот использует для ответов.', icon: Database },
+      { label: 'История диалога', desc: 'Последние сообщения клиента для понимания контекста.', icon: MessageSquare },
     ],
-    aiCombine: 'Все три блока объединяются и передаются в Gemini для генерации ответа',
-    deploy: 'Деплой бота',
-    deployTelegramSteps: ['Создайте бота через @BotFather', 'Скопируйте API Token', 'Вставьте токен при создании бота', 'Бот активируется автоматически'],
-    deployWhatsappSteps: ['Создайте WhatsApp бота в платформе', 'Откройте страницу бота', 'Отсканируйте QR-код с телефона', 'Бот подключён как WhatsApp Web'],
-    sections: 'Разделы платформы',
+    aiCombine: 'Бот анализирует эти данные и самостоятельно формулирует ответ клиенту',
+    deploy: 'Подключение к мессенджеру',
+    deployTelegramSteps: ['Создайте бота через официального @BotFather', 'Скопируйте полученный текстовый ключ', 'Вставьте ключ при создании бота', 'Бот начнет отвечать автоматически'],
+    deployWhatsappSteps: ['Создайте бота для WhatsApp в платформе', 'Откройте страницу вашего бота', 'Отсканируйте QR-код через функцию "Связанные устройства"', 'Бот подключен и готов к работе'],
+    sections: 'Панель управления и мониторинг',
     pages: [
-      { icon: Layers, title: 'Dashboard', desc: 'Общий обзор: активные боты, количество диалогов и расход токенов.' },
-      { icon: Bot, title: 'My Bots', desc: 'Список всех ботов с быстрым переключением статуса и переходом в настройки.' },
-      { icon: Settings, title: 'Create Bot', desc: 'Мастер создания нового бота: платформа, токен, базовые параметры AI.' },
-      { icon: MessageSquare, title: 'Live Chats', desc: 'Диалоги в реальном времени, ручные ответы, пауза AI для конкретного чата.' },
-      { icon: Megaphone, title: 'Campaigns', desc: 'Массовые рассылки по всем или выбранным контактам бота.' },
-      { icon: Users, title: 'Statistics', desc: 'Токены, стоимость запросов, динамика по дням и детализация по ботам.' },
+      { icon: Layers, title: 'Сводка', desc: 'Общая информация об активных ботах и количестве диалогов.' },
+      { icon: Bot, title: 'Мои боты', desc: 'Список всех ваших помощников с возможностью перехода к настройкам.' },
+      { icon: Settings, title: 'Создать бота', desc: 'Форма для добавления нового бота и указания базовых параметров.' },
+      { icon: MessageSquare, title: 'Живые чаты', desc: 'Интерфейс для просмотра диалогов. Вы можете перехватить управление и ответить вручную.' },
+      { icon: Megaphone, title: 'Рассылки', desc: 'Отправка массовых информационных сообщений по списку контактов бота.' },
+      { icon: Users, title: 'Статистика', desc: 'Детализация активности ботов и стоимости запросов.' },
     ],
     faq: 'Частые вопросы',
     faqItems: [
-      { q: 'Как подключить Telegram-бота?', a: 'Создайте бота через @BotFather, скопируйте токен и вставьте его при создании бота в BotFlow. Система автоматически установит вебхук.' },
-      { q: 'Как подключить WhatsApp?', a: 'После создания бота откройте его страницу и отсканируйте QR-код с телефона, как в WhatsApp Web.' },
-      { q: 'Что такое System Prompt?', a: 'Это инструкции для AI: роль бота, тон общения, цели, правила поведения. Бот строго следует им в каждом диалоге.' },
-      { q: 'Как загрузить базу знаний из PDF?', a: 'На странице бота в разделе "AI Brain" нажмите "Загрузить PDF". Система извлечёт текст и передаст его AI-агенту для обновления базы знаний.' },
-      { q: 'Поддерживаются ли голосовые сообщения?', a: 'Да! Бот автоматически скачивает голосовые сообщения, отправляет аудио в Gemini для распознавания речи и отвечает текстом.' },
-      { q: 'Можно ли отвечать вручную вместо AI?', a: 'Да. В разделе Live Chats нажмите кнопку "Пауза AI" для конкретного чата — и пишите сами. Когда закончите, возобновите AI.' },
-      { q: 'Как работает рассылка (Campaign)?', a: 'В разделе Campaigns выберите бота, напишите текст, отметьте нужные контакты и нажмите "Отправить". Система отправит сообщения с задержкой, чтобы избежать блокировок.' },
+      { q: 'Как подключить Telegram-бота?', a: 'Вам нужно создать бота через официального @BotFather в самом Telegram, получить текстовый ключ и вставить его в нашу платформу.' },
+      { q: 'Как подключить WhatsApp?', a: 'На странице созданного бота появится QR-код. Отсканируйте его через приложение WhatsApp на вашем телефоне (раздел «Связанные устройства»).' },
+      { q: 'Что значит "Роль и поведение"?', a: 'Это инструкции для бота: кем он является (например, продавцом или службой поддержки), как он должен общаться и какие правила соблюдать.' },
+      { q: 'Как загрузить информацию из документа (PDF)?', a: 'На странице бота выберите загрузку документа. Платформа сама прочитает текст и добавит его в базу знаний бота.' },
+      { q: 'Умеет ли бот слушать голосовые сообщения?', a: 'Да. Бот автоматически переводит голосовые сообщения клиентов в текст и отвечает на них.' },
+      { q: 'Могу ли я ответить клиенту сам, отключив бота?', a: 'Да. В разделе "Живые чаты" вы можете нажать кнопку паузы для конкретного диалога и написать ответ лично. Потом бота можно включить обратно.' },
+      { q: 'Как работают массовые рассылки?', a: 'В разделе рассылок выберите нужного бота, напишите текст сообщения и нажмите отправить. Бот сам разошлет сообщение вашим контактам.' },
     ],
     support: 'Техническая поддержка',
     supportDesc: 'Столкнулись с проблемой? Опишите её в форме ниже, и наша команда ответит вам как можно скорее.',
@@ -62,49 +63,49 @@ const docsDict = {
     sending: 'Отправка...',
     sentSuccess: 'Сообщение отправлено!',
     sentSub: 'Мы ответим вам в ближайшее время.',
-    telegramBadge: 'Через токен',
+    telegramBadge: 'Через текстовый ключ',
     whatsappBadge: 'Через QR-код',
     stepLabel: 'Шаг',
   },
   KZ: {
     navTitle: 'Құжаттама',
-    heroTitle: 'BotFlow Enterprise AI',
-    sub: 'Telegram және WhatsApp желілерінде AI боттарын құруға, баптауға және басқаруға арналған кәсіби платформа',
-    howItWorks: 'Жұмыс принципі',
+    heroTitle: 'Құжаттама және пайдаланушы нұсқаулығы',
+    sub: 'BotFlow — бұл бағдарламалау дағдыларынсыз Telegram және WhatsApp желілерінде ақылды көмекшілерді құруға және басқаруға арналған платформа. Бот компанияның мәтіндік деректерінде оқытылады және клиенттермен автоматты түрде сөйлесуді өз мойнына алады.',
+    howItWorks: 'Қадамдық нұсқаулық: Ботты құру және іске қосу',
     steps: [
-      { icon: Bot, title: 'Бот құру', desc: 'Платформаны (Telegram немесе WhatsApp) таңдап, бірнеше рет басу арқылы бот жасаңыз.', color: '#6366f1' },
-      { icon: Brain, title: 'AI Brain баптау', desc: 'Боттың рөлін System Prompt арқылы анықтаңыз және білім базасын (мәтіндер, PDF, FAQ) жүктеңіз.', color: '#0ea5e9' },
-      { icon: Zap, title: 'Деплой', desc: 'Telegram токенін жалғаңыз немесе WhatsApp QR-кодын сканерлеңіз — бот бірден іске қосылады.', color: '#10b981' },
-      { icon: BarChart2, title: 'Мониторинг', desc: 'Диалогтарды нақты уақытта көріңіз, қолмен жауап беріңіз және статистиканы талдаңыз.', color: '#f59e0b' },
+      { icon: Bot, title: 'Платформаны таңдау', desc: 'Пайдаланушы ассистент жұмыс істейтін мессенджерді таңдайды: Telegram немесе WhatsApp.' },
+      { icon: Brain, title: 'Оқыту және баптау', desc: 'Боттың рөлін көрсетіп, білім базасын толтырыңыз — жұмыс кестесі, бағалар, қызметтер және сұрақтарға жауаптар.' },
+      { icon: Zap, title: 'Мессенджерге қосылу', desc: 'Telegram үшін мәтіндік кілтті қойыңыз немесе WhatsApp үшін QR-кодты сканерлеңіз. Бот бірден іске қосылады.' },
+      { icon: BarChart2, title: 'Іске қосу', desc: 'Сақтағаннан кейін бот кіріс хабарламаларды 24/7 режимінде автоматты түрде өңдей бастайды.' },
     ],
-    aiBrain: 'AI Brain — қалай жұмыс істейді',
+    aiBrain: 'Бот сұрақтарды қалай түсінеді',
     aiBlocks: [
-      { label: 'System Prompt', desc: 'Боттың рөлі, сөйлеу мәнері, мақсаттары мен шектеулері', color: '#6366f1', icon: Terminal },
-      { label: 'Knowledge Base', desc: 'Компания, бағалар, FAQ, сілтемелер, PDF', color: '#0ea5e9', icon: Database },
-      { label: 'Чат тарихы', desc: 'Диалогтың соңғы 8 хабарламасы', color: '#f59e0b', icon: MessageSquare },
+      { label: 'Рөлі мен мінезі', desc: 'Бот кім екені және қандай стильде сөйлесуі керек екендігін сипаттау.', icon: Terminal },
+      { label: 'Білім базасы', desc: 'Бот жауап беру үшін қолданатын компания туралы мәтіндік ақпарат.', icon: Database },
+      { label: 'Чат тарихы', desc: 'Мәтінмәнді түсіну үшін клиенттің соңғы хабарламалары.', icon: MessageSquare },
     ],
-    aiCombine: 'Үш блок біріктіріліп, жауап дайындау үшін Gemini жүйесіне жіберіледі',
-    deploy: 'Ботты орналастыру',
-    deployTelegramSteps: ['@BotFather арқылы бот жасаңыз', 'API токенін көшіріп алыңыз', 'Токенді бот құру кезінде қойыңыз', 'Бот автоматты түрде қосылады'],
-    deployWhatsappSteps: ['Платформада WhatsApp ботын жасаңыз', 'Бот бетін ашыңыз', 'Телефонмен QR-кодты сканерлеңіз', 'Бот WhatsApp Web ретінде қосылады'],
-    sections: 'Платформа бөлімдері',
+    aiCombine: 'Бот осы деректерді талдайды және клиентке жауапты өзі дайындайды',
+    deploy: 'Мессенджерге қосылу',
+    deployTelegramSteps: ['Ресми @BotFather арқылы бот жасаңыз', 'Алынған мәтіндік кілтті көшіріп алыңыз', 'Ботты құру кезінде кілтті қойыңыз', 'Бот автоматты түрде жауап бере бастайды'],
+    deployWhatsappSteps: ['Платформада WhatsApp ботын жасаңыз', 'Ботыңыздың бетін ашыңыз', 'Телефондағы "Байланысқан құрылғылар" арқылы QR-кодты сканерлеңіз', 'Бот қосылды және жұмысқа дайын'],
+    sections: 'Басқару тақтасы және мониторинг',
     pages: [
-      { icon: Layers, title: 'Dashboard', desc: 'Жалпы шолу: белсенді боттар, диалогтар саны және токен шығыны.' },
-      { icon: Bot, title: 'My Bots', desc: 'Қосылу күйін өзгерту және баптауларға өту мүмкіндігі бар барлық боттар тізімі.' },
-      { icon: Settings, title: 'Create Bot', desc: 'Жаңа бот құру шебері: платформа, токен, негізгі AI параметрлері.' },
-      { icon: MessageSquare, title: 'Live Chats', desc: 'Нақты уақыттағы диалогтар, қолмен жауап беру және белгілі чат үшін AI-ды кідірту.' },
-      { icon: Megaphone, title: 'Campaigns', desc: 'Боттың барлық немесе таңдалған контактілеріне жаппай хабарлама тарату.' },
-      { icon: Users, title: 'Statistics', desc: 'Токендер, сұраныстар құны, күндер бойынша динамика және боттар бойынша мәлімет.' },
+      { icon: Layers, title: 'Жалпы мәлімет', desc: 'Белсенді боттар мен диалогтар саны туралы жалпы ақпарат.' },
+      { icon: Bot, title: 'Менің боттарым', desc: 'Баптауларға өту мүмкіндігі бар барлық көмекшілеріңіздің тізімі.' },
+      { icon: Settings, title: 'Бот құру', desc: 'Жаңа бот қосуға және негізгі параметрлерді орнатуға арналған форма.' },
+      { icon: MessageSquare, title: 'Тікелей чаттар', desc: 'Диалогтарды қарау интерфейсі. Сіз басқаруды өз қолыңызға алып, өзіңіз жауап бере аласыз.' },
+      { icon: Megaphone, title: 'Хабарлама тарату', desc: 'Бот контактілеріне жаппай ақпараттық хабарламалар жіберу.' },
+      { icon: Users, title: 'Статистика', desc: 'Боттардың белсенділігі мен сұраныстар құнының егжей-тегжейі.' },
     ],
     faq: 'Жиі қойылатын сұрақтар',
     faqItems: [
-      { q: 'Telegram ботын қалай қосуға болады?', a: '@BotFather арқылы бот жасаңыз, токенді көшіріңіз және оны BotFlow платформасында бот құру кезінде қойыңыз. Жүйе вебхукты автоматты түрде орнатады.' },
-      { q: 'WhatsApp ботын қалай қосуға болады?', a: 'Ботты құрғаннан кейін оның бетін ашып, телефонмен QR-кодты сканерлеңіз (WhatsApp Web сияқты).' },
-      { q: 'System Prompt деген не?', a: 'Бұл AI үшін нұсқаулықтар: боттың рөлі, сөйлесу мәнері, мақсаттары мен шектеулері. Бот әр диалогта осы нұсқауларды қатаң сақтайды.' },
-      { q: 'PDF форматынан білім базасын қалай жүктеуге болады?', a: 'Бот бетіндегі "AI Brain" бөлімінде "PDF жүктеу" түймесін басыңыз. Жүйе мәтінді шығарып алып, боттың білім базасын жаңартады.' },
-      { q: 'Дауыстық хабарламалар қолданыла ма?', a: 'Иә! Бот дауыстық хабарламаларды автоматты түрде жүктеп, оларды тану үшін Gemini-ге жібереді және мәтін түрінде жауап береді.' },
-      { q: 'AI орнына қолмен жауап беруге бола ма?', a: 'Иә. Live Chats бөлімінде белгілі бір чат үшін "AI кідірту" түймесін басып, өзіңіз жауап бере аласыз. Аяқтағаннан кейін AI-ды қайта қосыңыз.' },
-      { q: 'Хабарлама тарату (Campaign) қалай жұмыс істейді?', a: 'Campaigns бөлімінде ботты таңдаңыз, мәтінді жазыңыз, қажетті контактілерді белгілеп, "Жіберу" түймесін басыңыз. Бот бұғаттауды болдырмау үшін хабарламаларды кідіріспен жібереді.' },
+      { q: 'Telegram ботын қалай қосуға болады?', a: 'Сізге Telegram-дағы ресми @BotFather арқылы бот жасап, мәтіндік кілтті алу және оны біздің платформаға қою қажет.' },
+      { q: 'WhatsApp ботын қалай қосуға болады?', a: 'Жасалған боттың бетінде QR-код пайда болады. Оны телефоныңыздағы WhatsApp қолданбасы арқылы сканерлеңіз («Байланысқан құрылғылар» бөлімі).' },
+      { q: '"Рөлі мен мінезі" деген не?', a: 'Бұл ботқа арналған нұсқаулық: оның кім екені (мысалы, сатушы немесе қолдау қызметі), қалай сөйлесуі керек және қандай ережелерді сақтау қажеттігі.' },
+      { q: 'Құжаттан (PDF) ақпаратты қалай жүктеуге болады?', a: 'Бот бетінде құжат жүктеуді таңдаңыз. Платформа мәтінді өзі оқып, боттың білім базасына қосады.' },
+      { q: 'Бот дауыстық хабарламаларды тыңдай ала ма?', a: 'Иә. Бот клиенттердің дауыстық хабарламаларын автоматты түрде мәтінге аударып, оларға жауап береді.' },
+      { q: 'Ботты өшіріп, клиентке өзім жауап бере аламын ба?', a: 'Иә. "Тікелей чаттар" бөлімінде белгілі бір диалог үшін кідірту түймесін басып, өзіңіз жауап бере аласыз. Содан кейін ботты қайта қосуға болады.' },
+      { q: 'Жаппай хабарлама тарату қалай жұмыс істейді?', a: 'Хабарлама тарату бөлімінде қажетті ботты таңдаңыз, мәтінді жазып, жіберу түймесін басыңыз. Бот сіздің контактілеріңізге хабарламаны өзі таратады.' },
     ],
     support: 'Техникалық қолдау',
     supportDesc: 'Қандай да бір мәселеге тап болдыңыз ба? Төмендегі пішінді толтырыңыз, біздің команда тез арада жауап береді.',
@@ -115,61 +116,61 @@ const docsDict = {
     sending: 'Жіберілуде...',
     sentSuccess: 'Хабарлама жіберілді!',
     sentSub: 'Жақын арада сізге жауап береміз.',
-    telegramBadge: 'Токен арқылы',
+    telegramBadge: 'Мәтіндік кілт арқылы',
     whatsappBadge: 'QR-код арқылы',
     stepLabel: 'Қадам',
   },
   EN: {
     navTitle: 'Documentation',
-    heroTitle: 'BotFlow Enterprise AI',
-    sub: 'Professional platform to build, configure, and manage intelligent AI bots in Telegram and WhatsApp',
-    howItWorks: 'How It Works',
+    heroTitle: 'Documentation and User Guide',
+    sub: 'BotFlow is a platform for creating and managing smart assistants in Telegram and WhatsApp without coding skills. The bot learns from the company\'s text data and automates communication with clients.',
+    howItWorks: 'Step-by-step Guide: Creating and Launching a Bot',
     steps: [
-      { icon: Bot, title: 'Create Bot', desc: 'Choose your platform (Telegram or WhatsApp) and create a bot in just a few clicks.', color: '#6366f1' },
-      { icon: Brain, title: 'Configure AI Brain', desc: 'Set bot personality via System Prompt and upload knowledge base texts, PDFs, or FAQs.', color: '#0ea5e9' },
-      { icon: Zap, title: 'Deploy', desc: 'Connect Telegram Token or scan WhatsApp QR code — the bot activates instantly.', color: '#10b981' },
-      { icon: BarChart2, title: 'Monitor & Manage', desc: 'View live dialogues, intervene manually, and analyze token usage statistics.', color: '#f59e0b' },
+      { icon: Bot, title: 'Platform Selection', desc: 'The user selects the messenger where the assistant will work: Telegram or WhatsApp.' },
+      { icon: Brain, title: 'Training and Setup', desc: 'Specify the bot\'s role and fill out the knowledge base — working hours, prices, services, and answers to questions.' },
+      { icon: Zap, title: 'Connecting to Messenger', desc: 'Paste the text key for Telegram or scan the QR code for WhatsApp. The bot activates immediately.' },
+      { icon: BarChart2, title: 'Activation', desc: 'After saving, the bot automatically starts processing incoming messages 24/7.' },
     ],
-    aiBrain: 'AI Brain — How It Works',
+    aiBrain: 'How the bot understands questions',
     aiBlocks: [
-      { label: 'System Prompt', desc: 'Bot role, tone of voice, goals, and constraints', color: '#6366f1', icon: Terminal },
-      { label: 'Knowledge Base', desc: 'Company details, pricing, FAQs, links, and PDFs', color: '#0ea5e9', icon: Database },
-      { label: 'Chat History', desc: 'Last 8 messages of the conversation', color: '#f59e0b', icon: MessageSquare },
+      { label: 'Role and behavior', desc: 'Description of who the bot is and in what style it should communicate.', icon: Terminal },
+      { label: 'Knowledge base', desc: 'Textual information about the company that the bot uses to answer.', icon: Database },
+      { label: 'Chat history', desc: 'The latest client messages to understand the context.', icon: MessageSquare },
     ],
-    aiCombine: 'All three blocks are combined and passed to Gemini to generate the reply',
-    deploy: 'Deploying Bots',
-    deployTelegramSteps: ['Create a bot via @BotFather', 'Copy the API Token', 'Paste the token when creating bot', 'Webhook connects automatically'],
-    deployWhatsappSteps: ['Create a WhatsApp bot in the panel', 'Open the bot details page', 'Scan the QR code with WhatsApp on your phone', 'Connected as a WhatsApp Web client'],
-    sections: 'Platform Sections',
+    aiCombine: 'The bot analyzes this data and independently formulates an answer for the client',
+    deploy: 'Connecting to Messenger',
+    deployTelegramSteps: ['Create a bot via the official @BotFather', 'Copy the received text key', 'Paste the key when creating the bot', 'The bot will start replying automatically'],
+    deployWhatsappSteps: ['Create a WhatsApp bot in the platform', 'Open your bot\'s page', 'Scan the QR code via "Linked Devices" on your phone', 'The bot is connected and ready to work'],
+    sections: 'Dashboard and Monitoring',
     pages: [
-      { icon: Layers, title: 'Dashboard', desc: 'Overview of active bots, total conversation stats, and token expenditures.' },
-      { icon: Bot, title: 'My Bots', desc: 'List of all created bots with quick toggles and configuration access.' },
-      { icon: Settings, title: 'Create Bot', desc: 'Easy wizard: select platform, supply token/credentials, and define core AI settings.' },
-      { icon: MessageSquare, title: 'Live Chats', desc: 'Real-time conversation viewer, manual response capabilities, and AI pausing.' },
-      { icon: Megaphone, title: 'Campaigns', desc: 'Send bulk broadcasts to all or selected users with built-in delays.' },
-      { icon: Users, title: 'Statistics', desc: 'Tokens, cost of requests, daily dynamics, and detailed breakdowns.' },
+      { icon: Layers, title: 'Summary', desc: 'General info on active bots and the number of dialogues.' },
+      { icon: Bot, title: 'My bots', desc: 'List of all your assistants with quick access to settings.' },
+      { icon: Settings, title: 'Create a bot', desc: 'Form to add a new bot and specify basic parameters.' },
+      { icon: MessageSquare, title: 'Live chats', desc: 'Interface to view dialogues. You can intercept control and reply manually.' },
+      { icon: Megaphone, title: 'Broadcasts', desc: 'Sending mass informational messages to the bot\'s contact list.' },
+      { icon: Users, title: 'Statistics', desc: 'Details on bot activity and request costs.' },
     ],
     faq: 'Frequently Asked Questions',
     faqItems: [
-      { q: 'How to connect Telegram bot?', a: 'Create a bot via @BotFather, copy the token and paste it during creation in BotFlow. System will set up webhooks automatically.' },
-      { q: 'How to connect WhatsApp bot?', a: 'After creating the bot, open its page and scan the QR code with WhatsApp on your phone, similar to WhatsApp Web.' },
-      { q: 'What is System Prompt?', a: 'It is the set of instructions for the AI: role, tone of voice, goals, and constraints. The bot strictly follows them in every chat.' },
-      { q: 'How to upload knowledge base from PDF?', a: 'On the bot details page under "AI Brain", click "Upload PDF". The system extracts text and injects it into the bot context.' },
-      { q: 'Are voice messages supported?', a: 'Yes! The bot automatically downloads voice messages, sends them to Gemini for speech recognition, and replies in text.' },
-      { q: 'Can I reply manually instead of AI?', a: 'Yes. In the Live Chats panel, click "Pause AI" for any chat to respond manually. Resume AI when you are done.' },
-      { q: 'How do campaigns work?', a: 'In the Campaigns tab, select the bot, write your broadcast text, select contacts, and click Send. The system sends them sequentially with random delays.' },
+      { q: 'How to connect a Telegram bot?', a: 'You need to create a bot via the official @BotFather in Telegram, get the text key, and paste it into our platform.' },
+      { q: 'How to connect WhatsApp?', a: 'A QR code will appear on the created bot\'s page. Scan it using the WhatsApp app on your phone ("Linked devices" section).' },
+      { q: 'What does "Role and behavior" mean?', a: 'These are instructions for the bot: who it is (e.g., a salesperson or support), how it should communicate, and what rules to follow.' },
+      { q: 'How to upload information from a document (PDF)?', a: 'On the bot\'s page, select upload document. The platform will read the text itself and add it to the bot\'s knowledge base.' },
+      { q: 'Can the bot listen to voice messages?', a: 'Yes. The bot automatically translates clients\' voice messages into text and replies to them.' },
+      { q: 'Can I reply to the client myself by turning off the bot?', a: 'Yes. In the "Live chats" section, you can press the pause button for a specific dialogue and write the reply yourself. Then you can turn the bot back on.' },
+      { q: 'How do mass broadcasts work?', a: 'In the broadcasts section, select the desired bot, write the message text, and click send. The bot will send the message to your contacts itself.' },
     ],
     support: 'Technical Support',
     supportDesc: 'Encountered a bug or have a question? Describe it in the form below and we will get back to you shortly.',
     name: 'Your Name',
     email: 'Email',
     message: 'Message',
-    send: 'Send Message',
+    send: 'Send',
     sending: 'Sending...',
     sentSuccess: 'Message Sent!',
     sentSub: 'We will respond to your query as soon as possible.',
-    telegramBadge: 'Via Token',
-    whatsappBadge: 'Via QR-Code',
+    telegramBadge: 'Via text key',
+    whatsappBadge: 'Via QR code',
     stepLabel: 'Step',
   }
 };
@@ -178,19 +179,19 @@ const docsDict = {
 function FaqAccordion({ items }: { items: FaqItem[] }) {
   const [open, setOpen] = useState<number | null>(null);
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
       {items.map((item, i) => (
         <div key={i} onClick={() => setOpen(open === i ? null : i)} style={{
-          background: 'var(--surface-container-low)', borderRadius: '14px',
+          background: 'var(--surface-container-lowest)', borderRadius: '8px',
           border: '1px solid var(--outline-variant)', cursor: 'pointer',
-          overflow: 'hidden', transition: 'box-shadow 0.2s',
+          overflow: 'hidden', transition: 'all 0.2s ease',
         }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 22px' }}>
-            <span style={{ fontWeight: 600, fontSize: '0.97rem', color: 'var(--on-surface)' }}>{item.q}</span>
-            {open === i ? <ChevronUp size={18} color="var(--primary)" /> : <ChevronDown size={18} color="var(--on-surface-variant)" />}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px' }}>
+            <span style={{ fontWeight: 500, fontSize: '0.95rem', color: 'var(--on-surface)' }}>{item.q}</span>
+            {open === i ? <ChevronUp size={16} color="var(--on-surface-variant)" /> : <ChevronDown size={16} color="var(--on-surface-variant)" />}
           </div>
           {open === i && (
-            <div style={{ padding: '0 22px 18px', color: 'var(--on-surface-variant)', lineHeight: 1.7, fontSize: '0.92rem' }}>
+            <div style={{ padding: '0 20px 16px', color: 'var(--on-surface-variant)', lineHeight: 1.6, fontSize: '0.9rem' }}>
               {item.a}
             </div>
           )}
@@ -210,7 +211,7 @@ function SupportForm({ t }: { t: any }) {
     e.preventDefault();
     setLoading(true);
     try {
-      await fetch('http://localhost:3001/api/support', {
+      await fetch(`${API_URL}/support`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -218,17 +219,17 @@ function SupportForm({ t }: { t: any }) {
       });
       setSent(true);
     } catch {
-      setSent(true); // show success even if offline
+      setSent(true);
     } finally {
       setLoading(false);
     }
   }
 
   if (sent) return (
-    <div style={{ textAlign: 'center', padding: '3rem 1rem' }}>
-      <CheckCircle size={48} color="#10b981" style={{ marginBottom: '1rem' }} />
-      <div style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--on-surface)', marginBottom: '0.5rem' }}>{t.sentSuccess}</div>
-      <div style={{ color: 'var(--on-surface-variant)' }}>{t.sentSub}</div>
+    <div style={{ textAlign: 'center', padding: '2rem 1rem' }}>
+      <CheckCircle size={32} color="var(--on-surface-variant)" style={{ marginBottom: '1rem', margin: '0 auto' }} />
+      <div style={{ fontSize: '1.1rem', fontWeight: 500, color: 'var(--on-surface)', marginBottom: '0.5rem' }}>{t.sentSuccess}</div>
+      <div style={{ color: 'var(--on-surface-variant)', fontSize: '0.9rem' }}>{t.sentSub}</div>
     </div>
   );
 
@@ -236,90 +237,84 @@ function SupportForm({ t }: { t: any }) {
     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
         <div>
-          <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--on-surface-variant)', marginBottom: '6px' }}>{t.name}</label>
+          <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--on-surface-variant)', marginBottom: '6px' }}>{t.name}</label>
           <input required value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-            placeholder="Ivan Ivanov" style={inputStyle} />
+            placeholder="..." style={inputStyle} />
         </div>
         <div>
-          <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--on-surface-variant)', marginBottom: '6px' }}>{t.email}</label>
+          <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--on-surface-variant)', marginBottom: '6px' }}>{t.email}</label>
           <input required type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-            placeholder="ivan@example.com" style={inputStyle} />
+            placeholder="..." style={inputStyle} />
         </div>
       </div>
       <div>
-        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--on-surface-variant)', marginBottom: '6px' }}>{t.message}</label>
-        <textarea required rows={5} value={form.message} onChange={e => setForm(f => ({ ...f, message: e.target.value }))}
+        <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--on-surface-variant)', marginBottom: '6px' }}>{t.message}</label>
+        <textarea required rows={4} value={form.message} onChange={e => setForm(f => ({ ...f, message: e.target.value }))}
           placeholder="..." style={{ ...inputStyle, resize: 'vertical' }} />
       </div>
       <button type="submit" disabled={loading} style={{
         display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center',
-        padding: '14px 28px', borderRadius: '12px', background: 'var(--primary)',
-        color: 'var(--on-primary)', fontWeight: 700, fontSize: '0.97rem', border: 'none',
+        padding: '10px 20px', borderRadius: '6px', background: 'var(--on-surface)',
+        color: 'var(--surface)', fontWeight: 500, fontSize: '0.9rem', border: 'none',
         cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1,
         alignSelf: 'flex-start', transition: 'opacity 0.2s',
       }}>
-        <Send size={16} /> {loading ? t.sending : t.send}
+        <Send size={14} /> {loading ? t.sending : t.send}
       </button>
     </form>
   );
 }
 
 const inputStyle: React.CSSProperties = {
-  width: '100%', padding: '12px 16px', borderRadius: '10px',
+  width: '100%', padding: '10px 14px', borderRadius: '6px',
   border: '1px solid var(--outline-variant)', background: 'var(--surface-container-lowest)',
-  color: 'var(--on-surface)', fontSize: '0.95rem', outline: 'none',
+  color: 'var(--on-surface)', fontSize: '0.9rem', outline: 'none',
   fontFamily: 'inherit',
 };
 
 // ── MAIN DOCS PAGE ──────────────────────────────────────────
 export default function DocsPage() {
   const { language } = useLanguage();
-  const t = docsDict[language] || docsDict.RU;
+  const t = docsDict[language as keyof typeof docsDict] || docsDict.RU;
 
   return (
-    <div style={{ maxWidth: '900px', margin: '0 auto', padding: '2rem 1.5rem 5rem' }}>
+    <div style={{ maxWidth: '800px', margin: '0 auto', padding: '3rem 1.5rem 5rem', fontFamily: 'inherit' }}>
 
       {/* Hero */}
-      <div style={{ textAlign: 'center', padding: '3rem 0 2.5rem', borderBottom: '1px solid var(--outline-variant)', marginBottom: '3rem' }}>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', marginBottom: '1.5rem',
-          background: 'var(--primary-container)', padding: '8px 18px', borderRadius: '99px' }}>
-          <BookOpen size={18} color="var(--on-primary-container)" />
-          <span style={{ fontWeight: 700, color: 'var(--on-primary-container)', fontSize: '0.9rem' }}>{t.navTitle}</span>
+      <div style={{ marginBottom: '4rem' }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', marginBottom: '1rem' }}>
+          <BookOpen size={16} color="var(--on-surface-variant)" />
+          <span style={{ fontWeight: 500, color: 'var(--on-surface-variant)', fontSize: '0.85rem' }}>{t.navTitle}</span>
         </div>
-        <h1 style={{ fontSize: 'clamp(2rem, 5vw, 2.8rem)', fontWeight: 900, color: 'var(--on-surface)', lineHeight: 1.2, marginBottom: '1rem' }}>
+        <h1 style={{ fontSize: '2rem', fontWeight: 600, color: 'var(--on-surface)', lineHeight: 1.2, marginBottom: '1rem', letterSpacing: '-0.02em' }}>
           {t.heroTitle}
         </h1>
-        <p style={{ fontSize: '1.1rem', color: 'var(--on-surface-variant)', maxWidth: '600px', margin: '0 auto', lineHeight: 1.7 }}>
+        <p style={{ fontSize: '1rem', color: 'var(--on-surface-variant)', lineHeight: 1.6 }}>
           {t.sub}
         </p>
       </div>
 
       {/* How it works */}
-      <section style={{ marginBottom: '3.5rem' }}>
+      <section style={{ marginBottom: '4rem' }}>
         <SectionTitle icon={Zap} title={t.howItWorks} />
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {t.steps.map((step, i) => {
-            const originalStep = docsDict.RU.steps[i];
-            const stepConfig = docsDict.RU.steps[i];
-            // Match corresponding icons
             const icons = [Bot, Brain, Zap, BarChart2];
-            const colors = ['#6366f1', '#0ea5e9', '#10b981', '#f59e0b'];
             const Icon = icons[i] || Bot;
-            const color = colors[i] || '#6366f1';
 
             return (
-              <div key={i} style={{ background: 'var(--surface-container-low)', borderRadius: '16px',
-                border: '1px solid var(--outline-variant)', padding: '24px 20px', position: 'relative' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
-                  <div style={{ width: '38px', height: '38px', borderRadius: '10px',
-                    background: color + '1a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Icon size={20} color={color} />
-                  </div>
-                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: color,
-                    background: color + '1a', padding: '3px 10px', borderRadius: '99px' }}>{t.stepLabel} {i + 1}</span>
+              <div key={i} style={{ background: 'var(--surface-container-lowest)', borderRadius: '8px',
+                border: '1px solid var(--outline-variant)', padding: '20px', display: 'flex', gap: '16px' }}>
+                <div style={{ flexShrink: 0, marginTop: '2px' }}>
+                  <Icon size={18} color="var(--on-surface-variant)" />
                 </div>
-                <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--on-surface)', marginBottom: '8px' }}>{step.title}</div>
-                <div style={{ fontSize: '0.87rem', color: 'var(--on-surface-variant)', lineHeight: 1.6 }}>{step.desc}</div>
+                <div>
+                  <div style={{ fontWeight: 500, fontSize: '1rem', color: 'var(--on-surface)', marginBottom: '4px' }}>
+                    <span style={{ color: 'var(--on-surface-variant)', marginRight: '6px' }}>{i + 1}.</span>
+                    {step.title}
+                  </div>
+                  <div style={{ fontSize: '0.9rem', color: 'var(--on-surface-variant)', lineHeight: 1.5 }}>{step.desc}</div>
+                </div>
               </div>
             );
           })}
@@ -327,51 +322,44 @@ export default function DocsPage() {
       </section>
 
       {/* AI Prompt Builder */}
-      <section style={{ marginBottom: '3.5rem' }}>
+      <section style={{ marginBottom: '4rem' }}>
         <SectionTitle icon={Brain} title={t.aiBrain} />
-        <div style={{ background: 'var(--surface-container-low)', borderRadius: '20px',
-          border: '1px solid var(--outline-variant)', padding: '28px', overflow: 'hidden' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginBottom: '24px' }}>
-            {t.aiBlocks.map((item, i) => {
-              const staticItems = [
-                { color: '#6366f1', icon: Terminal },
-                { color: '#0ea5e9', icon: Database },
-                { color: '#f59e0b', icon: MessageSquare }
-              ];
-              const Icon = staticItems[i].icon;
-              return (
-                <div key={i} style={{ background: 'var(--surface-container)', borderRadius: '14px',
-                  padding: '18px', border: `1px solid ${staticItems[i].color}33` }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                    <Icon size={16} color={staticItems[i].color} />
-                    <span style={{ fontWeight: 700, fontSize: '0.88rem', color: staticItems[i].color }}>{item.label}</span>
-                  </div>
-                  <div style={{ fontSize: '0.82rem', color: 'var(--on-surface-variant)', lineHeight: 1.5 }}>{item.desc}</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+          {t.aiBlocks.map((item, i) => {
+            const staticIcons = [Terminal, Database, MessageSquare];
+            const Icon = staticIcons[i];
+            return (
+              <div key={i} style={{ background: 'var(--surface-container-lowest)', borderRadius: '8px',
+                padding: '20px', border: '1px solid var(--outline-variant)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                  <Icon size={16} color="var(--on-surface-variant)" />
+                  <span style={{ fontWeight: 500, fontSize: '0.95rem', color: 'var(--on-surface)' }}>{item.label}</span>
                 </div>
-              );
-            })}
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', justifyContent: 'center',
-            padding: '14px', background: 'var(--primary-container)', borderRadius: '12px' }}>
-            <ArrowRight size={18} color="var(--on-primary-container)" />
-            <span style={{ fontWeight: 600, color: 'var(--on-primary-container)', fontSize: '0.9rem', textAlign: 'center' }}>
-              {t.aiCombine}
-            </span>
-          </div>
+                <div style={{ fontSize: '0.9rem', color: 'var(--on-surface-variant)', lineHeight: 1.5 }}>{item.desc}</div>
+              </div>
+            );
+          })}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '12px',
+          padding: '16px', background: 'var(--surface-container-low)', borderRadius: '8px', border: '1px solid var(--outline-variant)' }}>
+          <ArrowRight size={16} color="var(--on-surface-variant)" />
+          <span style={{ color: 'var(--on-surface-variant)', fontSize: '0.9rem' }}>
+            {t.aiCombine}
+          </span>
         </div>
       </section>
 
       {/* Deploy */}
-      <section style={{ marginBottom: '3.5rem' }}>
+      <section style={{ marginBottom: '4rem' }}>
         <SectionTitle icon={Zap} title={t.deploy} />
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', gridAutoRows: '1fr' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', gridAutoRows: '1fr' }}>
           <DeployCard
-            icon={Send} title="Telegram" color="#229ED9"
+            icon={Send} title="Telegram"
             steps={t.deployTelegramSteps}
             badge={t.telegramBadge}
           />
           <DeployCard
-            icon={QrCode} title="WhatsApp" color="#25D366"
+            icon={QrCode} title="WhatsApp"
             steps={t.deployWhatsappSteps}
             badge={t.whatsappBadge}
           />
@@ -379,23 +367,22 @@ export default function DocsPage() {
       </section>
 
       {/* Platform pages */}
-      <section style={{ marginBottom: '3.5rem' }}>
+      <section style={{ marginBottom: '4rem' }}>
         <SectionTitle icon={Layers} title={t.sections} />
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '14px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '12px' }}>
           {t.pages.map((page, i) => {
             const icons = [Layers, Bot, Settings, MessageSquare, Megaphone, Users];
             const Icon = icons[i] || Layers;
             return (
-              <div key={i} style={{ display: 'flex', gap: '14px', alignItems: 'flex-start',
-                background: 'var(--surface-container-low)', borderRadius: '14px',
-                border: '1px solid var(--outline-variant)', padding: '18px' }}>
-                <div style={{ width: '36px', height: '36px', borderRadius: '10px', flexShrink: 0,
-                  background: 'var(--primary-container)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Icon size={18} color="var(--on-primary-container)" />
+              <div key={i} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start',
+                background: 'var(--surface-container-lowest)', borderRadius: '8px',
+                border: '1px solid var(--outline-variant)', padding: '20px' }}>
+                <div style={{ flexShrink: 0, marginTop: '2px' }}>
+                  <Icon size={16} color="var(--on-surface-variant)" />
                 </div>
                 <div>
-                  <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--on-surface)', marginBottom: '4px' }}>{page.title}</div>
-                  <div style={{ fontSize: '0.83rem', color: 'var(--on-surface-variant)', lineHeight: 1.5 }}>{page.desc}</div>
+                  <div style={{ fontWeight: 500, fontSize: '0.95rem', color: 'var(--on-surface)', marginBottom: '4px' }}>{page.title}</div>
+                  <div style={{ fontSize: '0.9rem', color: 'var(--on-surface-variant)', lineHeight: 1.5 }}>{page.desc}</div>
                 </div>
               </div>
             );
@@ -404,7 +391,7 @@ export default function DocsPage() {
       </section>
 
       {/* FAQ */}
-      <section style={{ marginBottom: '3.5rem' }}>
+      <section style={{ marginBottom: '4rem' }}>
         <SectionTitle icon={BookOpen} title={t.faq} />
         <FaqAccordion items={t.faqItems} />
       </section>
@@ -412,9 +399,9 @@ export default function DocsPage() {
       {/* Support */}
       <section id="support">
         <SectionTitle icon={Send} title={t.support} />
-        <div style={{ background: 'var(--surface-container-low)', borderRadius: '20px',
-          border: '1px solid var(--outline-variant)', padding: '32px' }}>
-          <p style={{ color: 'var(--on-surface-variant)', marginBottom: '24px', lineHeight: 1.6 }}>
+        <div style={{ background: 'var(--surface-container-lowest)', borderRadius: '8px',
+          border: '1px solid var(--outline-variant)', padding: '24px' }}>
+          <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.9rem', marginBottom: '20px', lineHeight: 1.6 }}>
             {t.supportDesc}
           </p>
           <SupportForm t={t} />
@@ -427,35 +414,30 @@ export default function DocsPage() {
 
 function SectionTitle({ icon: Icon, title }: { icon: any; title: string }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
-      <Icon size={22} color="var(--primary)" />
-      <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--on-surface)' }}>{title}</h2>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px', paddingBottom: '12px', borderBottom: '1px solid var(--outline-variant)' }}>
+      <Icon size={18} color="var(--on-surface-variant)" />
+      <h2 style={{ fontSize: '1.2rem', fontWeight: 500, color: 'var(--on-surface)' }}>{title}</h2>
     </div>
   );
 }
 
-function DeployCard({ icon: Icon, title, color, steps, badge }: {
-  icon: any; title: string; color: string; steps: string[]; badge: string;
+function DeployCard({ icon: Icon, title, steps, badge }: {
+  icon: any; title: string; steps: string[]; badge: string;
 }) {
   return (
-    <div style={{ background: 'var(--surface-container-low)', borderRadius: '16px',
-      border: `1px solid ${color}33`, padding: '24px', display: 'flex', flexDirection: 'column', justifySelf: 'stretch' }}>
+    <div style={{ background: 'var(--surface-container-lowest)', borderRadius: '8px',
+      border: '1px solid var(--outline-variant)', padding: '20px', display: 'flex', flexDirection: 'column', justifySelf: 'stretch' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-        <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: color + '1a',
-          display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Icon size={20} color={color} />
-        </div>
+        <Icon size={18} color="var(--on-surface-variant)" />
         <div>
-          <div style={{ fontWeight: 800, color: 'var(--on-surface)' }}>{title}</div>
-          <div style={{ fontSize: '0.75rem', color, fontWeight: 600 }}>{badge}</div>
+          <div style={{ fontWeight: 500, color: 'var(--on-surface)' }}>{title}</div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>{badge}</div>
         </div>
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flexGrow: 1 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flexGrow: 1 }}>
         {steps.map((step, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', fontSize: '0.87rem' }}>
-            <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: color + '20',
-              color, fontWeight: 800, fontSize: '0.72rem', flexShrink: 0,
-              display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{i + 1}</div>
+          <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', fontSize: '0.85rem' }}>
+            <div style={{ color: 'var(--on-surface-variant)', fontSize: '0.85rem', flexShrink: 0 }}>{i + 1}.</div>
             <span style={{ color: 'var(--on-surface-variant)', lineHeight: 1.5 }}>{step}</span>
           </div>
         ))}

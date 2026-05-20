@@ -45,19 +45,17 @@ const localT = {
     alexQuote: "\"Homelander transformed our support operations. We went from answering the same 10 questions all day to focusing on actual sales strategy.\"",
     sarahQuote: "\"The PDF knowledge base feature is magic. I uploaded our 40-page technical manual and the AI started answering expert questions immediately.\"",
     jamesQuote: "\"The seamless handoff to humans is what sold us. Our bots handle the triage and our sales team steps in only when the lead is warm.\"",
-    agenciesTitle: "Agencies & Integrators",
-    agenciesSub: "Implement Homelander for your clients and earn high recurring commissions while providing top-tier AI automation.",
-    resellersTitle: "Resellers",
-    resellersSub: "Join our reseller network and expand your product portfolio with the market's most advanced AI chatbot solution.",
+    partnershipTitle: "Partnership & Custom Integrations",
+    partnershipSub: "Contact us directly to discuss custom CRM/ERP integrations, joint solution development, or to apply for partnership terms.",
     partnership: "Partnership",
-    applyPartnership: "Apply for Partnership",
-    learnMore: "Learn More",
-    whiteLabelOptions: "White-label options",
-    prioritySupport: "Priority support access",
-    dedicatedPartner: "Dedicated partner manager",
-    exclusiveDiscounts: "Exclusive reseller discounts",
-    marketingKits: "Marketing collateral kits",
-    trainingWebinars: "Technical training webinars",
+    applyPartnership: "Contact Us",
+    learnMore: "Contact Us",
+    whiteLabelOptions: "Connection of any CRM & ERP",
+    prioritySupport: "Timeline and SLA guarantees",
+    dedicatedPartner: "Developer direct support",
+    exclusiveDiscounts: "Joint solution development",
+    marketingKits: "Custom API access",
+    trainingWebinars: "Direct contact with the team",
     buildToday: "Let's build your AI assistant today",
     buildTodaySub: "Have specific requirements? Our team of AI engineers can help you architect the perfect solution for your scale.",
     headquarters: "Global Headquarters, Silicon Valley",
@@ -118,19 +116,17 @@ const localT = {
     alexQuote: "«Homelander полностью изменил нашу клиентскую поддержку. Мы перешли от ответов на одни и те же 10 вопросов в день к фокусу на продажах.»",
     sarahQuote: "«Загрузка базы знаний из PDF работает волшебно. Я загрузил наше 40-страничное руководство, и ИИ сразу начал квалифицированно консультировать.»",
     jamesQuote: "«Бесшовный переход диалога к человеку — главная фича. Бот полностью обрабатывает первичный поток, а менеджеры берут только горячих лидов.»",
-    agenciesTitle: "Агентства и Интеграторы",
-    agenciesSub: "Внедряйте Homelander для ваших клиентов и получайте высокий регулярный доход, предлагая лучшую ИИ-автоматизацию.",
-    resellersTitle: "Реселлеры",
-    resellersSub: "Присоединяйтесь к нашей сети реселлеров и расширяйте свой портфель решений с помощью самого продвинутого ИИ-бота.",
+    partnershipTitle: "Партнёрство и Кастомные Интеграции",
+    partnershipSub: "Свяжитесь с нами напрямую для обсуждения партнерства, кастомных интеграций с вашими CRM/ERP системами или разработки индивидуального функционала под ваши задачи.",
     partnership: "Партнёрство",
-    applyPartnership: "Подать заявку на партнёрство",
-    learnMore: "Узнать больше",
-    whiteLabelOptions: "White-label опции",
-    prioritySupport: "Приоритетная поддержка",
-    dedicatedPartner: "Выделенный партнерский менеджер",
-    exclusiveDiscounts: "Эксклюзивные скидки реселлера",
-    marketingKits: "Маркетинговые материалы",
-    trainingWebinars: "Технические обучающие вебинары",
+    applyPartnership: "Связаться с нами",
+    learnMore: "Связаться с нами",
+    whiteLabelOptions: "Подключение любых CRM и ERP",
+    prioritySupport: "Гарантия сроков и SLA",
+    dedicatedPartner: "Разработка напрямую разработчиками",
+    exclusiveDiscounts: "Совместная разработка решений",
+    marketingKits: "Доступ к кастомному API",
+    trainingWebinars: "Прямая связь с нашей командой",
     buildToday: "Давайте создадим вашего ИИ-ассистента сегодня",
     buildTodaySub: "Есть особые требования? Наша команда инженеров поможет спроектировать идеальное решение для вашего масштаба.",
     headquarters: "Штаб-квартира, Кремниевая долина",
@@ -191,19 +187,17 @@ const localT = {
     alexQuote: "«Homelander біздің қолдау қызметімізді толық өзгертті. Күн сайын бірдей 10 сұраққа жауап беруден сату стратегиясына көштік.»",
     sarahQuote: "«PDF білім базасы сиқырлы жұмыс ісейді. Мен 40 беттік нұсқаулықты жүктедім, ЖИ бірден кәсіби кеңес бере бастады.»",
     jamesQuote: "«Роботтан адамға кедергісіз ауысу — ең маңызды функция. Бот бастапқы лекті өңдейді, ал менеджерлер тек дайын клиенттерді алады.»",
-    agenciesTitle: "Агенттіктер мен Интеграторлар",
-    agenciesSub: "Клиенттеріңіз үшін Homelander енгізіңіз және жоғары серіктестік табыс табыңыз.",
-    resellersTitle: "Риселлерлер",
-    resellersSub: "Біздің риселлерлер желісіне қосылыңыз және өнімдер портфолиосын кеңейтіңіз.",
+    partnershipTitle: "Серіктестік пен жеке интеграциялар",
+    partnershipSub: "Серіктестікті, сіздің CRM/ERP жүйелеріңізбен кастомдық интеграцияларды немесе сіздің тапсырмаларыңызға сәйкес жеке функционалды әзірлеуді талқылау үшін бізбен тікелей байланысыңыз.",
     partnership: "Серіктестік",
-    applyPartnership: "Серіктестікке өтінім қалдыру",
-    learnMore: "Толығырақ білу",
-    whiteLabelOptions: "White-label мүмкіндіктері",
-    prioritySupport: "Басымдықты қолдау",
-    dedicatedPartner: "Жеке серіктестік менеджер",
-    exclusiveDiscounts: "Риселлердің эксклюзивті жеңілдіктері",
-    marketingKits: "Маркетингтік материалдар жинағы",
-    trainingWebinars: "Техникалық оқыту вебинарлары",
+    applyPartnership: "Бізбен байланысу",
+    learnMore: "Бізбен байланысу",
+    whiteLabelOptions: "Кез келген CRM және ERP қосу",
+    prioritySupport: "Мерзімдер мен SLA кепілдігі",
+    dedicatedPartner: "Тікелей әзірлеушілердің қолдауы",
+    exclusiveDiscounts: "Шешімдерді бірлесіп әзірлеу",
+    marketingKits: "Кастомдық API-ге қолжетімділік",
+    trainingWebinars: "Біздің командамен тікелей байланыс",
     buildToday: "ЖИ көмекшіңізді бүгіннен бастап құрыңыз",
     buildTodaySub: "Ерекше талаптарыңыз бар ма? Біздің ЖИ инженерлеріміз сізге қолайлы шешім әзірлейді.",
     headquarters: "Штаб-пәтер, Силикон алқабы",
@@ -360,9 +354,7 @@ export default function LandingPage() {
             <a className="font-label-md text-label-md text-primary font-bold border-b-2 border-primary transition-colors duration-200" href="#hero">
               {t.features}
             </a>
-            <a className="font-label-md text-label-md text-text-secondary hover:text-primary transition-colors duration-200" href="#bento">
-              {t.integrations}
-            </a>
+
             <a className="font-label-md text-label-md text-text-secondary hover:text-primary transition-colors duration-200" href="#partnership">
               {t.pricing}
             </a>
@@ -464,26 +456,11 @@ export default function LandingPage() {
 
         {/* Section 2: Social Proof */}
         <section className="bg-bg-section py-12 border-y border-border-subtle relative reveal">
-          <div className="max-w-7xl mx-auto px-margin-page flex flex-col md:flex-row justify-between items-center gap-8 relative z-10">
+          <div className="max-w-7xl mx-auto px-margin-page flex justify-center items-center gap-8 relative z-10">
             <div className="flex gap-12 items-center opacity-50 grayscale hover:grayscale-0 transition-all duration-500">
               <span className="font-bold text-headline-md tracking-tight">WhatsApp</span>
               <span className="font-bold text-headline-md tracking-tight">Telegram</span>
               <span className="font-bold text-headline-md tracking-tight">Instagram</span>
-              <span className="font-bold text-headline-md tracking-tight">Bitrix24</span>
-            </div>
-            <div className="flex gap-12 border-l border-border-subtle pl-12 hidden md:flex">
-              <div className="text-center group cursor-default">
-                <div className="font-bold text-headline-md text-primary-container group-hover:scale-110 transition-transform">500+</div>
-                <div className="font-label-sm text-text-secondary">{t.businesses}</div>
-              </div>
-              <div className="text-center group cursor-default">
-                <div className="font-bold text-headline-md text-primary-container group-hover:scale-110 transition-transform">2M+</div>
-                <div className="font-label-sm text-text-secondary">{t.messages}</div>
-              </div>
-              <div className="text-center group cursor-default">
-                <div className="font-bold text-headline-md text-primary-container group-hover:scale-110 transition-transform">58k+</div>
-                <div className="font-label-sm text-text-secondary">{t.deals}</div>
-              </div>
             </div>
           </div>
         </section>
@@ -617,205 +594,95 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Section 5: Integrations */}
-        <section className="bg-bg-section py-24 border-y border-border-subtle overflow-hidden relative">
-          <div className="max-w-7xl mx-auto px-margin-page relative z-10">
-            <div className="flex flex-col md:flex-row items-end justify-between mb-16 gap-6 reveal">
-              <div className="space-y-4">
-                <h2 className="font-headline-lg text-headline-lg">{t.plugsWorkflow}</h2>
-                <p className="text-text-secondary font-body-md max-w-md">{t.plugsWorkflowSub}</p>
-              </div>
-              <a href="#contact" className="text-primary-container font-label-md flex items-center gap-2 group hover:gap-3 transition-all cursor-pointer">
-                {t.viewAllIntegrations} <span className="material-symbols-outlined transition-transform group-hover:translate-x-1">arrow_forward</span>
-              </a>
-            </div>
 
-            <div className="flex flex-wrap gap-4 items-center justify-start md:justify-center max-w-4xl mx-auto reveal">
-              <div className="px-6 py-4 bg-white border border-border-subtle rounded-full flex items-center gap-3 font-label-md hover:border-primary-container hover:shadow-md transition-all cursor-default group hover:-translate-y-1">
-                <div className="w-6 h-6 bg-success/10 rounded-full flex items-center justify-center">
-                  <span className="material-symbols-outlined text-success text-xs" style={{ fontVariationSettings: "'FILL' 1" }}>chat</span>
-                </div>
-                WhatsApp
-              </div>
-              <div className="px-6 py-4 bg-white border border-border-subtle rounded-full flex items-center gap-3 font-label-md hover:border-primary-container hover:shadow-md transition-all cursor-default group hover:-translate-y-1 md:-ml-4">
-                <div className="w-6 h-6 bg-primary-container/10 rounded-full flex items-center justify-center">
-                  <span className="material-symbols-outlined text-primary-container text-xs" style={{ fontVariationSettings: "'FILL' 1" }}>send</span>
-                </div>
-                Telegram
-              </div>
-              <div className="px-6 py-4 bg-white border border-border-subtle rounded-full flex items-center gap-3 font-label-md hover:border-primary-container hover:shadow-md transition-all cursor-default group hover:-translate-y-1 md:-ml-4">
-                <div className="w-6 h-6 bg-error/10 rounded-full flex items-center justify-center">
-                  <span className="material-symbols-outlined text-error text-xs" style={{ fontVariationSettings: "'FILL' 1" }}>photo_camera</span>
-                </div>
-                Instagram
-              </div>
-              <div className="px-6 py-4 bg-white border border-border-subtle rounded-full flex items-center gap-3 font-label-md hover:border-primary-container hover:shadow-md transition-all cursor-default group hover:-translate-y-1">
-                <div className="w-6 h-6 bg-secondary/10 rounded-full flex items-center justify-center">
-                  <span className="material-symbols-outlined text-secondary text-xs" style={{ fontVariationSettings: "'FILL' 1" }}>hub</span>
-                </div>
-                amoCRM
-              </div>
-              <div className="px-6 py-4 bg-white border border-border-subtle rounded-full flex items-center gap-3 font-label-md hover:border-primary-container hover:shadow-md transition-all cursor-default group hover:-translate-y-1 md:-ml-4">
-                <div className="w-6 h-6 bg-primary/10 rounded-full flex items-center justify-center">
-                  <span className="material-symbols-outlined text-primary text-xs" style={{ fontVariationSettings: "'FILL' 1" }}>corporate_fare</span>
-                </div>
-                Bitrix24
-              </div>
-              <div className="px-6 py-4 bg-white border border-border-subtle rounded-full flex items-center gap-3 font-label-md hover:border-primary-container hover:shadow-md transition-all cursor-default group hover:-translate-y-1 md:-ml-4">
-                <div className="w-6 h-6 bg-outline/10 rounded-full flex items-center justify-center">
-                  <span className="material-symbols-outlined text-outline text-xs" style={{ fontVariationSettings: "'FILL' 1" }}>calendar_today</span>
-                </div>
-                Google Calendar
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Section 6: Testimonials */}
-        <section className="max-w-7xl mx-auto px-margin-page py-24 relative overflow-visible">
-          <div className="blob-bg w-64 h-64 top-1/2 left-0 opacity-30"></div>
-          <h2 className="font-headline-lg text-headline-lg text-center mb-16 reveal">{t.trustedBusinesses}</h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-gutter relative z-10 reveal">
-            {/* Review 1 */}
-            <div className="bg-white border border-border-subtle rounded-xl p-8 space-y-6 bento-card">
-              <div className="flex gap-1">
-                {[...Array(5)].map((_, i) => (
-                  <span key={i} className="material-symbols-outlined text-[#003527]" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
-                ))}
-              </div>
-              <p className="font-body-md text-text-secondary italic leading-relaxed">{t.alexQuote}</p>
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-full shrink-0 border border-border-subtle bg-emerald-50 text-emerald-800 flex items-center justify-center font-bold text-sm select-none">
-                  AR
-                </div>
-                <div>
-                  <div className="font-label-md">Alex Rivera</div>
-                  <div className="font-label-sm text-text-secondary">Founder, GreenTech</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Review 2 */}
-            <div className="bg-white border border-border-subtle rounded-xl p-8 space-y-6 bento-card">
-              <div className="flex gap-1">
-                {[...Array(5)].map((_, i) => (
-                  <span key={i} className="material-symbols-outlined text-[#003527]" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
-                ))}
-              </div>
-              <p className="font-body-md text-text-secondary italic leading-relaxed">{t.sarahQuote}</p>
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-full shrink-0 border border-border-subtle bg-amber-50 text-amber-800 flex items-center justify-center font-bold text-sm select-none">
-                  SC
-                </div>
-                <div>
-                  <div className="font-label-md">Sarah Chen</div>
-                  <div className="font-label-sm text-text-secondary">CTO, Modulo Labs</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Review 3 */}
-            <div className="bg-white border border-border-subtle rounded-xl p-8 space-y-6 bento-card">
-              <div className="flex gap-1">
-                {[...Array(5)].map((_, i) => (
-                  <span key={i} className="material-symbols-outlined text-[#003527]" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
-                ))}
-              </div>
-              <p className="font-body-md text-text-secondary italic leading-relaxed">{t.jamesQuote}</p>
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-full shrink-0 border border-border-subtle bg-sky-50 text-sky-800 flex items-center justify-center font-bold text-sm select-none">
-                  JM
-                </div>
-                <div>
-                  <div className="font-label-md">James Miller</div>
-                  <div className="font-label-sm text-text-secondary">Sales VP, Propel Real Estate</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
 
         {/* Section 7: Partnership */}
-        <section className="bg-white py-24 border-t border-border-subtle" id="partnership">
-          <div className="max-w-7xl mx-auto px-margin-page">
-            <div className="bg-bg-section border border-border-subtle rounded-2xl overflow-hidden grid grid-cols-1 md:grid-cols-2 shadow-sm reveal">
+        <section className="bg-white pt-24 pb-8 border-t border-border-subtle" id="partnership">
+          <div className="max-w-4xl mx-auto px-margin-page">
+            <div className="bg-white border border-border-subtle rounded-2xl overflow-hidden shadow-sm p-12 space-y-8 flex flex-col items-center text-center reveal">
               
-              <div className="p-12 border-b md:border-b-0 md:border-r border-border-subtle space-y-6 bg-white group">
-                <div className="w-12 h-12 bg-primary-container/10 rounded-lg flex items-center justify-center transition-transform group-hover:scale-110">
-                  <span className="material-symbols-outlined text-primary-container">groups</span>
-                </div>
-                <h3 className="font-headline-md text-headline-md">{t.agenciesTitle}</h3>
-                <p className="text-text-secondary">{t.agenciesSub}</p>
-                <ul className="space-y-3 text-body-sm">
-                  <li className="flex items-center gap-2 transform translate-x-0 group-hover:translate-x-1 transition-transform">
-                    <span className="material-symbols-outlined text-success text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span> {t.whiteLabelOptions}
-                  </li>
-                  <li className="flex items-center gap-2 transform translate-x-0 group-hover:translate-x-1 transition-transform delay-75">
-                    <span className="material-symbols-outlined text-success text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span> {t.prioritySupport}
-                  </li>
-                  <li className="flex items-center gap-2 transform translate-x-0 group-hover:translate-x-1 transition-transform delay-100">
-                    <span className="material-symbols-outlined text-success text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span> {t.dedicatedPartner}
-                  </li>
-                </ul>
-                <a href="#contact" className="bg-primary-container text-white px-8 py-3 rounded-lg font-label-md hover:bg-primary transition-all active:scale-95 inline-block text-center select-none cursor-pointer">
-                  {t.applyPartnership}
-                </a>
+              <div className="w-16 h-16 bg-primary-container/10 rounded-full flex items-center justify-center">
+                <span className="material-symbols-outlined text-primary-container text-3xl">handshake</span>
+              </div>
+              
+              <div className="space-y-4 max-w-2xl">
+                <h3 className="font-headline-lg text-headline-lg">{t.partnershipTitle}</h3>
+                <p className="text-text-secondary text-body-lg">{t.partnershipSub}</p>
               </div>
 
-              <div className="p-12 space-y-6 group">
-                <div className="w-12 h-12 bg-primary-container/10 rounded-lg flex items-center justify-center transition-transform group-hover:scale-110">
-                  <span className="material-symbols-outlined text-primary-container">storefront</span>
+              {/* Grid of bullet points */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4 text-left w-full max-w-2xl my-4">
+                <div className="flex items-center gap-3">
+                  <span className="material-symbols-outlined text-success text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                  <span className="text-body-md text-text-secondary">{t.whiteLabelOptions}</span>
                 </div>
-                <h3 className="font-headline-md text-headline-md">{t.resellersTitle}</h3>
-                <p className="text-text-secondary">{t.resellersSub}</p>
-                <ul className="space-y-3 text-body-sm">
-                  <li className="flex items-center gap-2 transform translate-x-0 group-hover:translate-x-1 transition-transform">
-                    <span className="material-symbols-outlined text-success text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span> {t.exclusiveDiscounts}
-                  </li>
-                  <li className="flex items-center gap-2 transform translate-x-0 group-hover:translate-x-1 transition-transform delay-75">
-                    <span className="material-symbols-outlined text-success text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span> {t.marketingKits}
-                  </li>
-                  <li className="flex items-center gap-2 transform translate-x-0 group-hover:translate-x-1 transition-transform delay-100">
-                    <span className="material-symbols-outlined text-success text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span> {t.trainingWebinars}
-                  </li>
-                </ul>
-                <a href="#contact" className="border border-primary-container text-primary-container px-8 py-3 rounded-lg font-label-md hover:bg-primary-container/5 transition-all active:scale-95 inline-block text-center select-none cursor-pointer">
-                  {t.learnMore}
-                </a>
+                <div className="flex items-center gap-3">
+                  <span className="material-symbols-outlined text-success text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                  <span className="text-body-md text-text-secondary">{t.prioritySupport}</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="material-symbols-outlined text-success text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                  <span className="text-body-md text-text-secondary">{t.dedicatedPartner}</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="material-symbols-outlined text-success text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                  <span className="text-body-md text-text-secondary">{t.exclusiveDiscounts}</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="material-symbols-outlined text-success text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                  <span className="text-body-md text-text-secondary">{t.marketingKits}</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="material-symbols-outlined text-success text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                  <span className="text-body-md text-text-secondary">{t.trainingWebinars}</span>
+                </div>
               </div>
+
+              <a href="#contact" className="bg-primary-container text-white px-10 py-4 rounded-lg font-label-md font-bold hover:bg-primary transition-all active:scale-95 inline-block text-center select-none cursor-pointer">
+                {t.applyPartnership}
+              </a>
 
             </div>
           </div>
         </section>
 
         {/* Section 8: Contact Form */}
-        <section className="max-w-7xl mx-auto px-margin-page py-24 flex flex-col md:flex-row gap-24 relative overflow-visible" id="contact">
+        <section className="max-w-7xl mx-auto px-margin-page pt-8 pb-24" id="contact">
           <div className="blob-bg w-96 h-96 -bottom-20 right-0 opacity-40"></div>
-          <div className="flex-1 space-y-8 relative z-10 reveal">
-            <h2 className="font-headline-lg text-headline-lg">{t.buildToday}</h2>
-            <p className="text-text-secondary text-body-lg">{t.buildTodaySub}</p>
-            <div className="space-y-4">
-              <div className="flex items-center gap-4 group cursor-pointer">
-                <span className="material-symbols-outlined text-primary-container group-hover:scale-110 transition-transform">mail</span>
-                <span className="group-hover:text-primary-container transition-colors">contact@homelander.ai</span>
+          
+          <div className="bg-bg-section border border-border-subtle rounded-2xl overflow-hidden grid grid-cols-1 md:grid-cols-2 shadow-sm reveal">
+            
+            {/* Left side: Text info (White background like the Agencies card) */}
+            <div className="p-12 bg-white space-y-8 flex flex-col justify-center border-b md:border-b-0 md:border-r border-border-subtle">
+              <div className="w-12 h-12 bg-primary-container/10 rounded-lg flex items-center justify-center">
+                <span className="material-symbols-outlined text-primary-container">contact_support</span>
               </div>
-              <div className="flex items-center gap-4 group cursor-pointer">
-                <span className="material-symbols-outlined text-primary-container group-hover:scale-110 transition-transform">location_on</span>
-                <span className="group-hover:text-primary-container transition-colors">{t.headquarters}</span>
+              <div className="space-y-4">
+                <h3 className="font-headline-md text-headline-md">{t.buildToday}</h3>
+                <p className="text-text-secondary">{t.buildTodaySub}</p>
+              </div>
+              <div className="space-y-4 text-body-md text-text-secondary">
+                <div className="flex items-center gap-3 group cursor-pointer">
+                  <span className="material-symbols-outlined text-primary-container group-hover:scale-110 transition-transform">mail</span>
+                  <span className="group-hover:text-primary-container transition-colors">contact@homelander.ai</span>
+                </div>
+                <div className="flex items-center gap-3 group cursor-pointer text-left">
+                  <span className="material-symbols-outlined text-primary-container group-hover:scale-110 transition-transform">location_on</span>
+                  <span className="group-hover:text-primary-container transition-colors">{t.headquarters}</span>
+                </div>
               </div>
             </div>
-          </div>
-          
-          <div className="flex-1 relative z-10 reveal">
-            {formSubmitted ? (
-              <div className="bg-white border border-border-subtle p-8 rounded-2xl custom-shadow text-center space-y-4">
-                <span className="material-symbols-outlined text-success text-6xl pulse-animation rounded-full p-2">check_circle</span>
-                <h3 className="font-headline-md text-headline-md text-primary">{t.requestSent}</h3>
-                <p className="text-text-secondary text-body-md">{t.requestSentSub}</p>
-              </div>
-            ) : (
-              <form onSubmit={handleContactForm} className="space-y-6 bg-white border border-border-subtle p-8 rounded-2xl custom-shadow">
+
+            {/* Right side: Form (Grey background like the Resellers card) */}
+            <div className="p-12 flex flex-col justify-center">
+              {formSubmitted ? (
+                <div className="text-center space-y-4 py-12">
+                  <span className="material-symbols-outlined text-success text-6xl pulse-animation rounded-full p-2">check_circle</span>
+                  <h3 className="font-headline-md text-headline-md text-primary">{t.requestSent}</h3>
+                  <p className="text-text-secondary text-body-md">{t.requestSentSub}</p>
+                </div>
+              ) : (
+              <form onSubmit={handleContactForm} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="font-label-md text-text-secondary">{t.nameLabel}</label>
@@ -864,11 +731,12 @@ export default function LandingPage() {
                     rows={4}
                   ></textarea>
                 </div>
-                <button className="w-full bg-primary-container text-white py-4 rounded-lg font-label-md font-bold hover:bg-primary transition-all shadow-md active:scale-[0.98]" type="submit">
+                <button className="w-full bg-primary-container text-white py-3.5 rounded-lg font-label-md font-bold hover:bg-primary transition-all shadow-md active:scale-[0.98]" type="submit">
                   {t.sendRequest}
                 </button>
               </form>
             )}
+          </div>
           </div>
         </section>
       </main>
