@@ -6,6 +6,5 @@ build
 .gitignore
 .env
 .env.local
-docker-compose.yml
-Dockerfile
 *.log
+README.md

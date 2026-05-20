@@ -49,7 +49,7 @@ services:
       dockerfile: Dockerfile
       args:
         # REPLACE 'localhost' with your VPS IP or domain when deploying, e.g., http://95.213.123.45:3001
-        - NEXT_PUBLIC_API_URL=http://localhost:3001
+        - NEXT_PUBLIC_API_URL=http://72.62.117.32:3001
     container_name: chatplatform_frontend
     restart: always
     ports:
