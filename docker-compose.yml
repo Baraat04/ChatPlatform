@@ -34,9 +34,9 @@ services:
       # Ссылка на базу данных внутри сети Docker с захардкоженными логином/паролем
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/ai-consultant?schema=public
     volumes:
-      - ./backend/sessions:/app/sessions
-      - ./backend/uploads:/app/uploads
-      - ./backend/google-key.json:/app/google-key.json
+      - /docker/chatplatform/backend/sessions:/app/sessions
+      - /docker/chatplatform/backend/uploads:/app/uploads
+      - /docker/chatplatform/backend/google-key.json:/app/google-key.json
     networks:
       - chat_network
 
