@@ -1,0 +1,12 @@
+node_modules
+sessions
+uploads
+.git
+.gitignore
+.env
+.env.local
+docker-compose.yml
+Dockerfile
+*.log
+*.zip
+*.tar.gz

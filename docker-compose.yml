@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  # 1. Database Service (PostgreSQL)
+  db:
+    image: postgres:16-alpine
+    container_name: chatplatform_db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ai-consultant
+    ports:
+      - "5435:5432" # Keeps host access on 5435 for your local tools if needed
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - chat_network
+
+  # 2. Backend API Service
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: chatplatform_backend
+    restart: always
+    depends_on:
+      - db
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/ai-consultant?schema=public
+      - PORT=3001
+      # Note: BASE_URL and any third-party keys (like Gemini) will be loaded from ./backend/.env
+    env_file:
+      - ./backend/.env
+    volumes:
+      - ./backend/sessions:/app/sessions
+      - ./backend/uploads:/app/uploads
+    networks:
+      - chat_network
+
+  # 3. Frontend Next.js Service
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # REPLACE 'localhost' with your VPS IP or domain when deploying, e.g., http://95.213.123.45:3001
+        - NEXT_PUBLIC_API_URL=http://localhost:3001
+    container_name: chatplatform_frontend
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+    networks:
+      - chat_network
+
+networks:
+  chat_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
