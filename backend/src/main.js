@@ -33,22 +33,21 @@ const { setTrackerPrisma } = await import('./services/usage-tracker.js')
 const app = express()
 const httpServer = createServer(app)
 
+const corsOptions = {
+    origin: ['http://72.62.117.32:3000', 'http://localhost:3000'],
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+};
+
 const io = new Server(httpServer, {
-    cors: {
-        origin: 'http://localhost:3000',
-        methods: ["GET", "POST", "PUT", "DELETE"],
-        credentials: true
-    }
+    cors: corsOptions
 })
 
 // Store io globally so routes can access it
 app.set('io', io)
 
-app.use(cors({
-    origin: 'http://localhost:3000',
-    methods: ["GET", "POST", "PUT", "DELETE"],
-    credentials: true
-}))
+app.use(cors(corsOptions))
 app.use(express.json())
 
 // Global Request Logger
