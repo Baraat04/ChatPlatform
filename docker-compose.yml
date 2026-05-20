@@ -30,6 +30,7 @@ services:
       - NODE_ENV=production
       - PORT=3001
       - SESSION_SECRET=prince
+      - BASE_URL=http://72.62.117.32:3001
       # Ссылка на базу данных внутри сети Docker с захардкоженными логином/паролем
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/ai-consultant?schema=public
     volumes:
