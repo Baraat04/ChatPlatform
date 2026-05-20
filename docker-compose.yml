@@ -38,6 +38,7 @@ services:
     volumes:
       - ./backend/sessions:/app/sessions
       - ./backend/uploads:/app/uploads
+      - ./backend/google-key.json:/app/google-key.json
     networks:
       - chat_network
 
