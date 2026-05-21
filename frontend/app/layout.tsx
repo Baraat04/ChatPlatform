@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans, Be_Vietnam_Pro } from 'next/font/google';
 import "./globals.css";
 import LayoutWrapper from "./components/LayoutWrapper/LayoutWrapper";
@@ -14,6 +14,12 @@ const beVietnamPro = Be_Vietnam_Pro({
   variable: '--font-be-vietnam',
   weight: ['400', '500', '600', '700'],
 });
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+};
 
 export const metadata: Metadata = {
   title: "BotFlow Dashboard",

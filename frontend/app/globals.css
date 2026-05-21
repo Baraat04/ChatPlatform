@@ -145,3 +145,20 @@ button {
   font-family: inherit;
 }
 
+/* ─── Prevent iOS auto-zoom on focused inputs ─────────────────────────────
+   iOS Safari zooms in whenever an input has font-size < 16px.
+   That zoom creates a horizontal scroll. Force 16px on mobile to prevent it. */
+@media (max-width: 768px) {
+  input,
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  input[type="tel"],
+  input[type="url"],
+  input[type="search"],
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
