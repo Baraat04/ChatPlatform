@@ -269,7 +269,7 @@ export default function StatisticsPage() {
       {/* Messages Balance Progress Bar */}
       {overview && (
         <div className={styles.metricCard} style={{ marginBottom: '16px', padding: '20px 24px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
             <div className={styles.metricLabel} style={{ fontSize: '14px' }}>
               <Wallet size={14} /> {t.balance}
             </div>
@@ -287,7 +287,7 @@ export default function StatisticsPage() {
               transition: 'width 0.5s ease'
             }} />
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', fontSize: '12px', color: 'var(--on-surface-variant)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', fontSize: '12px', color: 'var(--on-surface-variant)', flexWrap: 'wrap', gap: '4px' }}>
             <span>{t.spent}: <strong style={{ color: 'var(--on-surface)' }}>{overview.totalMessagesUsed}</strong> {t.messages}</span>
             <span>{t.perReq}: <strong style={{ color: 'var(--primary)' }}>{t.oneMsg}</strong></span>
           </div>
@@ -381,7 +381,7 @@ export default function StatisticsPage() {
             )}
           </svg>
           
-          <div style={{ marginTop: '24px', padding: '16px', background: 'var(--surface-container-low)', borderRadius: '16px', fontSize: '13px', color: 'var(--on-surface-variant)', display: 'flex', alignItems: 'center' }}>
+          <div style={{ marginTop: '24px', padding: '16px', background: 'var(--surface-container-low)', borderRadius: '16px', fontSize: '13px', color: 'var(--on-surface-variant)', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }}>
             <Activity size={16} style={{ marginRight: 10, color: 'var(--primary)' }} />
             <span style={{ fontWeight: 600 }}>{t.efficiency}:</span>
             <span style={{ marginLeft: 8, fontWeight: 800, color: 'var(--on-surface)' }}>{((overview?.totalMessagesUsed ?? 0) / (overview?.totalRequests ?? 1)).toFixed(2)} {t.msg}/req</span>

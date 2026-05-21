@@ -3,11 +3,13 @@
   max-width: 1200px;
   margin: 0 auto;
   width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 @media (max-width: 768px) {
   .container {
-    padding: var(--spacing-lg);
+    padding: var(--spacing-md);
   }
 }
 
@@ -16,6 +18,15 @@
   justify-content: space-between;
   align-items: flex-end;
   margin-bottom: var(--spacing-xl);
+  flex-wrap: wrap;
+  gap: var(--spacing-md);
+}
+
+@media (max-width: 480px) {
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 
 .title {
@@ -33,6 +44,17 @@
 .headerActions {
   display: flex;
   gap: var(--spacing-sm);
+  flex-wrap: wrap;
+}
+
+@media (max-width: 480px) {
+  .headerActions {
+    width: 100%;
+  }
+  .headerActions > * {
+    flex: 1;
+    justify-content: center;
+  }
 }
 
 .filterBtn {
@@ -73,8 +95,15 @@
 
 .botsGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: var(--spacing-lg);
+}
+
+@media (max-width: 480px) {
+  .botsGrid {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-md);
+  }
 }
 
 .botCard {
@@ -199,6 +228,8 @@
   justify-content: space-between;
   align-items: center;
   margin-top: auto;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
 }
 
 .integration {
@@ -207,6 +238,10 @@
   gap: var(--spacing-xs);
   font-size: 0.8125rem;
   color: var(--on-surface-variant);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .arrowIcon {

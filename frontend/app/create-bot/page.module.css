@@ -3,11 +3,19 @@
   max-width: 1024px;
   margin: 0 auto;
   width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 @media (max-width: 768px) {
   .container {
-    padding: var(--spacing-lg);
+    padding: var(--spacing-md);
+  }
+}
+
+@media (max-width: 480px) {
+  .container {
+    padding: var(--spacing-sm);
   }
 }
 
@@ -33,6 +41,12 @@
   margin-bottom: var(--spacing-xl);
   overflow-x: auto;
   padding-bottom: var(--spacing-xs);
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.stepper::-webkit-scrollbar {
+  display: none;
 }
 
 .step {
@@ -79,8 +93,18 @@
   flex: 1;
   height: 1px;
   background-color: var(--outline-variant);
-  margin: 0 var(--spacing-lg);
-  min-width: 32px;
+  margin: 0 var(--spacing-md);
+  min-width: 20px;
+}
+
+@media (max-width: 480px) {
+  .stepLabel {
+    display: none;
+  }
+  .stepperDivider {
+    margin: 0 var(--spacing-sm);
+    min-width: 16px;
+  }
 }
 
 .card {
@@ -229,6 +253,19 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: var(--spacing-md);
+}
+
+@media (max-width: 480px) {
+  .actionArea {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+  .actionArea > * {
+    width: 100%;
+    justify-content: center;
+  }
 }
 
 .btnDiscard {

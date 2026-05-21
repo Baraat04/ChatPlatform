@@ -80,8 +80,8 @@ export default function HomePage() {
   const greeting = hour < 12 ? 'Доброе утро' : hour < 18 ? 'Добрый день' : 'Добрый вечер';
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg-base)', color: 'var(--on-surface)', padding: '32px 28px', fontFamily: 'var(--font-plus-jakarta, Inter, sans-serif)' }}>
-      <div style={{ maxWidth: 1000, margin: '0 auto' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--bg-base)', color: 'var(--on-surface)', padding: 'clamp(16px, 4vw, 32px) clamp(12px, 4vw, 28px)', fontFamily: 'var(--font-plus-jakarta, Inter, sans-serif)', boxSizing: 'border-box', overflowX: 'hidden' }}>
+      <div style={{ maxWidth: 1000, margin: '0 auto', width: '100%' }}>
 
         {/* Header greeting */}
         <div style={{ marginBottom: 32 }}>
@@ -140,11 +140,11 @@ export default function HomePage() {
             <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>Баланс сообщений аккаунта</h2>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 12 }}>
-            <span style={{ fontSize: 56, fontWeight: 900, color: 'var(--primary)', lineHeight: 1 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+            <span style={{ fontSize: 'clamp(32px, 8vw, 56px)', fontWeight: 900, color: 'var(--primary)', lineHeight: 1 }}>
               {remaining.toLocaleString()}
             </span>
-            <span style={{ fontSize: 18, color: 'var(--on-surface-variant)' }}>доступно из {total.toLocaleString()} сообщений</span>
+            <span style={{ fontSize: 'clamp(13px, 3vw, 18px)', color: 'var(--on-surface-variant)' }}>доступно из {total.toLocaleString()} сообщений</span>
           </div>
 
           {/* Large Progress bar */}
@@ -157,7 +157,7 @@ export default function HomePage() {
             }} />
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--on-surface-variant)', marginBottom: 24 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--on-surface-variant)', marginBottom: 24, flexWrap: 'wrap', gap: 4 }}>
             <span>Использовано: <strong style={{ color: 'var(--on-surface)' }}>{used.toLocaleString()} msg</strong> ({usedPct.toFixed(1)}%)</span>
             <span>Осталось: <strong style={{ color: 'var(--primary)' }}>{remaining.toLocaleString()} msg</strong> ({(100 - usedPct).toFixed(1)}%)</span>
           </div>

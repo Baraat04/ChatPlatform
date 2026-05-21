@@ -10,6 +10,16 @@
   position: sticky;
   top: 0;
   z-index: 40;
+  max-width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+@media (max-width: 480px) {
+  .header {
+    padding: 0 var(--spacing-sm);
+    gap: 4px;
+  }
 }
 
 .leftContainer {

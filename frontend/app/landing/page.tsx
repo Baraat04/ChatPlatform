@@ -456,11 +456,11 @@ export default function LandingPage() {
 
         {/* Section 2: Social Proof */}
         <section className="bg-bg-section py-12 border-y border-border-subtle relative reveal">
-          <div className="max-w-7xl mx-auto px-margin-page flex justify-center items-center gap-8 relative z-10">
-            <div className="flex gap-12 items-center opacity-50 grayscale hover:grayscale-0 transition-all duration-500">
-              <span className="font-bold text-headline-md tracking-tight">WhatsApp</span>
-              <span className="font-bold text-headline-md tracking-tight">Telegram</span>
-              <span className="font-bold text-headline-md tracking-tight">Instagram</span>
+          <div className="max-w-7xl mx-auto px-4 flex justify-center items-center relative z-10">
+            <div className="flex flex-wrap gap-6 md:gap-12 items-center justify-center opacity-50 grayscale hover:grayscale-0 transition-all duration-500">
+              <span className="font-bold text-headline-lg-mobile md:text-headline-md tracking-tight">WhatsApp</span>
+              <span className="font-bold text-headline-lg-mobile md:text-headline-md tracking-tight">Telegram</span>
+              <span className="font-bold text-headline-lg-mobile md:text-headline-md tracking-tight">Instagram</span>
             </div>
           </div>
         </section>

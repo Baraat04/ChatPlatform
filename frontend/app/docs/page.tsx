@@ -235,7 +235,7 @@ function SupportForm({ t }: { t: any }) {
 
   return (
     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px' }}>
         <div>
           <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--on-surface-variant)', marginBottom: '6px' }}>{t.name}</label>
           <input required value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
@@ -278,7 +278,7 @@ export default function DocsPage() {
   const t = docsDict[language as keyof typeof docsDict] || docsDict.RU;
 
   return (
-    <div style={{ maxWidth: '800px', margin: '0 auto', padding: '3rem 1.5rem 5rem', fontFamily: 'inherit' }}>
+    <div style={{ maxWidth: '800px', margin: '0 auto', padding: '3rem 1rem 5rem', fontFamily: 'inherit', boxSizing: 'border-box', overflowX: 'hidden', width: '100%' }}>
 
       {/* Hero */}
       <div style={{ marginBottom: '4rem' }}>
@@ -352,7 +352,7 @@ export default function DocsPage() {
       {/* Deploy */}
       <section style={{ marginBottom: '4rem' }}>
         <SectionTitle icon={Zap} title={t.deploy} />
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', gridAutoRows: '1fr' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px', gridAutoRows: '1fr' }}>
           <DeployCard
             icon={Send} title="Telegram"
             steps={t.deployTelegramSteps}

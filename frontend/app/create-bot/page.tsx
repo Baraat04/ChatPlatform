@@ -457,31 +457,34 @@ ${managerContact}`;
   };
 
   const renderStepsIndicator = () => (
-    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '32px', position: 'relative' }}>
-      {[1, 2, 3, 4].map(step => (
-        <div key={step} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 1, flex: 1 }}>
-          <div style={{
-            width: '32px', height: '32px', borderRadius: '50%',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: step === currentStep ? 'var(--primary)' : step < currentStep ? 'var(--primary-fixed)' : 'var(--surface-container-high)',
-            color: step <= currentStep ? 'var(--on-primary)' : 'var(--on-surface-variant)', 
-            fontWeight: 'bold', fontSize: '14px',
-            border: `2px solid ${step <= currentStep ? 'transparent' : 'var(--outline-variant)'}`,
-            transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-            boxShadow: step === currentStep ? '0 0 15px var(--primary-fixed-dim)' : 'none'
-          }} className={step === currentStep ? 'ai-pulse' : ''}>
-            {step < currentStep ? <CheckCircle2 size={16} /> : step}
+    <div style={{ overflowX: 'auto', marginBottom: '32px', WebkitOverflowScrolling: 'touch' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', position: 'relative', minWidth: '260px' }}>
+        {[1, 2, 3, 4].map(step => (
+          <div key={step} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 1, flex: 1 }}>
+            <div style={{
+              width: '32px', height: '32px', borderRadius: '50%',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: step === currentStep ? 'var(--primary)' : step < currentStep ? 'var(--primary-fixed)' : 'var(--surface-container-high)',
+              color: step <= currentStep ? 'var(--on-primary)' : 'var(--on-surface-variant)', 
+              fontWeight: 'bold', fontSize: '14px',
+              border: `2px solid ${step <= currentStep ? 'transparent' : 'var(--outline-variant)'}`,
+              transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+              boxShadow: step === currentStep ? '0 0 15px var(--primary-fixed-dim)' : 'none',
+              flexShrink: 0,
+            }} className={step === currentStep ? 'ai-pulse' : ''}>
+              {step < currentStep ? <CheckCircle2 size={16} /> : step}
+            </div>
+            <span style={{ fontSize: '12px', marginTop: '8px', color: step <= currentStep ? 'var(--primary)' : 'var(--on-surface-variant)', fontWeight: step <= currentStep ? '600' : '400', transition: 'all 0.3s', whiteSpace: 'nowrap' }}>
+              {step === 1 && t.behavior}
+              {step === 2 && t.dataBase}
+              {step === 3 && t.platform}
+              {step === 4 && 'Предпросмотр'}
+            </span>
           </div>
-          <span style={{ fontSize: '12px', marginTop: '8px', color: step <= currentStep ? 'var(--primary)' : 'var(--on-surface-variant)', fontWeight: step <= currentStep ? '600' : '400', transition: 'all 0.3s' }}>
-            {step === 1 && t.behavior}
-            {step === 2 && t.dataBase}
-            {step === 3 && t.platform}
-            {step === 4 && 'Предпросмотр'}
-          </span>
+        ))}
+        <div style={{ position: 'absolute', top: '16px', left: '12%', right: '12%', height: '2px', background: 'var(--surface-container-high)', zIndex: 0 }}>
+          <div style={{ height: '100%', background: 'var(--primary)', width: `${((currentStep - 1) / 3) * 100}%`, transition: 'width 0.5s cubic-bezier(0.4, 0, 0.2, 1)' }} />
         </div>
-      ))}
-      <div style={{ position: 'absolute', top: '16px', left: '12%', right: '12%', height: '2px', background: 'var(--surface-container-high)', zIndex: 0 }}>
-        <div style={{ height: '100%', background: 'var(--primary)', width: `${((currentStep - 1) / 3) * 100}%`, transition: 'width 0.5s cubic-bezier(0.4, 0, 0.2, 1)' }} />
       </div>
     </div>
   );
@@ -837,14 +840,14 @@ ${managerContact}`;
 
             <div className={`${styles.formGroup} ${styles.colSpan12}`}>
               <label className={styles.label} style={{ color: 'var(--on-surface)' }}>{t.sysPromptFull}</label>
-              <pre style={{ padding: '20px', background: 'var(--surface-container-low)', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline)', color: 'var(--on-surface)', whiteSpace: 'pre-wrap', fontSize: '14px', fontFamily: 'monospace', lineHeight: '1.6' }}>
+              <pre style={{ padding: '20px', background: 'var(--surface-container-low)', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline)', color: 'var(--on-surface)', whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'break-word', fontSize: '14px', fontFamily: 'monospace', lineHeight: '1.6', maxWidth: '100%', overflow: 'hidden' }}>
                 {systemPrompt}
               </pre>
             </div>
 
             <div className={`${styles.formGroup} ${styles.colSpan12}`}>
               <label className={styles.label} style={{ color: 'var(--on-surface)' }}>{t.dataPromptFull}</label>
-              <pre style={{ padding: '20px', background: 'var(--surface-container-low)', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline)', color: 'var(--on-surface)', whiteSpace: 'pre-wrap', fontSize: '14px', fontFamily: 'monospace', lineHeight: '1.6' }}>
+              <pre style={{ padding: '20px', background: 'var(--surface-container-low)', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline)', color: 'var(--on-surface)', whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'break-word', fontSize: '14px', fontFamily: 'monospace', lineHeight: '1.6', maxWidth: '100%', overflow: 'hidden' }}>
                 {dataPrompt}
               </pre>
             </div>
