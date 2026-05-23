@@ -24,7 +24,7 @@ services:
       NODE_ENV: production
       PORT: 3001
       SESSION_SECRET: prince
-      BASE_URL: https://api.up-chat.com
+      BASE_URL: https://api.up-chat.com          # ← для бэкенда
       DATABASE_URL: postgresql://postgres:postgres@db:5432/ai-consultant?schema=public
     volumes:
       - /docker/chatplatform/backend/sessions:/app/sessions
@@ -33,10 +33,10 @@ services:
     labels:
       - traefik.enable=true
       - traefik.docker.network=traefik-proxy
-      - traefik.http.routers.chatplatform-api.rule=Host(api.up-chat.com)
-      - traefik.http.routers.chatplatform-api.entrypoints=websecure
-      - traefik.http.routers.chatplatform-api.tls.certresolver=letsencrypt
-      - traefik.http.services.chatplatform-api.loadbalancer.server.port=3001
+      - traefik.http.routers.api.rule=Host(api.up-chat.com)
+      - traefik.http.routers.api.entrypoints=websecure
+      - traefik.http.routers.api.tls.certresolver=letsencrypt
+      - traefik.http.services.api.loadbalancer.server.port=3001
     networks:
       - chat_network
       - traefik-proxy
@@ -46,7 +46,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: https://api.up-chat.com
+        NEXT_PUBLIC_API_URL: https://api.up-chat.com   # ← фронт должен стучаться сюда
     container_name: chatplatform_frontend
     restart: always
     depends_on:
@@ -57,10 +57,10 @@ services:
     labels:
       - traefik.enable=true
       - traefik.docker.network=traefik-proxy
-      - traefik.http.routers.chatplatform.rule=Host(up-chat.com) || Host(www.up-chat.com)
-      - traefik.http.routers.chatplatform.entrypoints=websecure
-      - traefik.http.routers.chatplatform.tls.certresolver=letsencrypt
-      - traefik.http.services.chatplatform.loadbalancer.server.port=3000
+      - traefik.http.routers.frontend.rule=Host(up-chat.com,www.up-chat.com)
+      - traefik.http.routers.frontend.entrypoints=websecure
+      - traefik.http.routers.frontend.tls.certresolver=letsencrypt
+      - traefik.http.services.frontend.loadbalancer.server.port=3000
     networks:
       - chat_network
       - traefik-proxy
