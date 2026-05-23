@@ -1,5 +1,4 @@
 services:
-  # 1. Database Service (PostgreSQL)
   db:
     image: postgres:16-alpine
     container_name: chatplatform_db
@@ -8,14 +7,11 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: ai-consultant
-    ports:
-      - "5435:5432" 
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - chat_network
 
-  # 2. Backend API Service
   backend:
     build:
       context: ./backend
@@ -24,42 +20,56 @@ services:
     restart: always
     depends_on:
       - db
-    ports:
-      - "3001:3001" # Порт жестко прописан
     environment:
-      - NODE_ENV=production
-      - PORT=3001
-      - SESSION_SECRET=prince
-      - BASE_URL=http://72.62.117.32:3001
-      # Ссылка на базу данных внутри сети Docker с захардкоженными логином/паролем
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/ai-consultant?schema=public
+      NODE_ENV: production
+      PORT: 3001
+      SESSION_SECRET: prince
+      BASE_URL: https://api.up-chat.com
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/ai-consultant?schema=public
     volumes:
       - /docker/chatplatform/backend/sessions:/app/sessions
       - /docker/chatplatform/backend/uploads:/app/uploads
       - /docker/chatplatform/backend/google-key.json:/app/google-key.json
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=traefik-proxy
+      - traefik.http.routers.chatplatform-api.rule=Host(api.up-chat.com)
+      - traefik.http.routers.chatplatform-api.entrypoints=websecure
+      - traefik.http.routers.chatplatform-api.tls.certresolver=letsencrypt
+      - traefik.http.services.chatplatform-api.loadbalancer.server.port=3001
     networks:
       - chat_network
+      - traefik-proxy
 
-  # 3. Frontend Next.js Service
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        # IP вашего сервера жестко вшит для сборки Next.js
-        - NEXT_PUBLIC_API_URL=http://72.62.117.32:3001
+        NEXT_PUBLIC_API_URL: https://api.up-chat.com
     container_name: chatplatform_frontend
     restart: always
-    ports:
-      - "3000:3000"
+    depends_on:
+      - backend
     environment:
-      - NODE_ENV=production
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: https://api.up-chat.com
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=traefik-proxy
+      - traefik.http.routers.chatplatform.rule=Host(up-chat.com) || Host(www.up-chat.com)
+      - traefik.http.routers.chatplatform.entrypoints=websecure
+      - traefik.http.routers.chatplatform.tls.certresolver=letsencrypt
+      - traefik.http.services.chatplatform.loadbalancer.server.port=3000
     networks:
       - chat_network
+      - traefik-proxy
 
 networks:
   chat_network:
     driver: bridge
+  traefik-proxy:
+    external: true
 
 volumes:
   postgres_data:
