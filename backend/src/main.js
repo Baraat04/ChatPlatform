@@ -34,7 +34,7 @@ const app = express()
 const httpServer = createServer(app)
 
 const corsOptions = {
-    origin: ['http://72.62.117.32:3000', 'http://localhost:3000'],
+    origin: ['http://72.62.117.32:3000','https://up-chat.com', 'https://www.up-chat.com', 'http://localhost:3000'],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization']
