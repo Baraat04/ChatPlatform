@@ -1,26 +1,20 @@
 # Use the official Node.js 20 lightweight alpine image
 FROM node:20-alpine
 
-# Install openssl for Prisma client
+# Install openssl (needed for Prisma)
 RUN apk add --no-cache openssl
 
-# Set the working directory
 WORKDIR /app
 
-# Copy package files first for caching
 COPY package*.json ./
+RUN npm ci --production=false
 
-# Install dependencies
-RUN npm ci
-
-# Copy the rest of the application code
 COPY . .
 
-# Generate Prisma client
+# Generate Prisma Client
 RUN npx prisma generate
 
-# Expose the API port
 EXPOSE 3001
 
-# Command to wait for DB, push schema, and start the app
-CMD npx prisma db push && npm start
+# Автоматический запуск: сначала миграция, потом старт
+CMD ["sh", "-c", "npx prisma migrate deploy && npm start"]
