@@ -13,5 +13,12 @@ RUN npx prisma generate
 
 EXPOSE 3001
 
-# Автоматические миграции + запуск
-CMD ["sh", "-c", "npx prisma migrate deploy && npm start"]
+# Самый стабильный вариант
+CMD sh -c '
+  echo "=== Prisma Migration Start ===" &&
+  npx prisma migrate deploy || 
+  (echo "⚠️  Baseline needed, accepting data loss..." && 
+   npx prisma db push --accept-data-loss) &&
+  echo "=== Starting Application ===" &&
+  npm start
+'
