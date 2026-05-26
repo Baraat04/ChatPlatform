@@ -1,11 +1,11 @@
 FROM node:20-alpine
 
-RUN apk add --no-cache openssl
+RUN apk add --no-cache openssl libc6-compat
 
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci --production=false
+RUN npm ci
 
 COPY . .
 
@@ -13,12 +13,4 @@ RUN npx prisma generate
 
 EXPOSE 3001
 
-# Самый стабильный вариант
-CMD sh -c '
-  echo "=== Prisma Migration Start ===" &&
-  npx prisma migrate deploy || 
-  (echo "⚠️  Baseline needed, accepting data loss..." && 
-   npx prisma db push --accept-data-loss) &&
-  echo "=== Starting Application ===" &&
-  npm start
-'
+CMD ["sh", "-c", "set -e; echo '=== Prisma Migration Start ==='; npx prisma migrate deploy; echo '=== Starting Application ==='; exec npm start"]
