@@ -842,6 +842,8 @@ export default function BotDetails() {
           padding: 0 1.5rem;
           flex-shrink: 0;
           overflow-x: auto;
+          overflow-y: hidden;
+          white-space: nowrap;
           -webkit-overflow-scrolling: touch;
           scrollbar-width: none;
         }
@@ -980,10 +982,16 @@ export default function BotDetails() {
             display: flex;
             flex-direction: column;
             flex: 1;
+            height: 100%;
           }
           .mobile-hidden { display: none !important; }
           .mobile-only-btn { display: flex; align-items: center; justify-content: center; }
           .content-pad { padding: 1rem !important; }
+          .msg-bubble {
+            max-width: 85%;
+            padding: 0.6rem 0.8rem;
+            font-size: 0.85rem;
+          }
         }
       `}</style>
 
@@ -1145,6 +1153,7 @@ export default function BotDetails() {
                   {/* Messages Area */}
                   <div className="messages-area-mobile" style={{ 
                     flex: 1, 
+                    overflowX: 'hidden',
                     overflowY: 'auto', 
                     padding: '1.5rem', 
                     display: 'flex', 

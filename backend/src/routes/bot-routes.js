@@ -138,9 +138,15 @@ router.put('/bot/:id', requireAuth, async (req, res) => {
     try {
         const prisma = getPrisma()
         const { system_prompt, data_prompt, apiToken } = req.body
+        
+        const updateData = {};
+        if (system_prompt !== undefined) updateData.system_prompt = system_prompt;
+        if (data_prompt !== undefined) updateData.data_prompt = data_prompt;
+        if (apiToken !== undefined) updateData.apiToken = apiToken;
+
         const bot = await prisma.bot.update({
             where: { id: Number(req.params.id), user_id: req.session.userId },
-            data: { system_prompt, data_prompt, apiToken }
+            data: updateData
         })
         res.json(bot)
     } catch (e) { res.status(500).json({ error: e.message }) }
@@ -718,7 +724,10 @@ router.post('/webhook/telegram/:slug', async (req, res) => {
             take: 20
         })
         
-        const systemInstruction = `System Instructions:\n${bot.system_prompt || ''}\n\nCRITICAL: Follow the system instructions exactly. Pay extreme attention to any [Correction] or [IMPORTANT CORRECTION] tags at the end of the instructions.`;
+        const systemInstruction = `System Instructions:\n${bot.system_prompt || ''}\n\nCRITICAL INSTRUCTIONS:
+1. ONLY greet the user and introduce yourself if this is the VERY FIRST message in the conversation.
+2. DO NOT repeat your greeting or introduction in subsequent messages. If there is conversation history, reply directly to the user's latest query based on the context.
+3. Follow the system instructions exactly. Pay extreme attention to any [Correction] or [IMPORTANT CORRECTION] tags at the end of the instructions.`;
         const ragContext = bot.data_prompt || '';
 
         const reversed = [...recentMessages].reverse()

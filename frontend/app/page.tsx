@@ -90,7 +90,7 @@ export default function HomePage() {
             {user?.name || 'Пользователь'}
           </h1>
           <p style={{ color: 'var(--on-surface-variant)', marginTop: 6, fontSize: 14 }}>
-            Вот сводка работы твоих AI-агентов на сегодня
+            Вот сводка работы ваших AI-агентов на сегодня
           </p>
         </div>
 
@@ -158,8 +158,8 @@ export default function HomePage() {
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--on-surface-variant)', marginBottom: 24, flexWrap: 'wrap', gap: 4 }}>
-            <span>Использовано: <strong style={{ color: 'var(--on-surface)' }}>{used.toLocaleString()} msg</strong> ({usedPct.toFixed(1)}%)</span>
-            <span>Осталось: <strong style={{ color: 'var(--primary)' }}>{remaining.toLocaleString()} msg</strong> ({(100 - usedPct).toFixed(1)}%)</span>
+            <span>Использовано: <strong style={{ color: 'var(--on-surface)' }}>{used.toLocaleString()} сообщ.</strong> ({usedPct.toFixed(1)}%)</span>
+            <span>Осталось: <strong style={{ color: 'var(--primary)' }}>{remaining.toLocaleString()} сообщ.</strong> ({(100 - usedPct).toFixed(1)}%)</span>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16, borderTop: '1px solid var(--outline-variant)', paddingTop: 24 }}>
