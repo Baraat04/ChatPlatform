@@ -29,12 +29,95 @@ type BotInfo = {
   name?: string;
 };
 
+import { useLanguage } from './contexts/LanguageContext';
+
+const localT = {
+  EN: {
+    morning: 'Good morning',
+    afternoon: 'Good afternoon',
+    evening: 'Good evening',
+    userFallback: 'User',
+    summary: 'Here is the summary of your AI agents today',
+    activeBotsLabel: 'Active Bots',
+    noBots: 'No bots',
+    offline: 'offline',
+    msgsTodayLabel: 'Messages Today',
+    usedToday: 'used today',
+    avgTokensLabel: 'Avg Tokens',
+    perMsg: 'per message',
+    totalRequestsLabel: 'Total Requests',
+    allTime: 'all time',
+    balanceTitle: 'Account Message Balance',
+    availableFrom: 'available from',
+    messages: 'messages',
+    usedWord: 'Used',
+    remainingWord: 'Remaining',
+    msgAbbr: 'msg',
+    pricingRules: 'Message Pricing:',
+    pricingDesc: 'Each incoming user request processed by AI deducts exactly 1 message from your balance.',
+    detailedStats: 'Detailed Message Statistics'
+  },
+  RU: {
+    morning: 'Доброе утро',
+    afternoon: 'Добрый день',
+    evening: 'Добрый вечер',
+    userFallback: 'Пользователь',
+    summary: 'Вот сводка работы ваших AI-агентов на сегодня',
+    activeBotsLabel: 'Активных ботов',
+    noBots: 'Нет ботов',
+    offline: 'оффлайн',
+    msgsTodayLabel: 'Сообщений сегодня',
+    usedToday: 'использовано за день',
+    avgTokensLabel: 'Среднее токенов',
+    perMsg: 'на сообщение',
+    totalRequestsLabel: 'Запросов всего',
+    allTime: 'за всё время',
+    balanceTitle: 'Баланс сообщений аккаунта',
+    availableFrom: 'доступно из',
+    messages: 'сообщений',
+    usedWord: 'Использовано',
+    remainingWord: 'Осталось',
+    msgAbbr: 'сообщ.',
+    pricingRules: 'Тарификация сообщений:',
+    pricingDesc: 'Каждый входящий запрос пользователя, обработанный искусственным интеллектом, списывает ровно 1 сообщение с вашего баланса.',
+    detailedStats: 'Подробная статистика сообщений'
+  },
+  KZ: {
+    morning: 'Қайырлы таң',
+    afternoon: 'Қайырлы күн',
+    evening: 'Қайырлы кеш',
+    userFallback: 'Пайдаланушы',
+    summary: 'Міне, бүгінгі AI агенттеріңіздің жұмыс қорытындысы',
+    activeBotsLabel: 'Белсенді боттар',
+    noBots: 'Боттар жоқ',
+    offline: 'оффлайн',
+    msgsTodayLabel: 'Бүгінгі хабарламалар',
+    usedToday: 'бүгін пайдаланылды',
+    avgTokensLabel: 'Орташа токендер',
+    perMsg: 'хабарлама үшін',
+    totalRequestsLabel: 'Барлық сұраныстар',
+    allTime: 'барлық уақытта',
+    balanceTitle: 'Аккаунттың хабарлама балансы',
+    availableFrom: 'қолжетімді, барлығы',
+    messages: 'хабарламадан',
+    usedWord: 'Пайдаланылды',
+    remainingWord: 'Қалды',
+    msgAbbr: 'хаб.',
+    pricingRules: 'Хабарламалар тарифі:',
+    pricingDesc: 'Жасанды интеллект өңдеген әрбір кіріс пайдаланушы сұранысы сіздің балансыңыздан дәл 1 хабарламаны алады.',
+    detailedStats: 'Толық хабарлама статистикасы'
+  }
+};
+
 export default function HomePage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const { language } = useLanguage();
   const [overview, setOverview] = useState<Overview | null>(null);
   const [bots, setBots] = useState<BotInfo[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
+
+  const tLocal = localT[language as keyof typeof localT] || localT.EN;
 
   useEffect(() => {
     if (!loading && !user) {
@@ -77,7 +160,7 @@ export default function HomePage() {
   const total = used + remaining;
   const usedPct = total > 0 ? (used / total) * 100 : 0;
   const hour = new Date().getHours();
-  const greeting = hour < 12 ? 'Доброе утро' : hour < 18 ? 'Добрый день' : 'Добрый вечер';
+  const greeting = hour < 12 ? tLocal.morning : hour < 18 ? tLocal.afternoon : tLocal.evening;
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-base)', color: 'var(--on-surface)', padding: 'clamp(16px, 4vw, 32px) clamp(12px, 4vw, 28px)', fontFamily: 'var(--font-plus-jakarta, Inter, sans-serif)', boxSizing: 'border-box', overflowX: 'hidden' }}>
@@ -87,10 +170,10 @@ export default function HomePage() {
         <div style={{ marginBottom: 32 }}>
           <p style={{ fontSize: 14, color: 'var(--on-surface-variant)', marginBottom: 4 }}>{greeting} 👋</p>
           <h1 style={{ fontSize: 30, fontWeight: 800, margin: 0 }}>
-            {user?.name || 'Пользователь'}
+            {user?.name || tLocal.userFallback}
           </h1>
           <p style={{ color: 'var(--on-surface-variant)', marginTop: 6, fontSize: 14 }}>
-            Вот сводка работы ваших AI-агентов на сегодня
+            {tLocal.summary}
           </p>
         </div>
 
@@ -99,27 +182,27 @@ export default function HomePage() {
           {[
             {
               icon: <Bot size={20} />, color: '#3b82f6',
-              label: 'Активных ботов',
+              label: tLocal.activeBotsLabel,
               value: dataLoading ? '—' : `${activeBots.length} / ${totalBots}`,
-              sub: totalBots === 0 ? 'Нет ботов' : `${totalBots - activeBots.length} оффлайн`
+              sub: totalBots === 0 ? tLocal.noBots : `${totalBots - activeBots.length} ${tLocal.offline}`
             },
             {
               icon: <MessageSquare size={20} />, color: '#10b981',
-              label: 'Сообщений сегодня',
+              label: tLocal.msgsTodayLabel,
               value: dataLoading ? '—' : (overview?.todayUsage ?? 0).toString(),
-              sub: 'использовано за день'
+              sub: tLocal.usedToday
             },
             {
               icon: <Zap size={20} />, color: '#8b5cf6',
-              label: 'Среднее токенов',
+              label: tLocal.avgTokensLabel,
               value: dataLoading ? '—' : (overview?.avgTokensPerMessage ?? 0).toLocaleString(),
-              sub: 'на сообщение'
+              sub: tLocal.perMsg
             },
             {
               icon: <TrendingUp size={20} />, color: '#f59e0b',
-              label: 'Запросов всего',
+              label: tLocal.totalRequestsLabel,
               value: dataLoading ? '—' : (overview?.totalRequests ?? 0).toLocaleString(),
-              sub: 'за всё время'
+              sub: tLocal.allTime
             },
           ].map((kpi, i) => (
             <div key={i} style={{ background: 'var(--surface-container-low)', borderRadius: 16, padding: '20px', border: '1px solid var(--outline-variant)', display: 'flex', alignItems: 'flex-start', gap: 14 }}>
@@ -137,14 +220,14 @@ export default function HomePage() {
         <div style={{ background: 'var(--surface-container-low)', borderRadius: 20, padding: '32px', border: '1px solid var(--outline-variant)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 24 }}>
             <Wallet size={20} style={{ color: 'var(--primary)' }} />
-            <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>Баланс сообщений аккаунта</h2>
+            <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>{tLocal.balanceTitle}</h2>
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
             <span style={{ fontSize: 'clamp(32px, 8vw, 56px)', fontWeight: 900, color: 'var(--primary)', lineHeight: 1 }}>
               {remaining.toLocaleString()}
             </span>
-            <span style={{ fontSize: 'clamp(13px, 3vw, 18px)', color: 'var(--on-surface-variant)' }}>доступно из {total.toLocaleString()} сообщений</span>
+            <span style={{ fontSize: 'clamp(13px, 3vw, 18px)', color: 'var(--on-surface-variant)' }}>{tLocal.availableFrom} {total.toLocaleString()} {tLocal.messages}</span>
           </div>
 
           {/* Large Progress bar */}
@@ -158,21 +241,21 @@ export default function HomePage() {
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--on-surface-variant)', marginBottom: 24, flexWrap: 'wrap', gap: 4 }}>
-            <span>Использовано: <strong style={{ color: 'var(--on-surface)' }}>{used.toLocaleString()} сообщ.</strong> ({usedPct.toFixed(1)}%)</span>
-            <span>Осталось: <strong style={{ color: 'var(--primary)' }}>{remaining.toLocaleString()} сообщ.</strong> ({(100 - usedPct).toFixed(1)}%)</span>
+            <span>{tLocal.usedWord}: <strong style={{ color: 'var(--on-surface)' }}>{used.toLocaleString()} {tLocal.msgAbbr}</strong> ({usedPct.toFixed(1)}%)</span>
+            <span>{tLocal.remainingWord}: <strong style={{ color: 'var(--primary)' }}>{remaining.toLocaleString()} {tLocal.msgAbbr}</strong> ({(100 - usedPct).toFixed(1)}%)</span>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16, borderTop: '1px solid var(--outline-variant)', paddingTop: 24 }}>
             <div style={{ fontSize: 13, color: 'var(--on-surface-variant)', lineHeight: 1.5 }}>
-              <strong style={{ color: 'var(--on-surface)' }}>Тарификация сообщений:</strong><br />
-              Каждый входящий запрос пользователя, обработанный искусственным интеллектом, списывает ровно 1 сообщение с вашего баланса.
+              <strong style={{ color: 'var(--on-surface)' }}>{tLocal.pricingRules}</strong><br />
+              {tLocal.pricingDesc}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
               <Link href="/statistics" style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--primary)', color: '#fff', padding: '12px 24px', borderRadius: 12, fontSize: 14, fontWeight: 700, textDecoration: 'none', transition: 'opacity 0.15s' }}
                 onMouseEnter={e => (e.currentTarget.style.opacity = '0.9')}
                 onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
               >
-                Подробная статистика сообщений <ArrowRight size={16} />
+                {tLocal.detailedStats} <ArrowRight size={16} />
               </Link>
             </div>
           </div>

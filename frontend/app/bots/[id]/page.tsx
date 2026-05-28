@@ -975,7 +975,8 @@ export default function BotDetails() {
         }
 
         @media (max-width: 768px) {
-          .top-bar { padding: 0.75rem 1rem; flex-wrap: wrap; justify-content: space-between; gap: 0.75rem; }
+          .top-bar { display: none !important; }
+          .tab-bar { display: none !important; }
           .contacts-sidebar { width: 100%; border-right: none; }
           .chat-view-container { 
             background: var(--background); 
@@ -983,14 +984,30 @@ export default function BotDetails() {
             flex-direction: column;
             flex: 1;
             height: 100%;
+            width: 100vw;
+            max-width: 100vw;
           }
           .mobile-hidden { display: none !important; }
           .mobile-only-btn { display: flex; align-items: center; justify-content: center; }
           .content-pad { padding: 1rem !important; }
           .msg-bubble {
-            max-width: 85%;
+            max-width: 100%;
             padding: 0.6rem 0.8rem;
             font-size: 0.85rem;
+            word-break: break-word;
+            overflow-wrap: anywhere;
+          }
+          .messages-area-mobile {
+            padding: 1rem !important;
+            box-sizing: border-box !important;
+          }
+          .chat-header-mobile {
+            padding: 0.8rem 1rem !important;
+            box-sizing: border-box !important;
+          }
+          .input-area-mobile {
+            padding: 0.8rem 1rem !important;
+            box-sizing: border-box !important;
           }
         }
       `}</style>
@@ -1168,7 +1185,7 @@ export default function BotDetails() {
                         <div>{t.noMsgsFound}</div>
                       </div>
                     ) : messages.map((msg, i) => (
-                      <div key={i} style={{ display: 'flex', flexDirection: msg.sender === 'bot' ? 'row-reverse' : 'row', gap: '0.75rem', alignItems: 'flex-end', maxWidth: '85%', alignSelf: msg.sender === 'bot' ? 'flex-end' : 'flex-start' }}>
+                      <div key={i} style={{ display: 'flex', flexDirection: msg.sender === 'bot' ? 'row-reverse' : 'row', gap: '0.75rem', alignItems: 'flex-end', maxWidth: '95%', alignSelf: msg.sender === 'bot' ? 'flex-end' : 'flex-start' }}>
                         <div className={`msg-bubble ${msg.sender === 'bot' ? 'msg-bot' : 'msg-user'}`} style={{
                           padding: '0.8rem 1.2rem',
                           borderRadius: '16px',
