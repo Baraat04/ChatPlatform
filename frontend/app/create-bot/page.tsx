@@ -572,7 +572,7 @@ ${managerContact}`;
       {qrCode && (
         <div className="ai-animated" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '24px', padding: '24px', background: 'var(--surface-container-lowest)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--outline-variant)' }}>
           <h3 style={{ color: 'var(--on-surface)', marginBottom: '16px', fontSize: '18px', fontWeight: '600' }}>Отсканируйте код в WhatsApp</h3>
-          <img src={qrCode} alt="WhatsApp QR Code" style={{ width: '250px', height: '250px', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline-variant)' }} />
+          <img src={qrCode} alt="WhatsApp QR Code" style={{ width: '100%', maxWidth: '250px', height: 'auto', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline-variant)' }} />
         </div>
       )}
       
@@ -590,7 +590,7 @@ ${managerContact}`;
               <h3 style={{ fontSize: '20px', fontWeight: '700', color: 'var(--on-surface)', marginBottom: '16px' }}>Шаг 1. {t.behavior}</h3>
             </div>
             
-            <div className={`${styles.formGroup} ${styles.colSpan12}`} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px' }}>
+            <div className={`${styles.formGroup} ${styles.colSpan12}`} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 250px), 1fr))', gap: '16px' }}>
               <div>
                 <label className={styles.label} style={{ color: 'var(--on-surface)' }}>{t.industry}</label>
                 <CustomSelect 
@@ -616,7 +616,7 @@ ${managerContact}`;
               <input className={styles.input} type="text" value={productDescription} onChange={e => setProductDescription(e.target.value)} placeholder="..." />
             </div>
 
-            <div className={`${styles.formGroup} ${styles.colSpan12}`} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px' }}>
+            <div className={`${styles.formGroup} ${styles.colSpan12}`} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 250px), 1fr))', gap: '16px' }}>
               <div>
                 <label className={styles.label} style={{ color: 'var(--on-surface)' }}>{t.dataToCollect}</label>
                 <CustomMultiSelect 

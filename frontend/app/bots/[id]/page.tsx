@@ -841,7 +841,11 @@ export default function BotDetails() {
           border-bottom: 1px solid var(--outline-variant);
           padding: 0 1.5rem;
           flex-shrink: 0;
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+          scrollbar-width: none;
         }
+        .tab-bar::-webkit-scrollbar { display: none; }
 
         .tab-btn {
           padding: 1rem 1.5rem;
@@ -856,6 +860,7 @@ export default function BotDetails() {
           font-weight: 600;
           transition: all 0.2s ease;
           position: relative;
+          white-space: nowrap;
         }
         .tab-btn:hover { color: var(--primary); }
         .tab-btn.active { color: var(--primary); }
@@ -963,8 +968,12 @@ export default function BotDetails() {
         ::-webkit-scrollbar-thumb { background: var(--outline-variant); border-radius: 10px; }
         ::-webkit-scrollbar-thumb:hover { background: var(--outline); }
 
+        @media (min-width: 769px) {
+          .mobile-only-btn { display: none !important; }
+        }
+
         @media (max-width: 768px) {
-          .top-bar { padding: 0.75rem 1rem; }
+          .top-bar { padding: 0.75rem 1rem; flex-wrap: wrap; justify-content: space-between; gap: 0.75rem; }
           .contacts-sidebar { width: 100%; border-right: none; }
           .chat-view-container { 
             background: var(--background); 
@@ -972,6 +981,8 @@ export default function BotDetails() {
             flex-direction: column;
             flex: 1;
           }
+          .mobile-hidden { display: none !important; }
+          .mobile-only-btn { display: flex; align-items: center; justify-content: center; }
           .content-pad { padding: 1rem !important; }
         }
       `}</style>
@@ -1316,7 +1327,7 @@ export default function BotDetails() {
                   <h3 style={{ margin: '0 0 1rem', color: '#003527', fontSize: '1.5rem' }}>{t.linkWhatsapp}</h3>
                   <p style={{ color: '#565e74', marginBottom: '2rem' }}>{t.scanQr}</p>
                   <div style={{ background: '#fff', padding: '1rem', borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,53,39,0.1)' }}>
-                    <img src={qrCode} alt="QR Code" style={{ width: '260px', height: '260px', display: 'block' }} />
+                    <img src={qrCode} alt="QR Code" style={{ width: '100%', maxWidth: '260px', height: 'auto', display: 'block' }} />
                   </div>
                 </div>
               )}
@@ -1334,7 +1345,7 @@ export default function BotDetails() {
                 <h3 style={{ fontSize: '1.4rem', color: 'var(--on-surface)', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   {t.behavior}
                 </h3>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: '1.5rem' }}>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.9rem', color: 'var(--on-surface-variant)', marginBottom: '0.5rem', fontWeight: 600 }}>{t.industry}</label>
                     <CustomSelect options={INDUSTRIES} displayOptions={t.industries} value={industry} onChange={setIndustry} placeholder="..." />
@@ -1515,7 +1526,7 @@ export default function BotDetails() {
               
               <div className="broadcast-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.2fr', gap: '2rem', alignItems: 'start' }}>
                 {/* 1. Selection from existing contacts */}
-                <div className="glass-panel broadcast-panel" style={{ padding: '2rem', height: '550px', display: 'flex', flexDirection: 'column' }}>
+                <div className="glass-panel broadcast-panel" style={{ padding: '2rem', minHeight: '400px', display: 'flex', flexDirection: 'column' }}>
                   <h2 style={{ margin: '0 0 1rem', fontSize: '1.1rem', fontWeight: 700, color: 'var(--on-surface)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <Users size={18} color="var(--primary)"/> {t.selectFromContacts}
                   </h2>
@@ -1568,7 +1579,7 @@ export default function BotDetails() {
                 </div>
 
                 {/* 2. Manual Input */}
-                <div className="glass-panel" style={{ padding: '2rem', height: '550px', display: 'flex', flexDirection: 'column' }}>
+                <div className="glass-panel" style={{ padding: '2rem', minHeight: '400px', display: 'flex', flexDirection: 'column' }}>
                   <h2 style={{ margin: '0 0 1rem', fontSize: '1.1rem', fontWeight: 600, color: 'var(--on-surface)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <UserPlus size={18} color="var(--primary)"/> {t.manualNumbers}
                   </h2>
@@ -1589,7 +1600,7 @@ export default function BotDetails() {
                 </div>
                 
                 {/* 3. Message & Launch */}
-                <div className="glass-panel" style={{ padding: '2rem', height: '550px', display: 'flex', flexDirection: 'column' }}>
+                <div className="glass-panel" style={{ padding: '2rem', minHeight: '400px', display: 'flex', flexDirection: 'column' }}>
                   <h2 style={{ margin: '0 0 1rem', fontSize: '1.1rem', fontWeight: 600, color: 'var(--on-surface)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <MessageSquare size={18} color="var(--primary)"/> {t.msgContent}
                   </h2>
