@@ -1,0 +1,69 @@
+# ============================================================
+# LOCAL DEVELOPMENT — docker-compose.local.yml
+# Usage: docker-compose -f docker-compose.local.yml up --build
+# ============================================================
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: chatplatform_db_local
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ai-consultant
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data   # local path, no /docker/
+    ports:
+      - "5432:5432"
+    networks:
+      - chat_network_local
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: chatplatform_backend_local
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - ./backend/.env
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/ai-consultant?schema=public
+    volumes:
+      - ./backend/sessions:/app/sessions
+      - ./backend/uploads:/app/uploads
+      - ./backend/google-key.json:/app/google-key.json
+    ports:
+      - "3001:3001"
+    networks:
+      - chat_network_local
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:3001
+    container_name: chatplatform_frontend_local
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      NODE_ENV: development
+      NEXT_PUBLIC_API_URL: http://localhost:3001
+    ports:
+      - "3000:3000"
+    networks:
+      - chat_network_local
+
+networks:
+  chat_network_local:
+    driver: bridge

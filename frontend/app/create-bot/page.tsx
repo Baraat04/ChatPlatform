@@ -7,6 +7,24 @@ import { io, Socket } from 'socket.io-client';
 import { useLanguage } from '../contexts/LanguageContext';
 import { API_URL, SOCKET_URL } from '../config';
 
+const InstagramIcon = ({ size = 24, color = 'currentColor' }: { size?: number; color?: string }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
+    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+    <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
+  </svg>
+);
+
 const TONES = [
   "Мотивирующий и энергичный",
   "Дружелюбный и тёплый",
@@ -364,7 +382,7 @@ ${managerContact}`;
   const dataPrompt = generateDataPrompt();
 
   // Step 3
-  const [platform, setPlatform] = useState<'TELEGRAM' | 'WHATSAPP'>('TELEGRAM');
+  const [platform, setPlatform] = useState<'TELEGRAM' | 'WHATSAPP' | 'INSTAGRAM'>('TELEGRAM');
   const [botToken, setBotToken] = useState('');
 
   // Step 4
@@ -395,7 +413,7 @@ ${managerContact}`;
         body: JSON.stringify({
           system_prompt: systemPrompt,
           data_prompt: dataPrompt,
-          apiToken: platform === 'TELEGRAM' ? botToken : undefined,
+          apiToken: (platform === 'TELEGRAM' || platform === 'INSTAGRAM') ? botToken : undefined,
           platform: platform
         }),
       });
@@ -408,8 +426,8 @@ ${managerContact}`;
       }
 
       if (response.ok) {
-        if (platform === 'TELEGRAM') {
-          setMessage({ type: 'success', text: '✅ Telegram бот успешно создан!' });
+        if (platform === 'TELEGRAM' || platform === 'INSTAGRAM') {
+          setMessage({ type: 'success', text: `✅ ${platform === 'TELEGRAM' ? 'Telegram' : 'Instagram'} бот успешно создан!` });
           setCurrentStep(1);
         } else {
           setMessage({ type: 'success', text: '⏳ Генерируем QR-код WhatsApp...' });
@@ -780,6 +798,13 @@ ${managerContact}`;
                   <Phone size={32} color={platform === 'WHATSAPP' ? '#22c55e' : 'var(--outline)'} /> 
                   <span style={{ fontWeight: '600', fontSize: '16px' }}>WhatsApp</span>
                 </button>
+                <button 
+                  type="button" 
+                  onClick={() => setPlatform('INSTAGRAM')}
+                  style={{ flex: 1, padding: '24px 16px', borderRadius: 'var(--radius-lg)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', border: platform === 'INSTAGRAM' ? '2px solid #e1306c' : '1px solid var(--outline)', background: platform === 'INSTAGRAM' ? 'rgba(225,48,108,0.1)' : 'var(--surface-container-lowest)', color: 'var(--on-surface)', cursor: 'pointer', transition: 'all 0.2s', boxShadow: platform === 'INSTAGRAM' ? '0 4px 12px rgba(225,48,108,0.15)' : 'none' }}>
+                  <InstagramIcon size={32} color={platform === 'INSTAGRAM' ? '#e1306c' : 'var(--outline)'} /> 
+                  <span style={{ fontWeight: '600', fontSize: '16px' }}>Instagram</span>
+                </button>
               </div>
             </div>
 
@@ -804,6 +829,30 @@ ${managerContact}`;
                     <li>Введите уникальное системное имя (должно заканчиваться на "bot", например "MyAI_bot")</li>
                     <li>BotFather пришлет вам сообщение с токеном (длинная строка символов)</li>
                     <li>Скопируйте и вставьте этот токен в поле выше</li>
+                  </ol>
+                </div>
+              </div>
+            )}
+
+            {platform === 'INSTAGRAM' && (
+              <div className={`ai-animated ${styles.formGroup} ${styles.colSpan12}`} style={{ marginTop: '16px', padding: '20px', background: 'var(--surface-container)', borderRadius: 'var(--radius-lg)' }}>
+                <label className={styles.label} htmlFor="botToken" style={{ color: 'var(--on-surface)' }}>
+                  <span>Instagram API Token (Page Access Token)</span>
+                  <span style={{ color: '#ef4444', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '13px' }}><Key size={16} /> {t.required}</span>
+                </label>
+                <input className={styles.input} id="botToken"
+                  placeholder="EAAB..."
+                  type="text" value={botToken}
+                  onChange={(e) => setBotToken(e.target.value)} required style={{ border: '1px solid var(--outline)' }} />
+                <div style={{ padding: '16px', background: 'rgba(225,48,108,0.1)', border: '1px solid rgba(225,48,108,0.3)', borderRadius: 'var(--radius-md)', marginTop: '16px', color: 'var(--on-surface)', fontSize: '14px', lineHeight: '1.6' }}>
+                  <h4 style={{ margin: '0 0 12px 0', color: '#e1306c', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <InstagramIcon size={18} /> Как подключить Instagram:
+                  </h4>
+                  <ol style={{ margin: 0, paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <li>Откройте <strong>Meta for Developers</strong> и создайте приложение типа "Business"</li>
+                    <li>Подключите продукт <strong>Instagram Graph API</strong></li>
+                    <li>В настройках сгенерируйте <strong>Маркер доступа страницы (Page Access Token)</strong> и вставьте его выше</li>
+                    <li>Вам также понадобится настроить Webhook в Meta, используя адрес этого сервера</li>
                   </ol>
                 </div>
               </div>
@@ -833,8 +882,8 @@ ${managerContact}`;
             <div className={`${styles.formGroup} ${styles.colSpan12}`}>
               <label className={styles.label} style={{ color: 'var(--on-surface)' }}>Платформа</label>
               <div style={{ padding: '16px', background: 'var(--surface-container)', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline-variant)', color: 'var(--on-surface)', display: 'flex', alignItems: 'center', gap: '12px', fontWeight: '600', fontSize: '16px' }}>
-                {platform === 'TELEGRAM' ? <MessageCircle size={24} color="#3b82f6" /> : <Phone size={24} color="#22c55e" />}
-                {platform === 'TELEGRAM' ? 'Telegram' : 'WhatsApp'}
+                {platform === 'TELEGRAM' ? <MessageCircle size={24} color="#3b82f6" /> : platform === 'WHATSAPP' ? <Phone size={24} color="#22c55e" /> : <InstagramIcon size={24} color="#e1306c" />}
+                {platform === 'TELEGRAM' ? 'Telegram' : platform === 'WHATSAPP' ? 'WhatsApp' : 'Instagram'}
               </div>
             </div>
 
@@ -868,7 +917,7 @@ ${managerContact}`;
               Далее <ArrowRight size={18} />
             </button>
           ) : (
-            <button type="button" className={styles.btnPrimary} onClick={handleSubmit} disabled={isSubmitting || (platform === 'TELEGRAM' && !botToken)} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--primary)', color: 'var(--on-primary)', padding: '12px 24px', borderRadius: 'var(--radius-md)', fontWeight: '600', fontSize: '15px', border: 'none', cursor: (isSubmitting || (platform === 'TELEGRAM' && !botToken)) ? 'not-allowed' : 'pointer', opacity: (isSubmitting || (platform === 'TELEGRAM' && !botToken)) ? 0.7 : 1 }}>
+            <button type="button" className={styles.btnPrimary} onClick={handleSubmit} disabled={isSubmitting || ((platform === 'TELEGRAM' || platform === 'INSTAGRAM') && !botToken)} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--primary)', color: 'var(--on-primary)', padding: '12px 24px', borderRadius: 'var(--radius-md)', fontWeight: '600', fontSize: '15px', border: 'none', cursor: (isSubmitting || ((platform === 'TELEGRAM' || platform === 'INSTAGRAM') && !botToken)) ? 'not-allowed' : 'pointer', opacity: (isSubmitting || ((platform === 'TELEGRAM' || platform === 'INSTAGRAM') && !botToken)) ? 0.7 : 1 }}>
               {isSubmitting ? 'Создание...' : 'Создать бота'} <Bot size={18} />
             </button>
           )}

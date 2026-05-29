@@ -96,6 +96,10 @@ router.post('/bot', requireAuth, async (req, res) => {
         const io = req.app.get('io')
         const { platform, system_prompt, data_prompt, apiToken } = req.body
 
+        // Telegram & Instagram bots are immediately active (webhook-based, no QR needed)
+        // WhatsApp starts inactive until QR is scanned
+        const startsActive = platform === 'TELEGRAM' || platform === 'INSTAGRAM';
+
         const bot = await prisma.bot.create({
             data: {
                 slug: `bot-${Date.now()}`,
@@ -103,7 +107,7 @@ router.post('/bot', requireAuth, async (req, res) => {
                 system_prompt: system_prompt || '',
                 data_prompt: data_prompt || '',
                 apiToken: apiToken || null,
-                isActive: false,
+                isActive: startsActive,
                 user_id: req.session.userId,
             }
         })
@@ -117,9 +121,48 @@ router.post('/bot', requireAuth, async (req, res) => {
                 baseUrl = baseUrl.replace(/\/+$/, '');
                 const webhookUrl = `${baseUrl}/api/webhook/telegram/${bot.slug}`;
                 await callTelegramAPI('setWebhook', apiToken, { url: webhookUrl });
-                console.log(`Telegram webhook set to ${webhookUrl}`);
+                console.log(`[Telegram] Webhook set to ${webhookUrl} | Bot isActive=true`);
             } catch (err) {
                 console.error(`Failed to set Telegram Webhook for bot ${bot.id}:`, err.message);
+            }
+        }
+
+        // Instagram: subscribe page to webhook events automatically
+        if (platform === 'INSTAGRAM' && apiToken) {
+            let baseUrl = process.env.BASE_URL || 'https://yourdomain.com';
+            baseUrl = baseUrl.replace(/\/+$/, '');
+            console.log(`[Instagram] Global Webhook URL: ${baseUrl}/api/webhook/instagram`);
+            
+            try {
+                // Step 1: Get Page ID from the token
+                const meRes = await fetch(`https://graph.facebook.com/v21.0/me?access_token=${apiToken}`);
+                const meData = await meRes.json();
+                const pageId = meData.id;
+
+                if (pageId && !meData.error) {
+                    // Step 2: Subscribe this page to receive 'messages' webhook events
+                    const subRes = await fetch(
+                        `https://graph.facebook.com/v21.0/${pageId}/subscribed_apps`,
+                        {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                subscribed_fields: ['messages', 'messaging_postbacks'],
+                                access_token: apiToken
+                            })
+                        }
+                    );
+                    const subData = await subRes.json();
+                    if (subData.success) {
+                        console.log(`[Instagram] ✅ Page ${pageId} successfully subscribed to webhook messages!`);
+                    } else {
+                        console.warn(`[Instagram] ⚠️ Page subscription response:`, JSON.stringify(subData));
+                    }
+                } else {
+                    console.warn(`[Instagram] ⚠️ Could not get Page ID from token. Error:`, JSON.stringify(meData));
+                }
+            } catch (igErr) {
+                console.error(`[Instagram] Error during auto-subscribe:`, igErr.message);
             }
         }
 
@@ -684,7 +727,15 @@ router.post('/webhook/telegram/:slug', async (req, res) => {
         if (!text && !telegramAudioBuffer) return
 
         const telegramChatId = update.message.chat.id.toString()
-        const senderName = update.message.from?.first_name || 'User'
+        let senderName = 'Telegram User'
+        if (update.message.from) {
+            const { first_name, last_name, username } = update.message.from
+            if (username) {
+                senderName = `@${username}`
+            } else {
+                senderName = [first_name, last_name].filter(Boolean).join(' ') || `User ${update.message.from.id}`
+            }
+        }
 
         const io = req.app.get('io')
 
@@ -724,10 +775,8 @@ router.post('/webhook/telegram/:slug', async (req, res) => {
             take: 20
         })
         
-        const systemInstruction = `System Instructions:\n${bot.system_prompt || ''}\n\nCRITICAL INSTRUCTIONS:
-1. ONLY greet the user and introduce yourself if this is the VERY FIRST message in the conversation.
-2. DO NOT repeat your greeting or introduction in subsequent messages. If there is conversation history, reply directly to the user's latest query based on the context.
-3. Follow the system instructions exactly. Pay extreme attention to any [Correction] or [IMPORTANT CORRECTION] tags at the end of the instructions.`;
+        // GeminiService handles greeting logic automatically based on history presence
+        const systemInstruction = `${bot.system_prompt || ''}\n\nCRITICAL: Follow the system instructions exactly. Pay extreme attention to any [Correction] or [IMPORTANT CORRECTION] tags at the end of the instructions.`;
         const ragContext = bot.data_prompt || '';
 
         const reversed = [...recentMessages].reverse()
@@ -778,6 +827,218 @@ router.post('/webhook/telegram/:slug', async (req, res) => {
         console.error('Telegram webhook processing error:', e)
     }
 })
+
+// ── INSTAGRAM WEBHOOK (GLOBAL) ──────────────────────────────
+
+const igAccountToBotIdMap = new Map(); // instagram_business_account_id -> botId
+
+async function getBotByInstagramAccountId(accountId) {
+    const prisma = getPrisma();
+    
+    // 1. Check cache
+    if (igAccountToBotIdMap.has(accountId)) {
+        const botId = igAccountToBotIdMap.get(accountId);
+        const bot = await prisma.bot.findUnique({ where: { id: botId } });
+        if (bot && bot.isActive) return bot;
+    }
+
+    // 2. Fetch active Instagram bots and query Meta Graph API to resolve Instagram account IDs
+    const activeBots = await prisma.bot.findMany({
+        where: { platform: 'INSTAGRAM', isActive: true }
+    });
+
+    for (const bot of activeBots) {
+        if (!bot.apiToken) continue;
+        try {
+            const response = await fetch(`https://graph.facebook.com/v21.0/me?fields=instagram_business_account&access_token=${bot.apiToken}`);
+            if (response.ok) {
+                const data = await response.json();
+                const igId = data.instagram_business_account?.id;
+                if (igId) {
+                    igAccountToBotIdMap.set(igId, bot.id);
+                    if (igId === accountId) {
+                        return bot;
+                    }
+                }
+            }
+        } catch (e) {
+            console.error(`[Instagram] Error fetching IG ID for bot ${bot.id}:`, e.message);
+        }
+    }
+    return null;
+}
+
+// GET — Meta webhook verification challenge (Global)
+router.get('/webhook/instagram', async (req, res) => {
+    const mode = req.query['hub.mode'];
+    const token = req.query['hub.verify_token'];
+    const challenge = req.query['hub.challenge'];
+
+    const expectedToken = process.env.INSTAGRAM_VERIFY_TOKEN || 'your_verify_token_here';
+
+    if (mode === 'subscribe' && token === expectedToken) {
+        console.log(`[Instagram] Global webhook verified successfully.`);
+        return res.status(200).send(challenge);
+    }
+    console.warn(`[Instagram] Webhook verification FAILED. token=${token}`);
+    return res.sendStatus(403);
+});
+
+// POST — incoming Instagram messages (Global)
+router.post('/webhook/instagram', async (req, res) => {
+    // Always respond 200 immediately so Meta doesn't retry
+    res.status(200).send('EVENT_RECEIVED');
+
+    try {
+        const body = req.body;
+        if (body.object !== 'instagram') return;
+
+        const io = req.app.get('io');
+        const prisma = getPrisma();
+
+        for (const entry of (body.entry || [])) {
+            const recipientId = entry.id; // Instagram Account ID receiving the message
+            if (!recipientId) continue;
+
+            const bot = await getBotByInstagramAccountId(recipientId);
+            if (!bot || !bot.isActive) {
+                console.log(`[Instagram] Active bot not found for Instagram Business Account: ${recipientId}`);
+                continue;
+            }
+
+            for (const messagingEvent of (entry.messaging || [])) {
+                // Skip delivery / read receipts / echo messages
+                if (!messagingEvent.message || messagingEvent.message.is_echo) continue;
+
+                const senderId = messagingEvent.sender?.id?.toString();
+                const messageText = messagingEvent.message?.text || '';
+
+                if (!senderId || !messageText) continue;
+
+                console.log(`[Instagram Bot ${bot.id}] Message from ${senderId}: ${messageText}`);
+
+                // 1. Upsert Contact
+                let contact = await prisma.contact.findUnique({ where: { botId_chatId: { botId: bot.id, chatId: senderId } } });
+                if (!contact) {
+                    contact = await prisma.contact.create({ data: { botId: bot.id, chatId: senderId, name: `Instagram User ${senderId}` } });
+                    io.emit(`contact-update-${bot.id}`, contact);
+                }
+
+                // 2. Save user message
+                const userMsg = await prisma.message.create({
+                    data: { botId: bot.id, sender: 'user', text: messageText, chatId: senderId }
+                });
+                io.emit(`chat-${bot.id}`, userMsg);
+
+                // Skip if chat is paused
+                if ((bot.pausedChats || []).includes(senderId)) continue;
+
+                // 3. Check balance
+                const canProceed = await hasEnoughMessages(bot.user_id);
+                if (!canProceed) {
+                    await sendInstagramMessage(bot.apiToken, senderId, 'Баланс сообщений исчерпан. Пополните баланс в панели управления.');
+                    continue;
+                }
+
+                // 4. Build history
+                const recentMessages = await prisma.message.findMany({
+                    where: { botId: bot.id, chatId: senderId },
+                    orderBy: { createdAt: 'desc' },
+                    take: 20
+                });
+                const reversed = [...recentMessages].reverse();
+                const history = reversed.slice(0, -1).map(m => ({
+                    role: m.sender === 'bot' ? 'model' : 'user',
+                    parts: [{ text: m.text }]
+                }));
+                const userMessage = reversed.length > 0 ? reversed[reversed.length - 1].text : messageText;
+
+                // 5. Call Gemini
+                let aiResponseText = 'Извините, AI временно недоступен.';
+                let inputTokens = 0, outputTokens = 0;
+                try {
+                    const sysInstruction = `${bot.system_prompt || ''}\n\nCRITICAL: Follow the system instructions exactly.`;
+                    const geminiResult = await generateGeminiResponse(userMessage, history, sysInstruction, bot.data_prompt || '');
+                    aiResponseText = geminiResult.text;
+                    inputTokens = geminiResult.inputTokens;
+                    outputTokens = geminiResult.outputTokens;
+
+                    await trackUsage({
+                        userId: bot.user_id, botId: bot.id,
+                        provider: 'vertex-ai', inputTokens, outputTokens, model: geminiResult.model
+                    });
+                    console.log(`[Instagram Bot ${bot.id}] Gemini usage: in=${inputTokens} out=${outputTokens}`);
+                } catch (err) {
+                    console.error(`[Instagram Bot ${bot.id}] Gemini Error:`, err.message);
+                }
+
+                // 6. Send reply via Instagram Graph API
+                await sendInstagramMessage(bot.apiToken, senderId, aiResponseText);
+
+                // 7. Save bot reply
+                const botMsg = await prisma.message.create({
+                    data: { botId: bot.id, sender: 'bot', text: aiResponseText, chatId: senderId }
+                });
+                io.emit(`chat-${bot.id}`, botMsg);
+            }
+        }
+    } catch (e) {
+        console.error('[Instagram] Webhook processing error:', e);
+    }
+});
+
+async function sendInstagramMessage(pageAccessToken, recipientId, text) {
+    if (!pageAccessToken) {
+        console.error('[Instagram] No page access token configured');
+        return;
+    }
+    const res = await fetch(`https://graph.facebook.com/v21.0/me/messages?access_token=${pageAccessToken}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            recipient: { id: recipientId },
+            message: { text }
+        })
+    });
+    if (!res.ok) {
+        const errText = await res.text();
+        console.error(`[Instagram] sendMessage failed:`, errText);
+    }
+}
+
+// POST — manually re-subscribe Instagram bot page to webhook events
+router.post('/bot/:id/instagram-subscribe', requireAuth, async (req, res) => {
+    try {
+        const prisma = getPrisma();
+        const bot = await prisma.bot.findUnique({ where: { id: Number(req.params.id), user_id: req.session.userId } });
+        if (!bot) return res.status(404).json({ error: 'Bot not found' });
+        if (bot.platform !== 'INSTAGRAM') return res.status(400).json({ error: 'Not an Instagram bot' });
+        if (!bot.apiToken) return res.status(400).json({ error: 'No API token set' });
+
+        // Get Page ID
+        const meRes = await fetch(`https://graph.facebook.com/v21.0/me?access_token=${bot.apiToken}`);
+        const meData = await meRes.json();
+        if (meData.error) return res.status(400).json({ error: 'Invalid token', detail: meData.error.message });
+
+        const pageId = meData.id;
+
+        // Subscribe page to messages
+        const subRes = await fetch(`https://graph.facebook.com/v21.0/${pageId}/subscribed_apps`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                subscribed_fields: ['messages', 'messaging_postbacks'],
+                access_token: bot.apiToken
+            })
+        });
+        const subData = await subRes.json();
+        console.log(`[Instagram] Manual subscribe for bot ${bot.id} page ${pageId}:`, JSON.stringify(subData));
+        return res.json({ pageId, subscriptionResult: subData });
+    } catch (e) {
+        console.error('[Instagram] Subscribe error:', e);
+        res.status(500).json({ error: e.message });
+    }
+});
 
 router.post('/bot/:id/upload-pdf', requireAuth, upload.single('file'), async (req, res) => {
     try {

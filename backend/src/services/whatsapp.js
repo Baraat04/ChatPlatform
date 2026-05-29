@@ -509,7 +509,8 @@ export const startWhatsAppBot = async (bot, prisma, io) => {
         recentMessages.reverse();
 
         // Prepare AI prompt using Gemini
-        const systemInstruction = `System Instructions:\n${currentBotState.system_prompt || ''}\n\nCRITICAL: Follow the system instructions exactly. Pay extreme attention to any [Correction] or [IMPORTANT CORRECTION] tags at the end of the instructions.`;
+        // GeminiService handles greeting logic automatically based on history presence
+        const systemInstruction = `${currentBotState.system_prompt || ''}\n\nCRITICAL: Follow the system instructions exactly. Pay extreme attention to any [Correction] or [IMPORTANT CORRECTION] tags at the end of the instructions.`;
         const ragContext = currentBotState.data_prompt || '';
 
         const history = recentMessages.slice(0, -1).map(msg => ({
