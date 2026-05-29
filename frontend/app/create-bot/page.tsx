@@ -272,12 +272,8 @@ export default function CreateBot() {
   // Step 1
   const [industry, setIndustry] = useState('Финансы');
   const [companyName, setCompanyName] = useState('');
-  const [companyDescription, setCompanyDescription] = useState('');
-  const [productDescription, setProductDescription] = useState('');
   const [botGoal, setBotGoal] = useState('Консультировать клиентов');
   const [tone, setTone] = useState('Дружелюбный и тёплый');
-  const [dataToCollect, setDataToCollect] = useState<string[]>([]);
-  const [fallbackBehavior, setFallbackBehavior] = useState(t.fallback_noinfo);
   
   const [rules, setRules] = useState({
     onlyKnowledgeBase: true,
@@ -291,31 +287,18 @@ export default function CreateBot() {
 
   // Step 2
   const [businessInfo, setBusinessInfo] = useState('');
-  const [benefits, setBenefits] = useState('');
-  const [pricing, setPricing] = useState('');
-  const [faq, setFaq] = useState([{ q: '', a: '' }]);
-  const [links, setLinks] = useState([{ title: '', url: '' }]);
-  const [managerContact, setManagerContact] = useState('');
+  const [isUploadingPdf, setIsUploadingPdf] = useState(false);
 
   // Reset form on mount
   useEffect(() => {
     setIndustry('Финансы');
     setCompanyName('');
-    setCompanyDescription('');
-    setProductDescription('');
     setBotGoal('Консультировать клиентов');
     setTone('Дружелюбный и тёплый');
-    setDataToCollect([]);
-    setFallbackBehavior(t.fallback_noinfo);
     setRules({ onlyKnowledgeBase: true, noFabrication: true, userLanguage: true, leadToRequest: false });
     setIsManualSystemPrompt(false);
     setSystemPrompt('');
     setBusinessInfo('');
-    setBenefits('');
-    setPricing('');
-    setFaq([{ q: '', a: '' }]);
-    setLinks([{ title: '', url: '' }]);
-    setManagerContact('');
   }, []);
 
   useEffect(() => {
@@ -323,26 +306,16 @@ export default function CreateBot() {
       let rulesText = '';
       if (rules.onlyKnowledgeBase) rulesText += `- ${t.onlyKb}.\n`;
       if (rules.noFabrication) rulesText += `- ${t.noFabrication}.\n`;
-      rulesText += `- ${t.fallback}:\n  ${fallbackBehavior}\n`;
       if (rules.userLanguage) rulesText += `- ${t.userLanguage}.\n`;
       rulesText += '- Общайся естественно и профессионально.\n';
       if (rules.leadToRequest) rulesText += `- ${t.leadToRequest}.\n`;
 
-      const generated = `Ты AI-консультант компании ${companyName || '[Название компании]'}.
+      const generated = `Ты AI-консультант: ${companyName || '[Имя / Роль]'}.
 
 Сфера деятельности: ${industry}
 
-Компания занимается:
-${companyDescription || '[Описание компании]'}
-
-Основной продукт или услуга:
-${productDescription || '[Описание продукта]'}
-
-Твоя задача:
-${botGoal}
-
-Данные, которые необходимо собрать у клиента:
-${dataToCollect.length > 0 ? dataToCollect.join(', ') : 'Не требуется'}
+Твоя основная задача и инструкции:
+${botGoal || '[Описание задачи]'}
 
 Стиль общения:
 ${tone}
@@ -351,35 +324,49 @@ ${tone}
 ${rulesText}`;
       setSystemPrompt(generated);
     }
-  }, [industry, companyName, companyDescription, productDescription, botGoal, tone, dataToCollect, fallbackBehavior, rules, isManualSystemPrompt]);
+  }, [industry, companyName, botGoal, tone, rules, isManualSystemPrompt]);
 
   const generateDataPrompt = () => {
-    let faqText = faq.filter(f => f.q || f.a).map(f => `В: ${f.q}\nО: ${f.a}`).join('\n\n');
-    let linksText = links.filter(l => l.title || l.url).map(l => `${l.title}: ${l.url}`).join('\n');
-
     return `Компания:
 ${companyName}
 
-Описание:
-${businessInfo}
-
-Преимущества:
-${benefits}
-
-Цены и условия:
-${pricing}
-
-FAQ:
-${faqText}
-
-Полезные ссылки:
-${linksText}
-
-Контакт менеджера:
-${managerContact}`;
+База знаний (Произвольная информация):
+${businessInfo}`;
   };
 
   const dataPrompt = generateDataPrompt();
+
+  async function handlePdfUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.type !== 'application/pdf') {
+      alert("Пожалуйста, выберите PDF файл.");
+      return;
+    }
+    setIsUploadingPdf(true);
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      const res = await fetch(`${API_URL}/bot/0/upload-pdf`, {
+        method: 'POST',
+        body: formData,
+        credentials: 'include'
+      });
+      const data = await res.json();
+      if (data.text) {
+        const appendedData = `\n\n--- ДАННЫЕ ИЗ PDF (${file.name}) ---\n${data.text}`;
+        setBusinessInfo(prev => prev + appendedData);
+      } else {
+        alert("Не удалось извлечь текст из PDF.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Ошибка при загрузке PDF.");
+    } finally {
+      setIsUploadingPdf(false);
+      e.target.value = '';
+    }
+  }
 
   // Step 3
   const [platform, setPlatform] = useState<'TELEGRAM' | 'WHATSAPP' | 'INSTAGRAM'>('TELEGRAM');
@@ -391,6 +378,37 @@ ${managerContact}`;
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [waStatus, setWaStatus] = useState<string | null>(null);
   const [socket, setSocket] = useState<Socket | null>(null);
+
+  // Test Chat
+  const [createdBotId, setCreatedBotId] = useState<number | null>(null);
+  const [testChatOpen, setTestChatOpen] = useState(false);
+  const [testMessages, setTestMessages] = useState<{role: 'user'|'assistant', content: string}[]>([]);
+  const [testInput, setTestInput] = useState('');
+  const [isTestLoading, setIsTestLoading] = useState(false);
+
+  const handleTestSend = async () => {
+    if (!testInput.trim() || !createdBotId) return;
+    const userText = testInput.trim();
+    const newHistory = [...testMessages, { role: 'user' as const, content: userText }];
+    setTestMessages(newHistory);
+    setTestInput('');
+    setIsTestLoading(true);
+
+    try {
+      const res = await fetch(`${API_URL}/bot/${createdBotId}/agent-chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ text: userText, history: testMessages })
+      });
+      const data = await res.json();
+      setTestMessages([...newHistory, { role: 'assistant', content: data.reply || "Ошибка" }]);
+    } catch (e) {
+      setTestMessages([...newHistory, { role: 'assistant', content: "Не удалось получить ответ" }]);
+    } finally {
+      setIsTestLoading(false);
+    }
+  };
 
   useEffect(() => {
     const newSocket = io(SOCKET_URL);
@@ -428,7 +446,8 @@ ${managerContact}`;
       if (response.ok) {
         if (platform === 'TELEGRAM' || platform === 'INSTAGRAM') {
           setMessage({ type: 'success', text: `✅ ${platform === 'TELEGRAM' ? 'Telegram' : 'Instagram'} бот успешно создан!` });
-          setCurrentStep(1);
+          setCreatedBotId(data.id);
+          setTestChatOpen(true);
         } else {
           setMessage({ type: 'success', text: '⏳ Генерируем QR-код WhatsApp...' });
           const botId = data.id;
@@ -625,25 +644,11 @@ ${managerContact}`;
             </div>
 
             <div className={`${styles.formGroup} ${styles.colSpan12}`}>
-              <label className={styles.label} style={{ color: 'var(--on-surface)' }}>{t.companyDesc}</label>
-              <textarea className={styles.input} rows={2} value={companyDescription} onChange={e => setCompanyDescription(e.target.value)} placeholder="..." />
+              <label className={styles.label} style={{ color: 'var(--on-surface)' }}>Основная задача и описание (Твоя роль)</label>
+              <textarea className={styles.input} rows={4} value={botGoal} onChange={e => setBotGoal(e.target.value)} placeholder="Пример: Твоя задача консультировать клиентов по нашим услугам и собирать их контакты." />
             </div>
             
-            <div className={`${styles.formGroup} ${styles.colSpan12}`}>
-              <label className={styles.label} style={{ color: 'var(--on-surface)' }}>{t.mainProduct}</label>
-              <input className={styles.input} type="text" value={productDescription} onChange={e => setProductDescription(e.target.value)} placeholder="..." />
-            </div>
-
             <div className={`${styles.formGroup} ${styles.colSpan12}`} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 250px), 1fr))', gap: '16px' }}>
-              <div>
-                <label className={styles.label} style={{ color: 'var(--on-surface)' }}>{t.dataToCollect}</label>
-                <CustomMultiSelect 
-                  options={DATA_FIELDS} 
-                  value={dataToCollect} 
-                  onChange={setDataToCollect} 
-                  placeholder="..."
-                />
-              </div>
               <div>
                 <label className={styles.label} style={{ color: 'var(--on-surface)' }}>{t.tone}</label>
                 <CustomSelect 
@@ -653,20 +658,6 @@ ${managerContact}`;
                   placeholder="..."
                 />
               </div>
-            </div>
-
-            <div className={`${styles.formGroup} ${styles.colSpan12}`}>
-              <label className={styles.label} style={{ color: 'var(--on-surface)' }}>{t.fallback}</label>
-              <CustomSelect 
-                options={[
-                  t.fallback_noinfo,
-                  t.fallback_manager,
-                  t.fallback_lead
-                ]} 
-                value={fallbackBehavior} 
-                onChange={setFallbackBehavior} 
-                placeholder="..."
-              />
             </div>
 
             <div className={`${styles.formGroup} ${styles.colSpan12}`}>
@@ -718,57 +709,16 @@ ${managerContact}`;
             </div>
 
             <div className={`${styles.formGroup} ${styles.colSpan12}`}>
-              <label className={styles.label} style={{ color: 'var(--on-surface)' }}>Общая информация</label>
-              <textarea className={styles.input} rows={3} value={businessInfo} onChange={e => setBusinessInfo(e.target.value)} placeholder="..." style={{ background: 'var(--surface-container-low)', color: 'var(--on-surface)' }} />
-            </div>
-
-            <div className={`${styles.formGroup} ${styles.colSpan12}`}>
-              <label className={styles.label} style={{ color: 'var(--on-surface)' }}>Преимущества</label>
-              <textarea className={styles.input} rows={2} value={benefits} onChange={e => setBenefits(e.target.value)} placeholder="Почему стоит выбрать именно вас" />
-            </div>
-
-            <div className={`${styles.formGroup} ${styles.colSpan12}`}>
-              <label className={styles.label} style={{ color: 'var(--on-surface)' }}>Цены и условия</label>
-              <textarea className={styles.input} rows={3} value={pricing} onChange={e => setPricing(e.target.value)} placeholder="Прайс-лист, условия доставки, гарантии" />
-            </div>
-
-            <div className={`${styles.formGroup} ${styles.colSpan12}`}>
-              <label className={styles.label} style={{ color: 'var(--on-surface)' }}>{t.managerContact}</label>
-              <input className={styles.input} type="text" value={managerContact} onChange={e => setManagerContact(e.target.value)} placeholder="..." />
-            </div>
-
-            <div className={`${styles.formGroup} ${styles.colSpan12}`} style={{ background: 'var(--surface-container)', padding: '20px', borderRadius: 'var(--radius-lg)' }}>
-              <label className={styles.label} style={{ color: 'var(--on-surface)', fontSize: '16px' }}>{t.faqTitle}</label>
-              {faq.map((item, index) => (
-                <div key={index} style={{ display: 'flex', gap: '12px', marginBottom: '16px', alignItems: 'flex-start', background: 'var(--surface-container-lowest)', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline-variant)' }}>
-                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    <input className={styles.input} type="text" value={item.q} onChange={e => { const newFaq = [...faq]; newFaq[index].q = e.target.value; setFaq(newFaq); }} placeholder="Вопрос" style={{ fontWeight: '600' }} />
-                    <textarea className={styles.input} rows={2} value={item.a} onChange={e => { const newFaq = [...faq]; newFaq[index].a = e.target.value; setFaq(newFaq); }} placeholder="Ответ" />
-                  </div>
-                  <button type="button" onClick={() => { const newFaq = faq.filter((_, i) => i !== index); setFaq(newFaq.length ? newFaq : [{q:'', a:''}]); }} style={{ padding: '12px', background: 'var(--error-container)', color: 'var(--on-error-container)', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', transition: 'opacity 0.2s' }}>
-                    <Trash2 size={20} />
-                  </button>
-                </div>
-              ))}
-              <button type="button" onClick={() => setFaq([...faq, { q: '', a: '' }])} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--surface-container-lowest)', border: '2px dashed var(--outline)', color: 'var(--on-surface)', padding: '12px', borderRadius: 'var(--radius-md)', cursor: 'pointer', width: '100%', justifyContent: 'center', fontWeight: '600' }}>
-                <Plus size={20} /> Добавить вопрос
-              </button>
-            </div>
-
-            <div className={`${styles.formGroup} ${styles.colSpan12}`} style={{ background: 'var(--surface-container)', padding: '20px', borderRadius: 'var(--radius-lg)' }}>
-              <label className={styles.label} style={{ color: 'var(--on-surface)', fontSize: '16px' }}>{t.usefulLinks}</label>
-              {links.map((item, index) => (
-                <div key={index} style={{ display: 'flex', gap: '12px', marginBottom: '12px', alignItems: 'center', background: 'var(--surface-container-lowest)', padding: '12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline-variant)' }}>
-                  <input className={styles.input} type="text" value={item.title} onChange={e => { const newLinks = [...links]; newLinks[index].title = e.target.value; setLinks(newLinks); }} placeholder="Название ссылки (напр. Наш сайт)" style={{ flex: 1 }} />
-                  <input className={styles.input} type="text" value={item.url} onChange={e => { const newLinks = [...links]; newLinks[index].url = e.target.value; setLinks(newLinks); }} placeholder="https://..." style={{ flex: 2 }} />
-                  <button type="button" onClick={() => { const newLinks = links.filter((_, i) => i !== index); setLinks(newLinks.length ? newLinks : [{title:'', url:''}]); }} style={{ padding: '12px', background: 'var(--error-container)', color: 'var(--on-error-container)', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer' }}>
-                    <Trash2 size={20} />
-                  </button>
-                </div>
-              ))}
-              <button type="button" onClick={() => setLinks([...links, { title: '', url: '' }])} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--surface-container-lowest)', border: '2px dashed var(--outline)', color: 'var(--on-surface)', padding: '12px', borderRadius: 'var(--radius-md)', cursor: 'pointer', width: '100%', justifyContent: 'center', fontWeight: '600' }}>
-                <Plus size={20} /> Добавить ссылку
-              </button>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <label className={styles.label} style={{ color: 'var(--on-surface)', margin: 0 }}>Произвольная информация (База знаний)</label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--primary)', fontWeight: '600', padding: '8px 16px', background: 'var(--primary-container)', borderRadius: 'var(--radius-md)' }}>
+                  <Plus size={16} /> Загрузить PDF
+                  <input type="file" accept="application/pdf" style={{ display: 'none' }} onChange={handlePdfUpload} disabled={isUploadingPdf} />
+                </label>
+              </div>
+              {isUploadingPdf && <div style={{ color: 'var(--primary)', fontSize: '14px', marginBottom: '8px' }}>⏳ Извлекаем текст из PDF...</div>}
+              <textarea className={styles.input} rows={12} value={businessInfo} onChange={e => setBusinessInfo(e.target.value)} placeholder="Скопируйте сюда любую информацию о компании, ценах, услугах, FAQ..." style={{ background: 'var(--surface-container-low)', color: 'var(--on-surface)' }} />
+              <p style={{ color: 'var(--on-surface-variant)', fontSize: '13px', marginTop: '8px' }}>Пишите в свободном формате, искусственный интеллект сам все поймет.</p>
             </div>
           </div>
         )}
@@ -923,6 +873,32 @@ ${managerContact}`;
           )}
         </div>
       </div>
+      )}
+
+      {testChatOpen && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
+          <div className="ai-animated" style={{ background: 'var(--surface)', width: '90%', maxWidth: '400px', height: '600px', maxHeight: '90vh', borderRadius: 'var(--radius-lg)', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.3)', border: '1px solid var(--outline-variant)' }}>
+            <div style={{ padding: '16px', background: 'var(--primary)', color: 'var(--on-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}><Bot size={20} /> Тест бота</div>
+              <button onClick={() => setTestChatOpen(false)} style={{ color: 'var(--on-primary)', cursor: 'pointer' }}><X size={20} /></button>
+            </div>
+            <div style={{ flex: 1, padding: '16px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', background: 'var(--background)' }}>
+              {testMessages.length === 0 && <div style={{ textAlign: 'center', color: 'var(--on-surface-variant)', marginTop: '40px', fontSize: '15px' }}>Напишите что-нибудь, чтобы проверить ответы бота ✨</div>}
+              {testMessages.map((msg, i) => (
+                <div key={i} style={{ alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start', background: msg.role === 'user' ? 'var(--primary-container)' : 'var(--surface-container)', color: msg.role === 'user' ? 'var(--on-primary-container)' : 'var(--on-surface)', padding: '12px 16px', borderRadius: '16px', borderBottomRightRadius: msg.role === 'user' ? '4px' : '16px', borderBottomLeftRadius: msg.role !== 'user' ? '4px' : '16px', maxWidth: '85%', fontSize: '14.5px', whiteSpace: 'pre-wrap', lineHeight: '1.4' }}>
+                  {msg.content}
+                </div>
+              ))}
+              {isTestLoading && <div style={{ alignSelf: 'flex-start', color: 'var(--on-surface-variant)', fontSize: '13px', marginLeft: '4px' }}>Бот печатает...</div>}
+            </div>
+            <div style={{ padding: '12px', background: 'var(--surface-container-low)', borderTop: '1px solid var(--outline-variant)', display: 'flex', gap: '8px' }}>
+              <input type="text" value={testInput} onChange={e => setTestInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleTestSend()} placeholder="Введите сообщение..." style={{ flex: 1, padding: '12px 16px', borderRadius: '24px', border: '1px solid var(--outline-variant)', background: 'var(--surface-container-lowest)', color: 'var(--on-surface)', outline: 'none' }} />
+              <button onClick={handleTestSend} disabled={isTestLoading} style={{ background: 'var(--primary)', color: 'var(--on-primary)', borderRadius: '50%', width: '46px', height: '46px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: isTestLoading ? 'not-allowed' : 'pointer', opacity: isTestLoading ? 0.7 : 1 }}>
+                <MessageCircle size={20} />
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

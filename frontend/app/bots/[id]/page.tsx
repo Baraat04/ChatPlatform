@@ -498,6 +498,13 @@ export default function BotDetails() {
 
   useEffect(() => {
     if (selectedChat) fetchChatMessages(selectedChat);
+    
+    if (selectedChat && window.innerWidth <= 768) {
+      document.body.classList.add('hide-navbar-mobile');
+    } else {
+      document.body.classList.remove('hide-navbar-mobile');
+    }
+    return () => document.body.classList.remove('hide-navbar-mobile');
   }, [selectedChat]);
 
   async function fetchBot() {
