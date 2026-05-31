@@ -15,9 +15,9 @@ interface FaqItem { q: string; a: string; }
 // ── DATA DICTIONARY ────────────────────────────────────────
 const docsDict = {
   RU: {
-    navTitle: 'Документация',
-    heroTitle: 'Документация и руководство пользователя',
-    sub: 'BotFlow — это платформа для создания и управления умными помощниками в Telegram и WhatsApp без навыков программирования. Бот обучается на текстовых данных компании и берет на себя автоматическое общение с клиентами.',
+    navTitle: 'Инструкция',
+    heroTitle: 'Инструкция и руководство пользователя',
+    sub: 'UP-CHAT — это платформа для создания и управления умными помощниками в Telegram и WhatsApp без навыков программирования. Бот обучается на текстовых данных компании и берет на себя автоматическое общение с клиентами.',
     howItWorks: 'Пошаговое руководство: Создание и запуск бота',
     steps: [
       { icon: Bot, title: 'Выбор платформы', desc: 'Пользователь выбирает мессенджер, в котором будет работать ассистент: Telegram или WhatsApp.' },
@@ -68,9 +68,9 @@ const docsDict = {
     stepLabel: 'Шаг',
   },
   KZ: {
-    navTitle: 'Құжаттама',
-    heroTitle: 'Құжаттама және пайдаланушы нұсқаулығы',
-    sub: 'BotFlow — бұл бағдарламалау дағдыларынсыз Telegram және WhatsApp желілерінде ақылды көмекшілерді құруға және басқаруға арналған платформа. Бот компанияның мәтіндік деректерінде оқытылады және клиенттермен автоматты түрде сөйлесуді өз мойнына алады.',
+    navTitle: 'Нұсқаулық',
+    heroTitle: 'Нұсқаулық және пайдаланушы нұсқаулығы',
+    sub: 'UP-CHAT — бұл бағдарламалау дағдыларынсыз Telegram және WhatsApp желілерінде ақылды көмекшілерді құруға және басқаруға арналған платформа. Бот компанияның мәтіндік деректерінде оқытылады және клиенттермен автоматты түрде сөйлесуді өз мойнына алады.',
     howItWorks: 'Қадамдық нұсқаулық: Ботты құру және іске қосу',
     steps: [
       { icon: Bot, title: 'Платформаны таңдау', desc: 'Пайдаланушы ассистент жұмыс істейтін мессенджерді таңдайды: Telegram немесе WhatsApp.' },
@@ -121,9 +121,9 @@ const docsDict = {
     stepLabel: 'Қадам',
   },
   EN: {
-    navTitle: 'Documentation',
-    heroTitle: 'Documentation and User Guide',
-    sub: 'BotFlow is a platform for creating and managing smart assistants in Telegram and WhatsApp without coding skills. The bot learns from the company\'s text data and automates communication with clients.',
+    navTitle: 'Guide',
+    heroTitle: 'User Guide and Manual',
+    sub: 'UP-CHAT is a platform for creating and managing smart assistants in Telegram and WhatsApp without coding skills. The bot learns from the company\'s text data and automates communication with clients.',
     howItWorks: 'Step-by-step Guide: Creating and Launching a Bot',
     steps: [
       { icon: Bot, title: 'Platform Selection', desc: 'The user selects the messenger where the assistant will work: Telegram or WhatsApp.' },

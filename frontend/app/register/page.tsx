@@ -10,7 +10,7 @@ import { API_URL } from '../config';
 const localT = {
   EN: {
     createAccountTitle: "Create Account",
-    subtitle: "Join BotFlow and create smart bots",
+    subtitle: "Join UP-CHAT and create smart bots",
     name: "Name",
     email: "Email",
     password: "Password",
@@ -23,7 +23,7 @@ const localT = {
   },
   RU: {
     createAccountTitle: "Создать аккаунт",
-    subtitle: "Присоединяйтесь к BotFlow и создавайте умных ботов",
+    subtitle: "Присоединяйтесь к UP-CHAT и создавайте умных ботов",
     name: "Имя",
     email: "Email",
     password: "Пароль",
@@ -36,7 +36,7 @@ const localT = {
   },
   KZ: {
     createAccountTitle: "Тіркелгі жасау",
-    subtitle: "BotFlow-қа қосылып, ақылды боттар жасаңыз",
+    subtitle: "UP-CHAT-қа қосылып, ақылды боттар жасаңыз",
     name: "Аты",
     email: "Email",
     password: "Құпия сөз",

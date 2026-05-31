@@ -12,11 +12,11 @@ export default function DocumentationContent() {
         <header className="mb-6 flex items-center gap-3">
           <BookOpen size={20} className="text-slate-500" />
           <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
-            Документация и руководство пользователя
+            Инструкция и руководство пользователя
           </h1>
         </header>
         <p className="text-lg leading-relaxed text-slate-600">
-          BotFlow — это платформа для создания и управления умными AI-помощниками в Telegram и WhatsApp без навыков программирования. Бот обучается на текстовых данных компании и берет на себя автоматическое общение с клиентами.
+          UP-CHAT — это платформа для создания и управления умными AI-помощниками в Telegram и WhatsApp без навыков программирования. Бот обучается на текстовых данных компании и берет на себя автоматическое общение с клиентами.
         </p>
       </section>
 

@@ -37,7 +37,7 @@ export default function TopAppBar({ onMenuClick }: TopAppBarProps) {
         <button className={styles.burgerButton} onClick={onMenuClick}>
           <Menu size={24} />
         </button>
-        <span className={styles.brandMobile}>BotFlow</span>
+        <span className={styles.brandMobile}>UP-CHAT</span>
       </div>
 
 

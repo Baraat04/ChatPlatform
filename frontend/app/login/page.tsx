@@ -11,7 +11,7 @@ import { API_URL } from '../config';
 const localT = {
   EN: {
     welcomeBack: "Welcome back",
-    subtitle: "Sign in to BotFlow panel",
+    subtitle: "Sign in to UP-CHAT panel",
     email: "Email",
     password: "Password",
     signIn: "Sign In",
@@ -22,7 +22,7 @@ const localT = {
   },
   RU: {
     welcomeBack: "С возвращением",
-    subtitle: "Войдите в панель управления BotFlow",
+    subtitle: "Войдите в панель управления UP-CHAT",
     email: "Email",
     password: "Пароль",
     signIn: "Войти в аккаунт",
@@ -33,7 +33,7 @@ const localT = {
   },
   KZ: {
     welcomeBack: "Қош келдіңіз",
-    subtitle: "BotFlow басқару тақтасына кіріңіз",
+    subtitle: "UP-CHAT басқару тақтасына кіріңіз",
     email: "Email",
     password: "Құпия сөз",
     signIn: "Тіркелгіге кіру",

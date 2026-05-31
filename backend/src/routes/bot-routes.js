@@ -730,10 +730,13 @@ router.post('/webhook/telegram/:slug', async (req, res) => {
         let senderName = 'Telegram User'
         if (update.message.from) {
             const { first_name, last_name, username } = update.message.from
-            if (username) {
+            const fullName = [first_name, last_name].filter(Boolean).join(' ')
+            if (fullName && username) {
+                senderName = `${fullName} (@${username})`
+            } else if (username) {
                 senderName = `@${username}`
             } else {
-                senderName = [first_name, last_name].filter(Boolean).join(' ') || `User ${update.message.from.id}`
+                senderName = fullName || `User ${update.message.from.id}`
             }
         }
 
@@ -957,7 +960,7 @@ router.post('/webhook/instagram', async (req, res) => {
                 let aiResponseText = 'Извините, AI временно недоступен.';
                 let inputTokens = 0, outputTokens = 0;
                 try {
-                    const sysInstruction = `${bot.system_prompt || ''}\n\nCRITICAL: Follow the system instructions exactly.`;
+                    const sysInstruction = `${bot.system_prompt || ''}\n\nCRITICAL: Follow the system instructions exactly. Pay extreme attention to any [Correction] or [IMPORTANT CORRECTION] tags at the end of the instructions.`;
                     const geminiResult = await generateGeminiResponse(userMessage, history, sysInstruction, bot.data_prompt || '');
                     aiResponseText = geminiResult.text;
                     inputTokens = geminiResult.inputTokens;
@@ -1074,6 +1077,12 @@ Respond with a JSON object ONLY, in this exact format:
   "new_system_prompt": "The complete updated system prompt",
   "new_data_prompt": "The complete updated data prompt"
 }
+}
+
+CRITICAL RULES FOR new_system_prompt:
+1. When the user asks you to change how the bot behaves or speaks, you MUST append this instruction clearly at the end of the new_system_prompt. 
+2. Use strong language like "[IMPORTANT CORRECTION]: " to make sure the bot follows it.
+3. PRESERVE ALL existing instructions in the system_prompt, just add the new ones at the end. DO NOT replace the whole prompt with just the new rule.
 
 CRITICAL RULES FOR new_data_prompt:
 You MUST format new_data_prompt EXACTLY like this with these specific headers, otherwise the system will break:
@@ -1162,6 +1171,116 @@ Ensure the output is strictly valid JSON. Do not add markdown blocks around JSON
         console.error('Agent chat error:', e)
         res.status(500).json({ error: e.message })
     }
+})
+
+// ── TEST CHAT ──────────────────────────────────────────────
+router.post('/bot/:id/test-chat', requireAuth, async (req, res) => {
+    try {
+        const { text, history } = req.body
+        const prisma = getPrisma()
+        const botId = Number(req.params.id)
+        const bot = await prisma.bot.findUnique({ where: { id: botId, user_id: req.session.userId } })
+        if (!bot) return res.status(404).json({ error: 'Bot not found' })
+
+        const systemInstruction = `${bot.system_prompt || ''}\n\nCRITICAL: Follow the system instructions exactly. Pay extreme attention to any [Correction] or [IMPORTANT CORRECTION] tags at the end of the instructions.`;
+        const ragContext = bot.data_prompt || '';
+
+        const geminiHistory = [];
+        if (history) {
+           for(const h of history) {
+               geminiHistory.push({ role: h.role === 'assistant' ? 'model' : 'user', parts: [{ text: h.content }] });
+           }
+        }
+        const userMessage = text;
+
+        let content = "Извините, не удалось сформировать ответ.";
+        try {
+            const geminiResult = await generateGeminiResponse(userMessage, geminiHistory, systemInstruction, ragContext);
+            content = geminiResult.text;
+        } catch (error) {
+            console.error("Test Chat Gemini Error:", error);
+            content = "Ошибка подключения к ИИ. Пожалуйста, проверьте настройки.";
+        }
+        
+        res.json({ reply: content })
+    } catch (e) {
+        console.error('Test chat error:', e)
+        res.status(500).json({ error: e.message })
+    }
+})
+
+// ── PUBLIC TEST CHAT FOR LANDING PAGE ─────────────────────────
+router.post('/public-test-chat', async (req, res) => {
+    try {
+        const { system_prompt, text, history } = req.body
+        if (!text) return res.status(400).json({ error: 'Message text is required' })
+
+        const systemInstruction = system_prompt || 'Ты AI-консультант.'
+        const ragContext = ''
+
+        const geminiHistory = [];
+        if (history) {
+           for(const h of history) {
+               geminiHistory.push({ role: h.role === 'assistant' ? 'model' : 'user', parts: [{ text: h.content }] });
+           }
+        }
+        const userMessage = text;
+
+        let content = "Извините, не удалось сформировать ответ.";
+        try {
+            const geminiResult = await generateGeminiResponse(userMessage, geminiHistory, systemInstruction, ragContext);
+            content = geminiResult.text;
+        } catch (error) {
+            console.error("Public Test Chat Gemini Error:", error);
+            content = "Ошибка подключения к ИИ. Пожалуйста, попробуйте еще раз.";
+        }
+        
+        res.json({ reply: content })
+    } catch (e) {
+        console.error('Public test chat error:', e)
+        res.status(500).json({ error: e.message })
+    }
+})
+
+// ── CHAT PAUSE / RESUME ────────────────────────────────────
+router.post('/bot/:id/chat/pause', requireAuth, async (req, res) => {
+    try {
+        const prisma = getPrisma()
+        const botId = Number(req.params.id)
+        const { chatId } = req.body
+
+        const bot = await prisma.bot.findUnique({ where: { id: botId, user_id: req.session.userId } })
+        if (!bot) return res.status(404).json({ error: 'Bot not found' })
+
+        const pausedChats = new Set(bot.pausedChats || [])
+        pausedChats.add(chatId)
+        
+        await prisma.bot.update({ 
+            where: { id: botId }, 
+            data: { pausedChats: Array.from(pausedChats) } 
+        })
+
+        res.json({ success: true, paused: true })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+router.post('/bot/:id/chat/resume', requireAuth, async (req, res) => {
+    try {
+        const prisma = getPrisma()
+        const botId = Number(req.params.id)
+        const { chatId } = req.body
+
+        const bot = await prisma.bot.findUnique({ where: { id: botId, user_id: req.session.userId } })
+        if (!bot) return res.status(404).json({ error: 'Bot not found' })
+
+        const pausedChats = (bot.pausedChats || []).filter(c => c !== chatId)
+        await prisma.bot.update({ 
+            where: { id: botId }, 
+            data: { pausedChats } 
+        })
+
+        res.json({ success: true, paused: false })
+    } catch (e) { res.status(500).json({ error: e.message }) }
 })
 
 // ── SUPPORT TICKETS ────────────────────────────────────────

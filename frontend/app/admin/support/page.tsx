@@ -128,7 +128,7 @@ export default function AdminSupportTickets() {
               transition: 'color 0.2s'
             }}
             >
-              <ArrowLeft size={14} /> Вернуться в Документацию
+              <ArrowLeft size={14} /> Вернуться в Инструкцию
             </Link>
           </div>
 
@@ -285,7 +285,7 @@ export default function AdminSupportTickets() {
             <div>
               <h1 style={{ fontSize: '1.8rem', fontWeight: 800, margin: 0 }}>Обращения техподдержки</h1>
               <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.9rem', margin: 0, marginTop: '4px' }}>
-                Список запросов и проблем от пользователей BotFlow.
+                Список запросов и проблем от пользователей UP-CHAT.
               </p>
             </div>
           </div>

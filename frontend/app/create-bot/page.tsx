@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { ArrowRight, ArrowLeft, Bot, Database, Key, MessageCircle, Phone, Plus, Trash2, CheckCircle2, ChevronDown, Check } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Bot, Database, Key, MessageCircle, Phone, Plus, Trash2, CheckCircle2, ChevronDown, Check, X } from 'lucide-react';
 import styles from './page.module.css';
 import { io, Socket } from 'socket.io-client';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -395,7 +395,7 @@ ${businessInfo}`;
     setIsTestLoading(true);
 
     try {
-      const res = await fetch(`${API_URL}/bot/${createdBotId}/agent-chat`, {
+      const res = await fetch(`${API_URL}/bot/${createdBotId}/test-chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

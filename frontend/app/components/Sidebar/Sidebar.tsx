@@ -32,7 +32,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     { name: t.navBots, path: '/bots', icon: Bot },
     { name: t.navCreateBot, path: '/create-bot', icon: PlusCircle },
     { name: language === 'RU' ? 'Статистика' : language === 'KZ' ? 'Статистика' : 'Statistics', path: '/statistics', icon: TrendingUp },
-    { name: language === 'RU' ? 'Документация' : language === 'KZ' ? 'Құжаттама' : 'Documentation', path: '/docs', icon: BookOpen },
+    { name: language === 'RU' ? 'Инструкция' : language === 'KZ' ? 'Нұсқаулық' : 'Guide', path: '/docs', icon: BookOpen },
     { name: language === 'RU' ? 'Профиль' : language === 'KZ' ? 'Профиль' : 'Profile', path: '/profile', icon: User },
   ];
 
@@ -46,7 +46,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         <div className={styles.brand}>
           <div className={styles.logoIcon}>B</div>
           <div>
-            <div className={styles.brandText}>BotFlow</div>
+            <div className={styles.brandText}>UP-CHAT</div>
             <div className={styles.brandSub}>Enterprise AI</div>
           </div>
         </div>

@@ -22,7 +22,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "BotFlow Dashboard",
+  title: "UP-CHAT Dashboard",
   description: "Enterprise AI Bot Management",
 };
 

@@ -258,6 +258,7 @@ interface BotType {
   system_prompt: string;
   data_prompt: string;
   slug: string;
+  pausedChats?: string[];
 }
 
 interface Chat {
@@ -698,6 +699,23 @@ export default function BotDetails() {
     router.push('/bots');
   }
 
+  async function handleToggleChatPause(chatId: string) {
+    if (!bot) return;
+    const isPaused = bot.pausedChats?.includes(chatId);
+    const endpoint = isPaused ? 'resume' : 'pause';
+    
+    const res = await fetch(`${API}/bot/${botId}/chat/${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chatId }),
+      credentials: 'include'
+    });
+    if (res.ok) {
+      await fetchBot();
+    } else {
+      alert('Ошибка изменения статуса');
+    }
+  }
 
   async function handleDeleteChat(chatIdToDelete?: string) {
     const id = chatIdToDelete || selectedChat;
@@ -1167,9 +1185,24 @@ export default function BotDetails() {
                             </div>
                           </div>
                         </div>
-                        <button onClick={() => handleDeleteChat()} className="btn-action" style={{ padding: '0.5rem 0.8rem', fontSize: '0.8rem', background: '#fdf2f2', color: '#9b1c1c', border: '1px solid #fbd5d5' }}>
-                          <Trash2 size={14} /> {t.clearChat}
-                        </button>
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          <button 
+                            onClick={() => selectedChat && handleToggleChatPause(selectedChat)} 
+                            className="btn-action" 
+                            style={{ 
+                              padding: '0.5rem 0.8rem', 
+                              fontSize: '0.8rem', 
+                              background: bot?.pausedChats?.includes(selectedChat) ? '#fff8eb' : '#f0fdf4', 
+                              color: bot?.pausedChats?.includes(selectedChat) ? '#b45309' : '#15803d', 
+                              border: `1px solid ${bot?.pausedChats?.includes(selectedChat) ? '#fcd34d' : '#bbf7d0'}`
+                            }}
+                          >
+                            {bot?.pausedChats?.includes(selectedChat) ? <><Play size={14} /> Включить ИИ</> : <><Pause size={14} /> Отключить ИИ</>}
+                          </button>
+                          <button onClick={() => handleDeleteChat()} className="btn-action" style={{ padding: '0.5rem 0.8rem', fontSize: '0.8rem', background: '#fdf2f2', color: '#9b1c1c', border: '1px solid #fbd5d5' }}>
+                            <Trash2 size={14} /> {t.clearChat}
+                          </button>
+                        </div>
                       </div>
                     );
                   })()}

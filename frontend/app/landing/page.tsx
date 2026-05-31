@@ -5,220 +5,99 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
+import { 
+  Zap, MessageSquare, Bot, ArrowRight, Check, Play, Globe, CheckCircle2, 
+  ChevronDown, Phone, Cpu, Layers, Award, Users, X, Mail, MapPin, Send,
+  Shield, RefreshCw, Sparkles, MessageCircle
+} from 'lucide-react';
 
 const localT = {
   EN: {
-    heroTitle1: "Smart ",
-    heroTitleHighlight: "AI assistant",
-    heroTitle2: " that knows your business. Launch in 5 minutes.",
-    heroSub: "Automate sales and support on WhatsApp & Telegram. Connect your knowledge base and let AI handle 90% of queries.",
+    heroTitle1: "Elevate operations with ",
+    heroTitleHighlight: "AI Agents",
+    heroTitle2: " configured in minutes.",
+    heroSub: "Automate custom customer support and active sales. Plug in your PDF knowledge base and sync instantly with WhatsApp, Telegram & Instagram (coming soon).",
     startFree: "Start Free",
-    watchDemo: "Watch Demo",
-    businesses: "businesses",
-    messages: "messages",
-    deals: "deals",
-    bentoTitle: "Everything you need to automate",
-    bentoSub: "One platform to manage all your customer interactions across multiple channels with enterprise-grade AI.",
-    brainChat: "AI Brain Chat",
-    brainChatSub: "Smart response generation based on your unique data.",
-    brainChatQ: "How do I cancel my subscription?",
-    brainChatA: "You can cancel anytime in the settings panel under the \"Billing\" tab.",
-    pdfKb: "PDF Knowledge Base",
-    pdfKbSub: "Upload your docs and the AI learns instantly from your data.",
-    multichannel: "Multichannel",
-    multichannelSub: "WhatsApp, Telegram, and Instagram perfectly synced.",
-    liveTakeover: "Live Takeover",
-    liveTakeoverSub: "Seamless bot to human handoff when things get complex.",
-    broadcasts: "Broadcasts",
-    broadcastsSub: "Mass updates to customers.",
-    launchSteps: "Launch in three simple steps",
-    connectMessenger: "1. Connect messenger",
-    connectMessengerSub: "Sync your WhatsApp Business or Telegram account in seconds.",
-    uploadPdf: "2. Upload PDF",
-    uploadPdfSub: "Upload your FAQs, price lists, or company policy documents.",
-    aiWorks: "3. AI works 24/7",
-    aiWorksSub: "Sit back while your AI handles sales and support around the clock.",
-    plugsWorkflow: "Plugs into your workflow",
-    plugsWorkflowSub: "No need to change your stack. We integrate with the tools your team already uses daily.",
-    viewAllIntegrations: "View all 50+ Integrations",
-    trustedBusinesses: "Trusted by businesses like yours",
-    alexQuote: "\"Homelander transformed our support operations. We went from answering the same 10 questions all day to focusing on actual sales strategy.\"",
-    sarahQuote: "\"The PDF knowledge base feature is magic. I uploaded our 40-page technical manual and the AI started answering expert questions immediately.\"",
-    jamesQuote: "\"The seamless handoff to humans is what sold us. Our bots handle the triage and our sales team steps in only when the lead is warm.\"",
-    partnershipTitle: "Partnership & Custom Integrations",
-    partnershipSub: "Contact us directly to discuss custom CRM/ERP integrations, joint solution development, or to apply for partnership terms.",
-    partnership: "Partnership",
-    applyPartnership: "Contact Us",
-    learnMore: "Contact Us",
-    whiteLabelOptions: "Connection of any CRM & ERP",
-    prioritySupport: "Timeline and SLA guarantees",
-    dedicatedPartner: "Developer direct support",
-    exclusiveDiscounts: "Joint solution development",
-    marketingKits: "Custom API access",
-    trainingWebinars: "Direct contact with the team",
-    buildToday: "Let's build your AI assistant today",
-    buildTodaySub: "Have specific requirements? Our team of AI engineers can help you architect the perfect solution for your scale.",
-    headquarters: "Global Headquarters, Silicon Valley",
-    nameLabel: "Name",
-    phoneLabel: "WhatsApp/Phone",
-    businessTypeLabel: "Business Type",
-    messageLabel: "Message",
-    sendRequest: "Send Request",
-    requestSent: "Request Sent!",
-    requestSentSub: "Our team will contact you shortly.",
-    allSystemsOperational: "All systems operational",
+    watchDemo: "Try Interactive Demo",
     features: "Features",
-    integrations: "Integrations",
     pricing: "Pricing",
     company: "Company",
-    privacy: "Privacy",
-    terms: "Terms",
-    product: "Product",
+    privacy: "Privacy Policy",
+    terms: "Terms of Use",
+    offer: "Public Offer",
+    cabinet: "To Cabinet",
     signIn: "Sign In",
     getStarted: "Get Started",
-    cabinet: "To Cabinet"
+    product: "Product",
+    partnership: "Partnership",
+    allSystemsOperational: "All systems operational",
+    buildToday: "Request Enterprise Solution",
+    buildTodaySub: "Have complex backend integration requirements? Our team of AI engineers is ready to customize an agent for your scale.",
+    nameLabel: "Name",
+    phoneLabel: "Phone Number",
+    businessTypeLabel: "Niche",
+    messageLabel: "Project Scope Description",
+    sendRequest: "Submit Inquiry",
+    requestSent: "Inquiry Sent!",
+    requestSentSub: "Our integration team will reach out within 1 business day."
   },
   RU: {
-    heroTitle1: "Умный ",
-    heroTitleHighlight: "ИИ-ассистент",
-    heroTitle2: ", который знает ваш бизнес. Запуск за 5 минут.",
-    heroSub: "Автоматизируйте продажи и поддержку в WhatsApp и Telegram. Подключите базу знаний, и ИИ закроет до 90% обращений.",
+    heroTitle1: "Умные ",
+    heroTitleHighlight: "ИИ-ассистенты",
+    heroTitle2: " для автоматизации вашего бизнеса.",
+    heroSub: "Делегируйте рутинную поддержку и продажи умным агентам. Подключите собственную базу знаний и общайтесь с клиентами в WhatsApp, Telegram и Instagram (coming soon).",
     startFree: "Начать бесплатно",
-    watchDemo: "Смотреть демо",
-    businesses: "бизнесов",
-    messages: "сообщений",
-    deals: "сделок",
-    bentoTitle: "Всё необходимое для автоматизации",
-    bentoSub: "Единая платформа для управления всеми диалогами с клиентами в нескольких каналах с помощью ИИ корпоративного уровня.",
-    brainChat: "AI Brain Chat",
-    brainChatSub: "Умная генерация ответов на основе ваших уникальных данных.",
-    brainChatQ: "Как мне отменить подписку?",
-    brainChatA: "Вы можете отменить подписку в любое время в панели настроек во вкладке «Оплата».",
-    pdfKb: "База знаний PDF",
-    pdfKbSub: "Загрузите свои документы, и ИИ мгновенно обучится на ваших данных.",
-    multichannel: "Мультиканальность",
-    multichannelSub: "WhatsApp, Telegram и Instagram синхронизированы идеально.",
-    liveTakeover: "Живой диалог",
-    liveTakeoverSub: "Бесшовный переход с бота на человека, если вопрос становится слишком сложным.",
-    broadcasts: "Рассылки",
-    broadcastsSub: "Массовые рассылки обновлений вашим клиентам.",
-    launchSteps: "Запуск в три простых шага",
-    connectMessenger: "1. Подключите мессенджер",
-    connectMessengerSub: "Синхронизируйте ваш аккаунт WhatsApp Business или Telegram за секунды.",
-    uploadPdf: "2. Загрузите PDF",
-    uploadPdfSub: "Загрузите ответы на вопросы, прайс-листы или документы компании.",
-    aiWorks: "3. ИИ работает 24/7",
-    aiWorksSub: "Отдыхайте, пока ИИ круглосуточно обрабатывает продажи и поддержку.",
-    plugsWorkflow: "Интеграция с вашими инструментами",
-    plugsWorkflowSub: "Не нужно менять стек технологий. Мы интегрируемся с инструментами, которые ваша команда уже использует каждый день.",
-    viewAllIntegrations: "Посмотреть все 50+ интеграций",
-    trustedBusinesses: "Доверие сотен компаний по всему миру",
-    alexQuote: "«Homelander полностью изменил нашу клиентскую поддержку. Мы перешли от ответов на одни и те же 10 вопросов в день к фокусу на продажах.»",
-    sarahQuote: "«Загрузка базы знаний из PDF работает волшебно. Я загрузил наше 40-страничное руководство, и ИИ сразу начал квалифицированно консультировать.»",
-    jamesQuote: "«Бесшовный переход диалога к человеку — главная фича. Бот полностью обрабатывает первичный поток, а менеджеры берут только горячих лидов.»",
-    partnershipTitle: "Партнёрство и Кастомные Интеграции",
-    partnershipSub: "Свяжитесь с нами напрямую для обсуждения партнерства, кастомных интеграций с вашими CRM/ERP системами или разработки индивидуального функционала под ваши задачи.",
-    partnership: "Партнёрство",
-    applyPartnership: "Связаться с нами",
-    learnMore: "Связаться с нами",
-    whiteLabelOptions: "Подключение любых CRM и ERP",
-    prioritySupport: "Гарантия сроков и SLA",
-    dedicatedPartner: "Разработка напрямую разработчиками",
-    exclusiveDiscounts: "Совместная разработка решений",
-    marketingKits: "Доступ к кастомному API",
-    trainingWebinars: "Прямая связь с нашей командой",
-    buildToday: "Давайте создадим вашего ИИ-ассистента сегодня",
-    buildTodaySub: "Есть особые требования? Наша команда инженеров поможет спроектировать идеальное решение для вашего масштаба.",
-    headquarters: "Штаб-квартира, Кремниевая долина",
-    nameLabel: "Имя",
-    phoneLabel: "WhatsApp / Телефон",
-    businessTypeLabel: "Тип бизнеса",
-    messageLabel: "Сообщение",
-    sendRequest: "Отправить запрос",
-    requestSent: "Заявка отправлена!",
-    requestSentSub: "Наш специалист свяжется с вами в ближайшее время.",
-    allSystemsOperational: "Все системы работают нормально",
-    features: "Функции",
-    integrations: "Интеграции",
-    pricing: "Цены",
+    watchDemo: "Протестировать демо",
+    features: "Возможности",
+    pricing: "Тарифы",
     company: "Компания",
-    privacy: "Конфиденциальность",
-    terms: "Условия",
-    product: "Продукт",
+    privacy: "Политика конфиденциальности",
+    terms: "Условия использования",
+    offer: "Публичная оферта",
+    cabinet: "Личный кабинет",
     signIn: "Войти",
     getStarted: "Начать бесплатно",
-    cabinet: "В кабинет"
+    product: "Продукт",
+    partnership: "Сотрудничество",
+    allSystemsOperational: "Все системы работают в штатном режиме",
+    buildToday: "Оставить заявку на кастомное решение",
+    buildTodaySub: "Требуется сложная интеграция с вашей CRM/ERP или кастомная база данных? Свяжитесь с нами для детального проектирования.",
+    nameLabel: "Ваше имя",
+    phoneLabel: "Номер телефона (WhatsApp)",
+    businessTypeLabel: "Отрасль бизнеса",
+    messageLabel: "Какую задачу нужно решить ИИ-боту?",
+    sendRequest: "Отправить заявку",
+    requestSent: "Заявка принята!",
+    requestSentSub: "Специалист свяжется с вами в течение рабочего дня."
   },
   KZ: {
-    heroTitle1: "Сіздің бизнесіңізді білетін ақылды ",
-    heroTitleHighlight: "ЖИ-көмекші",
-    heroTitle2: ". 5 минутта іске қосыңыз.",
-    heroSub: "WhatsApp және Telegram арқылы сату мен қолдауды автоматтандырыңыз. Білім базасын қосып, ЖИ-ге сұраныстардың 90% шешуге мүмкіндік беріңіз.",
+    heroTitle1: "Сіздің бизнесіңізге арналған ақылды ",
+    heroTitleHighlight: "ЖИ-көмекшілер",
+    heroTitle2: ". Бәрін автоматтандыру.",
+    heroSub: "Қолдау көрсету мен сатуды ақылды агенттерге тапсырыңыз. Жеке білім базаңызды қосып, WhatsApp, Telegram және Instagram (coming soon) желілерінде жұмыс істеңіз.",
     startFree: "Тегін бастау",
     watchDemo: "Демоны көру",
-    businesses: "бизнес",
-    messages: "хабарлама",
-    deals: "мәміле",
-    bentoTitle: "Автоматтандыруға қажеттінің бәрі",
-    bentoSub: "Корпоративтік деңгейдегі ЖИ көмегімен бірнеше арнадағы барлық клиенттермен әңгімелерді басқаруға арналған бірыңғай платформа.",
-    brainChat: "AI Brain Chat",
-    brainChatSub: "Сіздің бірегей деректеріңізге негізделген жауаптардың ақылды генерациясы.",
-    brainChatQ: "Жазылуымды қалай жоя аламын?",
-    brainChatA: "Жазылымды кез келген уақытта «Төлем» қойындысындағы параметрлер панелінде жоя аласыз.",
-    pdfKb: "PDF білім базасы",
-    pdfKbSub: "Құжаттарыңызды жүктеңіз, ЖИ сіздің деректеріңізден бірден үйренеді.",
-    multichannel: "Көп арналы",
-    multichannelSub: "WhatsApp, Telegram және Instagram мінсіз синхрондалған.",
-    liveTakeover: "Тікелей әңгіме",
-    liveTakeoverSub: "Сұрақ тым күрделі болған кезде боттан адамға кедергісіз ауысу.",
-    broadcasts: "Таратылымдар",
-    broadcastsSub: "Клиенттеріңізге жаңартуларды жаппай тарату.",
-    launchSteps: "Үш қарапайым қадаммен іске қосыңыз",
-    connectMessenger: "1. Мессенджерді қосыңыз",
-    connectMessengerSub: "WhatsApp Business немесе Telegram аккаунтын бірнеше секундта синхрондаңыз.",
-    uploadPdf: "2. PDF жүктеңіз",
-    uploadPdfSub: "FAQ, баға тізімдерін немесе компания құжаттарын жүктеңіз.",
-    aiWorks: "3. ЖИ тәулік бойы жұмыс ітеді",
-    aiWorksSub: "ЖИ тәулік бойы сату мен қолдауды реттегенде демалыңыз.",
-    plugsWorkflow: "Жұмыс процесіңізге қосылады",
-    plugsWorkflowSub: "Стек технологияларын өзгертудің қажеті жоқ. Біз сіздің командаңыз күнделікті қолданатын құралдармен интеграцияланамыз.",
-    viewAllIntegrations: "Барлық 50+ интеграцияны көру",
-    trustedBusinesses: "Сіздің бизнесіңіз сияқты сенімді серіктестер",
-    alexQuote: "«Homelander біздің қолдау қызметімізді толық өзгертті. Күн сайын бірдей 10 сұраққа жауап беруден сату стратегиясына көштік.»",
-    sarahQuote: "«PDF білім базасы сиқырлы жұмыс ісейді. Мен 40 беттік нұсқаулықты жүктедім, ЖИ бірден кәсіби кеңес бере бастады.»",
-    jamesQuote: "«Роботтан адамға кедергісіз ауысу — ең маңызды функция. Бот бастапқы лекті өңдейді, ал менеджерлер тек дайын клиенттерді алады.»",
-    partnershipTitle: "Серіктестік пен жеке интеграциялар",
-    partnershipSub: "Серіктестікті, сіздің CRM/ERP жүйелеріңізбен кастомдық интеграцияларды немесе сіздің тапсырмаларыңызға сәйкес жеке функционалды әзірлеуді талқылау үшін бізбен тікелей байланысыңыз.",
-    partnership: "Серіктестік",
-    applyPartnership: "Бізбен байланысу",
-    learnMore: "Бізбен байланысу",
-    whiteLabelOptions: "Кез келген CRM және ERP қосу",
-    prioritySupport: "Мерзімдер мен SLA кепілдігі",
-    dedicatedPartner: "Тікелей әзірлеушілердің қолдауы",
-    exclusiveDiscounts: "Шешімдерді бірлесіп әзірлеу",
-    marketingKits: "Кастомдық API-ге қолжетімділік",
-    trainingWebinars: "Біздің командамен тікелей байланыс",
-    buildToday: "ЖИ көмекшіңізді бүгіннен бастап құрыңыз",
-    buildTodaySub: "Ерекше талаптарыңыз бар ма? Біздің ЖИ инженерлеріміз сізге қолайлы шешім әзірлейді.",
-    headquarters: "Штаб-пәтер, Силикон алқабы",
-    nameLabel: "Аты-жөні",
-    phoneLabel: "WhatsApp / Телефон",
-    businessTypeLabel: "Бизнес түрі",
-    messageLabel: "Хабарлама",
-    sendRequest: "Сұранысты жіберу",
-    requestSent: "Сұраныс жіберілді!",
-    requestSentSub: "Біздің мамандар жақын арада хабарласады.",
-    allSystemsOperational: "Барлық жүйелер қалыпты жұмыс істейді",
     features: "Мүмкіндіктер",
-    integrations: "Интеграциялар",
-    pricing: "Бағалар",
+    pricing: "Тарифтер",
     company: "Компания",
-    privacy: "Құпиялылық",
-    terms: "Шарттар",
-    product: "Өнім",
+    privacy: "Құпиялылық саясаты",
+    terms: "Пайдалану шарттары",
+    offer: "Жария оферта",
+    cabinet: "Жеке кабинет",
     signIn: "Кіру",
     getStarted: "Тегін бастау",
-    cabinet: "Кабинетке"
+    product: "Өнім",
+    partnership: "Серіктестік",
+    allSystemsOperational: "Барлық жүйелер қалыпты жұмыс істеуде",
+    buildToday: "Жеке шешімге тапсырыс беру",
+    buildTodaySub: "CRM/ERP жүйесімен интеграция қажет пе? Сұрақтарыңызды қалдырыңыз, біз көмектесеміз.",
+    nameLabel: "Атыңыз",
+    phoneLabel: "Телефон нөмірі (WhatsApp)",
+    businessTypeLabel: "Бизнес саласы",
+    messageLabel: "ЖИ-бот қандай мәселені шешуі керек?",
+    sendRequest: "Сұранысты жіберу",
+    requestSent: "Сұраныс қабылданды!",
+    requestSentSub: "Маман жұмыс күні ішінде сізге хабарласады."
   }
 };
 
@@ -235,40 +114,9 @@ export default function LandingPage() {
     businessType: 'E-commerce',
     message: ''
   });
+  const [activeModal, setActiveModal] = useState<'privacy' | 'terms' | 'offer' | null>(null);
 
   const t = { ...globalT, ...localT[language] };
-
-  // Set up scroll animations using Intersection Observer
-  useEffect(() => {
-    const revealCallback = (entries: IntersectionObserverEntry[]) => {
-      entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          entry.target.classList.add('active');
-        }
-      });
-    };
-
-    const revealObserver = new IntersectionObserver(revealCallback, {
-      threshold: 0.1,
-      rootMargin: '0px 0px -50px 0px'
-    });
-
-    document.querySelectorAll('.reveal').forEach(el => {
-      revealObserver.observe(el);
-    });
-
-    // Run active triggers immediately for items above folds
-    document.querySelectorAll('.reveal').forEach(el => {
-      const rect = el.getBoundingClientRect();
-      if (rect.top < window.innerHeight) {
-        el.classList.add('active');
-      }
-    });
-
-    return () => {
-      revealObserver.disconnect();
-    };
-  }, []);
 
   const handleContactForm = (e: React.FormEvent) => {
     e.preventDefault();
@@ -283,99 +131,82 @@ export default function LandingPage() {
   };
 
   return (
-    <div className="font-body-md text-body-md overflow-x-hidden min-h-screen bg-white">
-      {/* Import stylesheet dependencies and fonts safely */}
-      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet"/>
-      <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+    <div className="font-body-md text-slate-800 bg-[#FAFAFA] min-h-screen">
+      {/* Import Inter & Space Grotesk dynamically */}
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
       {/* Styled configurations block */}
       <style jsx global>{`
-        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
-        body { background-color: #ffffff; color: #131e18; }
-        
-        .bento-card, .btn-transition, input, select, textarea {
-          transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        body {
+          background-color: #FAFAFA;
+          font-family: 'Inter', -apple-system, sans-serif;
+          color: #1E293B;
+          letter-spacing: -0.01em;
         }
-
-        .bento-card:hover { 
-          border-color: #003527; 
-          transform: translateY(-6px); 
-          box-shadow: 0 12px 30px -10px rgba(0, 53, 39, 0.15);
+        .heading-font {
+          font-family: 'Space Grotesk', -apple-system, sans-serif;
         }
-
-        .custom-shadow { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03); }
-        .dashed-connector { background-image: linear-gradient(to right, #e5e7eb 50%, transparent 50%); background-size: 10px 1px; background-repeat: repeat-x; }
-        
-        @keyframes float {
-          0% { transform: translateY(0px); }
-          50% { transform: translateY(-15px); }
-          100% { transform: translateY(0px); }
+        .custom-glow {
+          box-shadow: 0 0 80px -10px rgba(20, 184, 166, 0.04);
         }
-        .float-animation { animation: float 6s ease-in-out infinite; }
-
-        @keyframes pulse-status {
-          0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
-          70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
-          100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+        .thin-border {
+          border: 1px solid rgba(226, 232, 240, 0.8);
         }
-        .pulse-animation { animation: pulse-status 2s infinite; }
-
-        .reveal {
-          opacity: 0;
-          transform: translateY(30px);
-          transition: all 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+        .glass-header {
+          background: rgba(250, 250, 250, 0.8);
+          backdrop-filter: blur(12px);
+          border-bottom: 1px solid rgba(226, 232, 240, 0.6);
         }
-        .reveal.active {
-          opacity: 1;
-          transform: translateY(0);
+        .pricing-card {
+          transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
-
-        .blob-bg {
-          position: absolute;
-          background: #f4f6f4;
-          filter: blur(40px);
-          z-index: -1;
-          border-radius: 50%;
+        .pricing-card:hover {
+          transform: translateY(-4px);
+          border-color: #0D9488;
+          box-shadow: 0 20px 40px -15px rgba(13, 148, 136, 0.08);
+        }
+        .btn-premium {
+          transition: all 0.2s ease;
+        }
+        .btn-premium:hover {
+          transform: scale(1.01);
+          box-shadow: 0 8px 24px -8px rgba(13, 148, 136, 0.3);
         }
       `}</style>
 
-      {/* Header element */}
-      <header className="bg-bg-base/80 backdrop-blur-md sticky top-0 full-width z-50 border-b border-border-subtle">
-        <div className="flex justify-between items-center w-full px-margin-page max-w-7xl mx-auto h-16">
-          <Link href="/landing" className="flex items-center">
-            <img 
-              alt="Homelander Logo" 
-              className="h-8 cursor-pointer" 
-              src="https://lh3.googleusercontent.com/aida/ADBb0ugwcWVp1D_eYWMoNgFuRqMDgaTLhYBZ-RVdu3mMfLlEZKsjBlGq-Q5j6qhybzRmWDQOnoa0PgVgNowjSXBpeuN8PbMm22TnvjsVD2P0KudnMGlCJ2Hk-VU0FyzuJCstK0BiB2cTOB9ETdbn6XTBKnqXUNUiQYERa93WQdGlEGDgQPADvwzRjYSb2iLPdECLTWaLaph97bEY68_k0Ijc_Y8PaC8HbtkFJVVu_o-sUvKh1F-xkCi8z41HA4Y"
-            />
+      {/* Glass Header */}
+      <header className="glass-header sticky top-0 w-full z-50">
+        <div className="flex justify-between items-center max-w-7xl mx-auto px-6 h-16">
+          <Link href="/landing" className="flex items-center gap-2 select-none cursor-pointer">
+            <Bot className="w-6 h-6 text-teal-600" />
+            <span className="font-semibold text-lg tracking-tight heading-font text-slate-900">UP-CHAT</span>
           </Link>
 
-          <nav className="hidden md:flex gap-gutter items-center">
-            <a className="font-label-md text-label-md text-primary font-bold border-b-2 border-primary transition-colors duration-200" href="#hero">
-              {t.features}
-            </a>
-
-            <a className="font-label-md text-label-md text-text-secondary hover:text-primary transition-colors duration-200" href="#partnership">
+          <nav className="hidden md:flex gap-8 items-center">
+            <Link className="text-sm font-medium text-slate-500 hover:text-teal-600 transition-colors" href="/demo">
+              {t.watchDemo}
+            </Link>
+            <a className="text-sm font-medium text-slate-500 hover:text-teal-600 transition-colors" href="#pricing-section">
               {t.pricing}
             </a>
-            <a className="font-label-md text-label-md text-text-secondary hover:text-primary transition-colors duration-200" href="#partnership">
+            <a className="text-sm font-medium text-slate-500 hover:text-teal-600 transition-colors" href="#contact-section">
               {t.partnership}
             </a>
           </nav>
 
           <div className="flex items-center gap-4">
-            {/* Click-Safe Language Selector dropdown */}
+            {/* Language Selector */}
             <div className="relative">
               <button
                 onClick={() => setLangDropdownOpen(!langDropdownOpen)}
-                className="flex items-center gap-1.5 bg-white border border-border-subtle px-3 py-1.5 rounded-lg font-label-sm text-label-sm text-text-secondary hover:text-primary hover:border-primary transition-all cursor-pointer select-none"
+                className="flex items-center gap-1.5 bg-white border border-slate-200 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:text-teal-600 hover:border-teal-600 transition-all select-none cursor-pointer"
               >
-                <span className="material-symbols-outlined text-sm font-semibold">public</span>
+                <Globe className="w-3.5 h-3.5" />
                 <span>{language}</span>
-                <span className="material-symbols-outlined text-xs">keyboard_arrow_down</span>
+                <ChevronDown className="w-3 h-3 text-slate-400" />
               </button>
               {langDropdownOpen && (
-                <div className="absolute right-0 top-full mt-1.5 bg-white border border-border-subtle rounded-lg shadow-lg py-1.5 w-24 z-50">
+                <div className="absolute right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-lg shadow-lg py-1 w-24 z-50">
                   {(['EN', 'RU', 'KZ'] as const).map((lang) => (
                     <button
                       key={lang}
@@ -383,12 +214,12 @@ export default function LandingPage() {
                         setLanguage(lang);
                         setLangDropdownOpen(false);
                       }}
-                      className={`flex items-center justify-between w-full px-3 py-2 text-left font-label-sm text-label-sm ${
-                        language === lang ? 'bg-surface-container text-primary font-bold' : 'text-text-secondary hover:bg-bg-section'
+                      className={`flex items-center justify-between w-full px-3 py-2 text-left text-xs ${
+                        language === lang ? 'bg-teal-50 text-teal-600 font-semibold' : 'text-slate-600 hover:bg-slate-50'
                       }`}
                     >
                       <span>{lang}</span>
-                      {language === lang && <span className="material-symbols-outlined text-xs">check</span>}
+                      {language === lang && <Check className="w-3 h-3" />}
                     </button>
                   ))}
                 </div>
@@ -398,19 +229,18 @@ export default function LandingPage() {
             {user ? (
               <Link 
                 href="/bots" 
-                className="bg-primary-container text-white px-6 py-2.5 rounded-lg font-label-md text-label-md hover:bg-primary transition-all active:scale-95"
+                className="bg-slate-900 text-white px-4 py-2 rounded-lg text-xs font-medium hover:bg-slate-800 transition-all active:scale-[0.98]"
               >
                 {t.cabinet}
               </Link>
             ) : (
               <>
-                <Link href="/login" className="font-label-md text-label-md text-text-secondary hover:text-primary transition-colors">
+                <Link href="/login" className="text-xs font-medium text-slate-600 hover:text-teal-600 transition-colors">
                   {t.signIn}
                 </Link>
-                
                 <Link 
                   href="/register" 
-                  className="bg-primary-container text-white px-6 py-2.5 rounded-lg font-label-md text-label-md hover:bg-primary transition-all active:scale-95"
+                  className="bg-teal-600 text-white px-4 py-2 rounded-lg text-xs font-medium hover:bg-teal-700 transition-all active:scale-[0.98]"
                 >
                   {t.getStarted}
                 </Link>
@@ -420,387 +250,622 @@ export default function LandingPage() {
         </div>
       </header>
 
-      <main>
-        {/* Section 1: Hero */}
-        <section className="relative max-w-7xl mx-auto px-margin-page py-24 flex flex-col md:flex-row items-center gap-16 overflow-visible reveal" id="hero">
-          <div className="blob-bg w-64 h-64 -top-10 -left-10 opacity-60"></div>
-          <div className="flex-1 space-y-8 relative z-10">
-            <h1 className="font-headline-xl text-headline-xl text-on-background max-w-lg leading-tight">
-              {t.heroTitle1}<span className="text-primary-container">{t.heroTitleHighlight}</span>{t.heroTitle2}
-            </h1>
-            <p className="font-body-lg text-body-lg text-text-secondary max-w-md">
-              {t.heroSub}
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-6 py-16 space-y-32">
+        
+        {/* Hero Section */}
+        <section className="text-center max-w-4xl mx-auto py-12 space-y-8 relative overflow-visible">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[300px] bg-teal-50/40 rounded-full blur-[100px] -z-10" />
+          
+          <div className="inline-flex items-center gap-1.5 bg-teal-50/60 border border-teal-100/80 px-3 py-1 rounded-full text-xs font-medium text-teal-800">
+            <Sparkles className="w-3.5 h-3.5 text-teal-600" />
+            <span>Next-gen AI Agents Platform</span>
+          </div>
+
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-semibold tracking-tight text-slate-950 heading-font leading-[1.1]">
+            {t.heroTitle1}
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-emerald-700 font-bold">
+              {t.heroTitleHighlight}
+            </span>
+            {t.heroTitle2}
+          </h1>
+
+          <p className="text-base sm:text-lg text-slate-500 max-w-2xl mx-auto font-light leading-relaxed">
+            {t.heroSub}
+          </p>
+
+          <div className="flex flex-col sm:flex-row gap-4 items-center justify-center pt-4">
+            <Link 
+              href={user ? "/bots" : "/register"} 
+              className="bg-slate-900 text-white px-8 py-3.5 rounded-lg text-sm font-medium hover:bg-slate-800 transition-all active:scale-[0.98] w-full sm:w-auto"
+            >
+              {user ? t.cabinet : t.startFree}
+            </Link>
+            <Link 
+              href="/demo" 
+              className="bg-white border border-slate-200 text-slate-600 hover:text-slate-950 hover:border-slate-300 px-8 py-3.5 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-all w-full sm:w-auto cursor-pointer"
+            >
+              <Play className="w-4 h-4 fill-slate-400 stroke-none" />
+              <span>{t.watchDemo}</span>
+            </Link>
+          </div>
+        </section>
+
+        {/* Features Bento Grid */}
+        <section className="space-y-16">
+          <div className="text-center space-y-3">
+            <h2 className="text-3xl font-semibold tracking-tight text-slate-950 heading-font">
+              Корпоративный уровень в деталях
+            </h2>
+            <p className="text-slate-500 text-sm max-w-xl mx-auto">
+              Гибкие настройки базы знаний и полная автоматизация клиентских путей.
             </p>
-            <div className="flex gap-4 items-center">
-              <Link 
-                href={user ? "/bots" : "/register"} 
-                className="bg-primary-container text-white px-8 py-4 rounded-lg font-label-md text-label-md hover:bg-primary transition-all active:scale-95 inline-block"
-              >
-                {user ? t.cabinet : t.startFree}
-              </Link>
-              <a href="#bento" className="text-text-secondary px-8 py-4 rounded-lg font-label-md text-label-md flex items-center gap-2 hover:text-primary transition-all cursor-pointer">
-                <span className="material-symbols-outlined">play_circle</span> {t.watchDemo}
-              </a>
-            </div>
           </div>
-          <div className="flex-1 w-full relative">
-            <div className="float-animation">
-              <img 
-                alt="3D Chat Interface Illustration" 
-                className="w-full h-auto drop-shadow-2xl rounded-2xl border border-border-subtle" 
-                src="/first.jpg" 
-              />
-            </div>
-          </div>
-        </section>
 
-        {/* Section 2: Social Proof */}
-        <section className="bg-bg-section py-12 border-y border-border-subtle relative reveal">
-          <div className="max-w-7xl mx-auto px-4 flex justify-center items-center relative z-10">
-            <div className="flex flex-wrap gap-6 md:gap-12 items-center justify-center opacity-50 grayscale hover:grayscale-0 transition-all duration-500">
-              <span className="font-bold text-headline-lg-mobile md:text-headline-md tracking-tight">WhatsApp</span>
-              <span className="font-bold text-headline-lg-mobile md:text-headline-md tracking-tight">Telegram</span>
-              <span className="font-bold text-headline-lg-mobile md:text-headline-md tracking-tight">Instagram</span>
-            </div>
-          </div>
-        </section>
-
-        {/* Section 3: Features Bento Grid */}
-        <section className="relative max-w-7xl mx-auto px-margin-page py-24" id="bento">
-          <div className="blob-bg w-96 h-96 top-1/2 -right-20 opacity-40"></div>
-          <div className="text-center mb-16 space-y-4 reveal">
-            <h2 className="font-headline-lg text-headline-lg">{t.bentoTitle}</h2>
-            <p className="text-text-secondary font-body-md max-w-xl mx-auto">{t.bentoSub}</p>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-4 grid-rows-2 gap-gutter reveal">
-            {/* Card 1 (2x2) */}
-            <div className="md:col-span-2 md:row-span-2 bg-white border border-border-subtle rounded-xl p-8 bento-card flex flex-col gap-6 relative overflow-hidden group">
-              <div className="relative z-10">
-                <h3 className="font-headline-md text-headline-md mb-2">{t.brainChat}</h3>
-                <p className="text-text-secondary max-w-xs">{t.brainChatSub}</p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="bg-white thin-border rounded-2xl p-8 space-y-4 shadow-sm relative overflow-hidden group">
+              <div className="w-10 h-10 rounded-lg bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-600">
+                <Cpu className="w-5 h-5" />
               </div>
-              
-              <div className="bg-bg-section rounded-lg flex-1 border border-border-subtle overflow-hidden relative min-h-[200px]">
-                <img 
-                  alt="Brain concept background" 
-                  className="absolute -left-4 -bottom-4 w-28 opacity-20 grayscale group-hover:opacity-40 group-hover:scale-110 transition-all duration-700 pointer-events-none" 
-                  src="/third.jpg"
-                />
-                <div className="p-6 space-y-4 relative z-10">
-                  <div className="bg-white p-3 rounded-lg border border-border-subtle shadow-sm w-3/4 transform translate-x-0 group-hover:translate-x-2 transition-transform duration-500">
-                    {t.brainChatQ}
+              <h3 className="text-lg font-semibold text-slate-900 heading-font">База знаний PDF / TXT</h3>
+              <p className="text-slate-500 text-sm font-light leading-relaxed">
+                Загружайте регламенты компании, инструкции по товарам или скрипты продаж. Модель мгновенно обучается на ваших данных.
+              </p>
+            </div>
+
+            <div className="bg-white thin-border rounded-2xl p-8 space-y-4 shadow-sm relative overflow-hidden group">
+              <div className="w-10 h-10 rounded-lg bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-600">
+                <MessageSquare className="w-5 h-5" />
+              </div>
+              <h3 className="text-lg font-semibold text-slate-900 heading-font">Гибридный Live-чат</h3>
+              <p className="text-slate-500 text-sm font-light leading-relaxed">
+                ИИ обрабатывает до 90% запросов самостоятельно. В сложных случаях диалог бесшовно передается на реального оператора.
+              </p>
+            </div>
+
+            <div className="bg-white thin-border rounded-2xl p-8 space-y-4 shadow-sm relative overflow-hidden group">
+              <div className="w-10 h-10 rounded-lg bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-600">
+                <Layers className="w-5 h-5" />
+              </div>
+              <h3 className="text-lg font-semibold text-slate-900 heading-font">Мультиканальная связка</h3>
+              <p className="text-slate-500 text-sm font-light leading-relaxed">
+                Подключайте аккаунты WhatsApp Business, Telegram и Instagram (coming soon). Все переписки доступны в одном удобном дашборде.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* Pricing Section (Robokassa KZ Compliant) */}
+        <section id="pricing-section" className="space-y-16 scroll-mt-24">
+          <div className="text-center space-y-3">
+            <h2 className="text-3xl font-semibold tracking-tight text-slate-950 heading-font">
+              Пакеты предоплаты сообщений
+            </h2>
+            <p className="text-slate-500 text-sm max-w-xl mx-auto">
+              Оплата производится без подписок и скрытых автосписаний. Вы платите только за реальные объемы ИИ-консультаций.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+            {/* Tariff 1 */}
+            <div className="pricing-card bg-white thin-border rounded-2xl p-8 flex flex-col justify-between shadow-sm relative">
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <h3 className="text-lg font-semibold text-slate-900 heading-font">Starter</h3>
+                  <p className="text-xs text-slate-400 font-light">Для небольших проектов или тестирования</p>
+                </div>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-3xl font-bold text-slate-900 heading-font">6 750 ₸</span>
+                  <span className="text-sm text-slate-500 font-light">(≈ $15)</span>
+                </div>
+                <div className="border-t border-slate-100 pt-6 space-y-4">
+                  <div className="flex items-center gap-2.5 text-sm text-slate-600">
+                    <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
+                    <span>1 000 ИИ-сообщений</span>
                   </div>
-                  <div className="bg-primary-container text-white p-3 rounded-lg shadow-sm ml-auto w-3/4 transform translate-x-0 group-hover:-translate-x-2 transition-transform duration-500 delay-75">
-                    {t.brainChatA}
+                  <div className="flex items-center gap-2.5 text-sm text-slate-600">
+                    <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
+                    <span>Интеграция с WhatsApp/Telegram</span>
+                  </div>
+                  <div className="flex items-center gap-2.5 text-sm text-slate-600">
+                    <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
+                    <span>ИИ-обработка 24/7</span>
                   </div>
                 </div>
               </div>
-            </div>
-
-            {/* Card 2 (tall) */}
-            <div className="md:row-span-2 bg-white border border-border-subtle rounded-xl p-8 bento-card flex flex-col items-center justify-center text-center gap-6 overflow-hidden group">
-              <div className="relative w-full h-48 flex items-center justify-center overflow-hidden rounded-lg">
-                <img 
-                  alt="PDF Knowledge Base Illustration" 
-                  className="w-full h-full object-cover scale-100 group-hover:scale-105 transition-transform duration-700" 
-                  src="/second.jpg" 
-                />
-              </div>
-              <div>
-                <h3 className="font-headline-md text-headline-md mb-2">{t.pdfKb}</h3>
-                <p className="text-text-secondary max-w-[200px] mx-auto text-sm">{t.pdfKbSub}</p>
+              <div className="pt-8">
+                <Link 
+                  href="/register" 
+                  className="block text-center bg-slate-50 hover:bg-slate-100 text-slate-800 py-3 rounded-lg text-sm font-medium transition-all"
+                >
+                  Выбрать Starter
+                </Link>
               </div>
             </div>
 
-            {/* Card 3 (tall) */}
-            <div className="md:row-span-2 bg-white border border-border-subtle rounded-xl p-8 bento-card flex flex-col items-center justify-center text-center gap-8 group">
-              <div className="flex -space-x-4">
-                <div className="w-16 h-16 bg-bg-section border-2 border-white rounded-full flex items-center justify-center relative group-hover:-translate-y-2 transition-transform duration-300">
-                  <span className="material-symbols-outlined text-primary-container text-3xl">chat_bubble</span>
-                  <div className="absolute top-1 right-1 w-4 h-4 bg-success rounded-full border-2 border-white pulse-animation"></div>
+            {/* Tariff 2 (Popular) */}
+            <div className="pricing-card bg-white thin-border rounded-2xl p-8 flex flex-col justify-between shadow-sm relative border-teal-600 ring-1 ring-teal-600/30">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-teal-600 text-white px-3 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase">
+                Популярно ⭐
+              </div>
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <h3 className="text-lg font-semibold text-slate-900 heading-font">Growth</h3>
+                  <p className="text-xs text-slate-400 font-light">Отличное решение для растущих компаний</p>
                 </div>
-                <div className="w-16 h-16 bg-bg-section border-2 border-white rounded-full flex items-center justify-center relative group-hover:translate-y-2 transition-transform duration-300">
-                  <span className="material-symbols-outlined text-primary-container text-3xl">send</span>
-                  <div className="absolute top-1 right-1 w-4 h-4 bg-success rounded-full border-2 border-white pulse-animation"></div>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-3xl font-bold text-slate-900 heading-font">15 750 ₸</span>
+                  <span className="text-sm text-slate-500 font-light">(≈ $35)</span>
+                </div>
+                <div className="border-t border-slate-100 pt-6 space-y-4">
+                  <div className="flex items-center gap-2.5 text-sm text-slate-600">
+                    <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
+                    <span className="font-medium text-slate-900">6 000 ИИ-сообщений</span>
+                  </div>
+                  <div className="flex items-center gap-2.5 text-sm text-slate-600">
+                    <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
+                    <span>Интеграция с WhatsApp/Telegram</span>
+                  </div>
+                  <div className="flex items-center gap-2.5 text-sm text-slate-600">
+                    <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
+                    <span>Приоритетная скорость обработки</span>
+                  </div>
+                  <div className="flex items-center gap-2.5 text-sm text-slate-600">
+                    <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
+                    <span>Приоритетная техподдержка</span>
+                  </div>
                 </div>
               </div>
-              <div>
-                <h3 className="font-headline-md text-headline-md mb-2">{t.multichannel}</h3>
-                <p className="text-text-secondary">{t.multichannelSub}</p>
+              <div className="pt-8">
+                <Link 
+                  href="/register" 
+                  className="block text-center bg-teal-600 hover:bg-teal-700 text-white py-3 rounded-lg text-sm font-medium transition-all shadow-sm shadow-teal-600/10"
+                >
+                  Выбрать Growth
+                </Link>
+              </div>
+            </div>
+
+            {/* Tariff 3 */}
+            <div className="pricing-card bg-white thin-border rounded-2xl p-8 flex flex-col justify-between shadow-sm relative">
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <h3 className="text-lg font-semibold text-slate-900 heading-font">Pro Unlimited</h3>
+                  <p className="text-xs text-slate-400 font-light">Для крупного бизнеса с большим трафиком</p>
+                </div>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-3xl font-bold text-slate-900 heading-font">33 750 ₸</span>
+                  <span className="text-sm text-slate-500 font-light">(≈ $75)</span>
+                </div>
+                <div className="border-t border-slate-100 pt-6 space-y-4">
+                  <div className="flex items-center gap-2.5 text-sm text-slate-600">
+                    <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
+                    <span className="font-medium text-slate-900">15 000 ИИ-сообщений</span>
+                  </div>
+                  <div className="flex items-center gap-2.5 text-sm text-slate-600">
+                    <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
+                    <span>Подключение всех мессенджеров</span>
+                  </div>
+                  <div className="flex items-center gap-2.5 text-sm text-slate-600">
+                    <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
+                    <span>Максимальная скорость ответа ИИ</span>
+                  </div>
+                  <div className="flex items-center gap-2.5 text-sm text-slate-600">
+                    <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
+                    <span>Выделенный менеджер</span>
+                  </div>
+                </div>
+              </div>
+              <div className="pt-8">
+                <Link 
+                  href="/register" 
+                  className="block text-center bg-slate-50 hover:bg-slate-100 text-slate-800 py-3 rounded-lg text-sm font-medium transition-all"
+                >
+                  Выбрать Pro Unlimited
+                </Link>
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-gutter mt-gutter reveal">
-            <div className="md:col-span-2 bg-white border border-border-subtle rounded-xl p-8 bento-card flex items-center gap-8 group">
-              <div className="w-16 h-16 bg-bg-section rounded-xl flex items-center justify-center shrink-0 group-hover:rotate-12 transition-transform">
-                <span className="material-symbols-outlined text-primary-container text-3xl">transfer_within_a_station</span>
-              </div>
-              <div>
-                <h3 className="font-headline-md text-headline-md mb-1">{t.liveTakeover}</h3>
-                <p className="text-text-secondary">{t.liveTakeoverSub}</p>
-              </div>
-            </div>
-            
-            <div className="bg-white border border-border-subtle rounded-xl p-8 bento-card flex items-center gap-6 group">
-              <div className="w-16 h-16 bg-bg-section rounded-full flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
-                <span className="material-symbols-outlined text-primary-container text-3xl">campaign</span>
-              </div>
-              <div>
-                <h3 className="font-headline-md text-headline-md mb-1">{t.broadcasts}</h3>
-                <p className="text-text-secondary">{t.broadcastsSub}</p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Section 4: How It Works */}
-        <section className="relative max-w-7xl mx-auto px-margin-page py-24 border-t border-border-subtle bg-white">
-          <div className="blob-bg w-80 h-80 bottom-0 left-0 opacity-30"></div>
-          <h2 className="font-headline-lg text-headline-lg text-center mb-16 relative z-10 reveal">{t.launchSteps}</h2>
-          <div className="relative flex flex-col md:flex-row justify-between gap-12 z-10 reveal">
-            <div className="hidden md:block absolute top-12 left-0 right-0 h-px dashed-connector -z-10"></div>
-            
-            <div className="flex-1 flex flex-col items-center text-center gap-6 bg-white group">
-              <div className="w-24 h-24 bg-primary-container text-white rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 group-hover:bg-primary transition-all duration-500">
-                <span className="material-symbols-outlined text-4xl">link</span>
-              </div>
-              <div className="space-y-2">
-                <h3 className="font-headline-md text-headline-md group-hover:text-primary transition-colors">{t.connectMessenger}</h3>
-                <p className="text-text-secondary">{t.connectMessengerSub}</p>
-              </div>
-            </div>
-
-            <div className="flex-1 flex flex-col items-center text-center gap-6 bg-white group">
-              <div className="w-24 h-24 bg-primary-container text-white rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 group-hover:bg-primary transition-all duration-500">
-                <span className="material-symbols-outlined text-4xl">upload_file</span>
-              </div>
-              <div className="space-y-2">
-                <h3 className="font-headline-md text-headline-md group-hover:text-primary transition-colors">{t.uploadPdf}</h3>
-                <p className="text-text-secondary">{t.uploadPdfSub}</p>
-              </div>
-            </div>
-
-            <div className="flex-1 flex flex-col items-center text-center gap-6 bg-white group">
-              <div className="w-24 h-24 bg-primary-container text-white rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 group-hover:bg-primary transition-all duration-500">
-                <span className="material-symbols-outlined text-4xl">auto_awesome</span>
-              </div>
-              <div className="space-y-2">
-                <h3 className="font-headline-md text-headline-md group-hover:text-primary transition-colors">{t.aiWorks}</h3>
-                <p className="text-text-secondary">{t.aiWorksSub}</p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-
-
-        {/* Section 7: Partnership */}
-        <section className="bg-white pt-24 pb-8 border-t border-border-subtle" id="partnership">
-          <div className="max-w-4xl mx-auto px-margin-page">
-            <div className="bg-white border border-border-subtle rounded-2xl overflow-hidden shadow-sm p-12 space-y-8 flex flex-col items-center text-center reveal">
-              
-              <div className="w-16 h-16 bg-primary-container/10 rounded-full flex items-center justify-center">
-                <span className="material-symbols-outlined text-primary-container text-3xl">handshake</span>
-              </div>
-              
-              <div className="space-y-4 max-w-2xl">
-                <h3 className="font-headline-lg text-headline-lg">{t.partnershipTitle}</h3>
-                <p className="text-text-secondary text-body-lg">{t.partnershipSub}</p>
-              </div>
-
-              {/* Grid of bullet points */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4 text-left w-full max-w-2xl my-4">
-                <div className="flex items-center gap-3">
-                  <span className="material-symbols-outlined text-success text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
-                  <span className="text-body-md text-text-secondary">{t.whiteLabelOptions}</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="material-symbols-outlined text-success text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
-                  <span className="text-body-md text-text-secondary">{t.prioritySupport}</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="material-symbols-outlined text-success text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
-                  <span className="text-body-md text-text-secondary">{t.dedicatedPartner}</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="material-symbols-outlined text-success text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
-                  <span className="text-body-md text-text-secondary">{t.exclusiveDiscounts}</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="material-symbols-outlined text-success text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
-                  <span className="text-body-md text-text-secondary">{t.marketingKits}</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="material-symbols-outlined text-success text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
-                  <span className="text-body-md text-text-secondary">{t.trainingWebinars}</span>
-                </div>
-              </div>
-
-              <a href="#contact" className="bg-primary-container text-white px-10 py-4 rounded-lg font-label-md font-bold hover:bg-primary transition-all active:scale-95 inline-block text-center select-none cursor-pointer">
-                {t.applyPartnership}
-              </a>
-
-            </div>
+          <div className="text-center max-w-xl mx-auto">
+            <p className="text-xs text-slate-400 leading-normal font-light">
+              * 1 сообщение = 1 полный цикл ответа ИИ (до 10 000 токенов контекста, без скрытых доплат).<br />
+              По исчерпанию пакета вы можете докупить любой необходимый объём сообщений в панели настроек в любой момент.
+            </p>
           </div>
         </section>
 
-        {/* Section 8: Contact Form */}
-        <section className="max-w-7xl mx-auto px-margin-page pt-8 pb-24" id="contact">
-          <div className="blob-bg w-96 h-96 -bottom-20 right-0 opacity-40"></div>
-          
-          <div className="bg-bg-section border border-border-subtle rounded-2xl overflow-hidden grid grid-cols-1 md:grid-cols-2 shadow-sm reveal">
-            
-            {/* Left side: Text info (White background like the Agencies card) */}
-            <div className="p-12 bg-white space-y-8 flex flex-col justify-center border-b md:border-b-0 md:border-r border-border-subtle">
-              <div className="w-12 h-12 bg-primary-container/10 rounded-lg flex items-center justify-center">
-                <span className="material-symbols-outlined text-primary-container">contact_support</span>
+        {/* Contact Form Section */}
+        <section id="contact-section" className="scroll-mt-24">
+          <div className="bg-white thin-border rounded-3xl shadow-sm overflow-hidden grid grid-cols-1 md:grid-cols-2">
+            {/* Info panel */}
+            <div className="p-12 space-y-8 flex flex-col justify-center bg-slate-50/50">
+              <div className="w-10 h-10 rounded-lg bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-600">
+                <MessageSquare className="w-5 h-5" />
               </div>
-              <div className="space-y-4">
-                <h3 className="font-headline-md text-headline-md">{t.buildToday}</h3>
-                <p className="text-text-secondary">{t.buildTodaySub}</p>
+              <div className="space-y-3">
+                <h3 className="text-2xl font-semibold tracking-tight text-slate-900 heading-font">
+                  {t.buildToday}
+                </h3>
+                <p className="text-slate-500 text-sm font-light leading-relaxed">
+                  {t.buildTodaySub}
+                </p>
               </div>
-              <div className="space-y-4 text-body-md text-text-secondary">
-                <div className="flex items-center gap-3 group cursor-pointer">
-                  <span className="material-symbols-outlined text-primary-container group-hover:scale-110 transition-transform">mail</span>
-                  <span className="group-hover:text-primary-container transition-colors">contact@homelander.ai</span>
+              <div className="space-y-4 pt-4 border-t border-slate-200/50 text-sm text-slate-600 font-light">
+                <div className="flex items-center gap-3">
+                  <Mail className="w-4 h-4 text-teal-600" />
+                  <span>geducation1017@gmail.com</span>
                 </div>
-                <div className="flex items-center gap-3 group cursor-pointer text-left">
-                  <span className="material-symbols-outlined text-primary-container group-hover:scale-110 transition-transform">location_on</span>
-                  <span className="group-hover:text-primary-container transition-colors">{t.headquarters}</span>
+                <div className="flex items-center gap-3">
+                  <Phone className="w-4 h-4 text-teal-600" />
+                  <span>+7 777 420-19-89</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <MapPin className="w-4 h-4 text-teal-600" />
+                  <span>140000, Казахстан, г. Павлодар, ул. Малахова, д. 11</span>
                 </div>
               </div>
             </div>
 
-            {/* Right side: Form (Grey background like the Resellers card) */}
-            <div className="p-12 flex flex-col justify-center">
+            {/* Form panel */}
+            <div className="p-12 bg-white flex flex-col justify-center">
               {formSubmitted ? (
-                <div className="text-center space-y-4 py-12">
-                  <span className="material-symbols-outlined text-success text-6xl pulse-animation rounded-full p-2">check_circle</span>
-                  <h3 className="font-headline-md text-headline-md text-primary">{t.requestSent}</h3>
-                  <p className="text-text-secondary text-body-md">{t.requestSentSub}</p>
+                <div className="text-center space-y-4 py-8">
+                  <div className="w-16 h-16 bg-teal-50 border border-teal-100 rounded-full flex items-center justify-center text-teal-600 mx-auto">
+                    <Check className="w-8 h-8" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-slate-900 heading-font">{t.requestSent}</h3>
+                  <p className="text-slate-500 text-sm font-light">{t.requestSentSub}</p>
                 </div>
               ) : (
-              <form onSubmit={handleContactForm} className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <form onSubmit={handleContactForm} className="space-y-5">
                   <div className="space-y-2">
-                    <label className="font-label-md text-text-secondary">{t.nameLabel}</label>
+                    <label className="text-xs font-medium text-slate-500">{t.nameLabel}</label>
                     <input 
                       required
                       value={formData.name}
                       onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                      className="w-full bg-white border border-border-subtle rounded-lg px-4 py-3 focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all" 
-                      placeholder="John Doe" 
+                      className="w-full bg-slate-50/50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm focus:border-teal-500 focus:bg-white outline-none transition-all font-light" 
+                      placeholder="Александр" 
                       type="text"
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="font-label-md text-text-secondary">{t.phoneLabel}</label>
+                    <label className="text-xs font-medium text-slate-500">{t.phoneLabel}</label>
                     <input 
                       required
                       value={formData.phone}
                       onChange={e => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                      className="w-full bg-white border border-border-subtle rounded-lg px-4 py-3 focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all" 
-                      placeholder="+1 (555) 000-0000" 
+                      className="w-full bg-slate-50/50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm focus:border-teal-500 focus:bg-white outline-none transition-all font-light" 
+                      placeholder="+7 (707) 123-45-67" 
                       type="tel"
                     />
                   </div>
-                </div>
-                <div className="space-y-2">
-                  <label className="font-label-md text-text-secondary">{t.businessTypeLabel}</label>
-                  <select 
-                    value={formData.businessType}
-                    onChange={e => setFormData(prev => ({ ...prev, businessType: e.target.value }))}
-                    className="w-full bg-white border border-border-subtle rounded-lg px-4 py-3 focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all cursor-pointer"
-                  >
-                    <option>E-commerce</option>
-                    <option>Real Estate</option>
-                    <option>SaaS</option>
-                    <option>Agency</option>
-                    <option>Other</option>
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <label className="font-label-md text-text-secondary">{t.messageLabel}</label>
-                  <textarea 
-                    value={formData.message}
-                    onChange={e => setFormData(prev => ({ ...prev, message: e.target.value }))}
-                    className="w-full bg-white border border-border-subtle rounded-lg px-4 py-3 focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all" 
-                    placeholder="How can we help?" 
-                    rows={4}
-                  ></textarea>
-                </div>
-                <button className="w-full bg-primary-container text-white py-3.5 rounded-lg font-label-md font-bold hover:bg-primary transition-all shadow-md active:scale-[0.98]" type="submit">
-                  {t.sendRequest}
-                </button>
-              </form>
-            )}
-          </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium text-slate-500">{t.businessTypeLabel}</label>
+                    <select 
+                      value={formData.businessType}
+                      onChange={e => setFormData(prev => ({ ...prev, businessType: e.target.value }))}
+                      className="w-full bg-slate-50/50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm focus:border-teal-500 focus:bg-white outline-none transition-all cursor-pointer text-slate-700 font-light"
+                    >
+                      <option>E-commerce</option>
+                      <option>Автосалон</option>
+                      <option>Онлайн-школа</option>
+                      <option>Услуги / Агентство</option>
+                      <option>Другое</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium text-slate-500">{t.messageLabel}</label>
+                    <textarea 
+                      value={formData.message}
+                      onChange={e => setFormData(prev => ({ ...prev, message: e.target.value }))}
+                      className="w-full bg-slate-50/50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm focus:border-teal-500 focus:bg-white outline-none transition-all font-light" 
+                      placeholder="Опишите ваши задачи..." 
+                      rows={3}
+                    ></textarea>
+                  </div>
+                  <button className="w-full bg-slate-900 text-white py-3 rounded-lg text-sm font-medium hover:bg-slate-800 transition-all cursor-pointer active:scale-[0.98]" type="submit">
+                    {t.sendRequest}
+                  </button>
+                </form>
+              )}
+            </div>
           </div>
         </section>
+
       </main>
 
       {/* Footer */}
-      <footer className="bg-bg-section full-width border-t border-border-subtle relative z-10">
-        <div className="w-full py-stack-lg px-margin-page max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start gap-gutter">
-          <div className="space-y-6 max-w-xs">
-            <img 
-              alt="Homelander Logo" 
-              className="h-8" 
-              src="https://lh3.googleusercontent.com/aida/ADBb0ugwcWVp1D_eYWMoNgFuRqMDgaTLhYBZ-RVdu3mMfLlEZKsjBlGq-Q5j6qhybzRmWDQOnoa0PgVgNowjSXBpeuN8PbMm22TnvjsVD2P0KudnMGlCJ2Hk-VU0FyzuJCstK0BiB2cTOB9ETdbn6XTBKnXUNUiQYERa93WQdGlEGDgQPADvwzRjYSb2iLPdECLTWaLaph97bEY68_k0Ijc_Y8PaC8HbtkFJVVu_o-sUvKh1F-xkCi8z41HA4Y"
-            />
-            <p className="font-body-sm text-body-sm text-text-secondary">{t.landingFooterDesc}</p>
-            <div className="flex gap-4">
-              <span className="material-symbols-outlined text-text-secondary cursor-pointer hover:text-primary transition-all hover:scale-110">public</span>
-              <span className="material-symbols-outlined text-text-secondary cursor-pointer hover:text-primary transition-all hover:scale-110">alternate_email</span>
-              <span className="material-symbols-outlined text-text-secondary cursor-pointer hover:text-primary transition-all hover:scale-110">hub</span>
-            </div>
-          </div>
+      <footer className="bg-white border-t border-slate-200/60 mt-32">
+        <div className="max-w-7xl mx-auto px-6 py-12 space-y-12">
           
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-12">
-            <div className="space-y-4">
-              <div className="font-label-md text-primary font-bold">{t.product}</div>
-              <div className="flex flex-col gap-2">
-                <a className="font-label-sm text-label-sm text-text-secondary hover:text-primary transition-all underline decoration-transparent hover:decoration-primary" href="#hero">
-                  {t.features}
-                </a>
-                <a className="font-label-sm text-label-sm text-text-secondary hover:text-primary transition-all underline decoration-transparent hover:decoration-primary" href="#bento">
-                  {t.integrations}
-                </a>
-                <a className="font-label-sm text-label-sm text-text-secondary hover:text-primary transition-all underline decoration-transparent hover:decoration-primary" href="#partnership">
-                  {t.pricing}
-                </a>
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-start">
+            {/* Logo and legal details */}
+            <div className="md:col-span-8 space-y-4">
+              <div className="flex items-center gap-2 select-none">
+                <Bot className="w-5 h-5 text-teal-600" />
+                <span className="font-semibold text-md tracking-tight heading-font text-slate-900">UP-CHAT</span>
+              </div>
+              <div className="text-[13px] text-slate-400 font-light leading-relaxed space-y-1 max-w-2xl">
+                <div>ТОО "SAAMA GROUP", БИН: 171040010072</div>
+                <div>Юридический адрес: 140000, Республика Казахстан, г. Павлодар, улица Малахова, дом 11</div>
+                <div>Контакты: +7 777 420-19-89 | geducation1017@gmail.com</div>
+                <div>График работы службы поддержки: Пн-Пт: 09:00 - 18:00 (GMT+5)</div>
               </div>
             </div>
-            
-            <div className="space-y-4">
-              <div className="font-label-md text-primary font-bold">{t.company}</div>
-              <div className="flex flex-col gap-2">
-                <a className="font-label-sm text-label-sm text-text-secondary hover:text-primary transition-all underline decoration-transparent hover:decoration-primary" href="#partnership">
-                  {t.partnership}
-                </a>
-                <span className="font-label-sm text-label-sm text-text-secondary hover:text-primary transition-all underline decoration-transparent hover:decoration-primary cursor-pointer">
-                  {t.privacy}
-                </span>
-                <span className="font-label-sm text-label-sm text-text-secondary hover:text-primary transition-all underline decoration-transparent hover:decoration-primary cursor-pointer">
-                  {t.terms}
-                </span>
+
+            {/* Links columns */}
+            <div className="md:col-span-4 grid grid-cols-2 gap-4">
+              <div className="space-y-3">
+                <div className="text-sm font-semibold text-slate-900 uppercase tracking-wider">{t.product}</div>
+                <div className="flex flex-col gap-2 text-sm font-light text-slate-500">
+                  <Link className="hover:text-teal-600 transition-colors" href="/demo">{t.watchDemo}</Link>
+                  <a className="hover:text-teal-600 transition-colors" href="#pricing-section">{t.pricing}</a>
+                </div>
+              </div>
+              <div className="space-y-3">
+                <div className="text-sm font-semibold text-slate-900 uppercase tracking-wider">{t.company}</div>
+                <div className="flex flex-col gap-2 text-sm font-light text-slate-500">
+                  <span onClick={() => setActiveModal('offer')} className="hover:text-teal-600 transition-colors cursor-pointer select-none">{t.offer}</span>
+                  <span onClick={() => setActiveModal('privacy')} className="hover:text-teal-600 transition-colors cursor-pointer select-none">{t.privacy}</span>
+                  <span onClick={() => setActiveModal('terms')} className="hover:text-teal-600 transition-colors cursor-pointer select-none">{t.terms}</span>
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <div className="max-w-7xl mx-auto px-margin-page pb-8">
-          <div className="pt-8 border-t border-border-subtle flex flex-col md:flex-row justify-between items-center gap-4">
-            <p className="font-label-sm text-label-sm text-text-secondary">© 2026 Homelander. All rights reserved.</p>
+          <div className="pt-8 border-t border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-4 text-sm font-light text-slate-400">
+            <p>© 2026 ТОО "SAAMA GROUP". up-chat.com. Все права защищены.</p>
             <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-success pulse-animation"></span>
-              <span className="font-label-sm text-label-sm text-text-secondary">{t.allSystemsOperational}</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 pulse-animation"></span>
+              <span>{t.allSystemsOperational}</span>
             </div>
           </div>
         </div>
       </footer>
+
+      {/* Modal Dialogs with complete customer template texts configured for SAAMA GROUP */}
+      {activeModal && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.4)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(8px)' }}>
+          <div className="bg-white" style={{ width: '90%', maxWidth: '750px', height: '80vh', borderRadius: '24px', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 30px 60px -15px rgba(0,0,0,0.12)', border: '1px solid rgba(226, 232, 240, 0.8)' }}>
+            
+            {/* Modal Header */}
+            <div style={{ padding: '20px 28px', borderBottom: '1px solid rgba(226, 232, 240, 0.8)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 className="font-semibold text-base text-slate-900 heading-font">
+                {activeModal === 'offer' && 'Договор-оферта'}
+                {activeModal === 'privacy' && 'Политика конфиденциальности'}
+                {activeModal === 'terms' && 'Условия пользования'}
+              </h3>
+              <button 
+                onClick={() => setActiveModal(null)} 
+                className="text-slate-400 hover:text-slate-700 transition-colors p-1.5 hover:bg-slate-100 rounded-full cursor-pointer select-none"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            
+            {/* Modal Body */}
+            <div style={{ flex: 1, padding: '28px', overflowY: 'auto', fontSize: '13px', lineHeight: '1.7', color: '#475569' }} className="space-y-6 font-light">
+              
+              {activeModal === 'privacy' && (
+                <>
+                  <p className="font-normal text-slate-950 text-xs">Дата вступления в силу: 29 мая 2026 г.</p>
+                  <p>
+                    Настоящая Политика конфиденциальности персональных данных (далее – Политика конфиденциальности) является публичным Договором, заключенным между владельцем сервиса <strong>Товариществом с ограниченной ответственностью «SAAMA GROUP»</strong> (Исполнитель) и Заказчиком (также «Пользователь») в соответствии со ст.387 Гражданского кодекса Республики Казахстан, основана на Законе Республики Казахстан «О персональных данных и их защите», действует в отношении информации, содержащей персональные данные Заказчиков, которую сервис <strong>https://up-chat.com</strong> (далее – сервис) может получить о Заказчиках во время пользования ими сайтом сервиса.
+                  </p>
+                  
+                  <h4 className="font-semibold text-slate-900 mt-4">1. Определение терминов</h4>
+                  <ul className="list-disc pl-5 space-y-2">
+                    <li><strong>Персональные данные</strong> — сведения, относящиеся к определенному или определяемому на их основании субъекту персональных данных, зафиксированные на электронном, бумажном и (или) ином материальном носителе.</li>
+                    <li><strong>Неличные данные</strong> — сведения, которые автоматически передаются в процессе просмотра Заказчиком рекламных блоков и при посещении страниц, на которых установлен статистический скрипт системы: адрес запрашиваемой страницы, информация cookie, IP-адрес, информация о браузере, реферер (адрес предыдущей страницы), время доступа.</li>
+                    <li><strong>Сбор персональных данных</strong> — действия, направленные на получение персональных данных.</li>
+                    <li><strong>Обработка персональных данных</strong> — действия, направленные на накопление, хранение, изменение, дополнение, использование, распространение, обезличивание, блокирование и уничтожение персональных данных.</li>
+                    <li><strong>Защита персональных данных</strong> — комплекс мер, в том числе правовых, организационных и технических, осуществляемых в целях, установленных Законом РК «О персональных данных и их защите».</li>
+                    <li><strong>Сервис</strong> — Интернет-сайт, расположенный на сервере и имеющий адрес в сети Интернет <strong>https://up-chat.com</strong>, на котором предлагаются подписки для приобретения Заказчиками.</li>
+                    <li><strong>Сервисы Интернет-сайта</strong> — все услуги, доступные для использования на сайте <strong>https://up-chat.com</strong> и поддоменах.</li>
+                    <li><strong>Заказчик</strong> — пользователь сервиса.</li>
+                    <li><strong>Исполнитель</strong> — Товарищество с ограниченной ответственностью «SAAMA GROUP», являющееся владельцем сервиса, БИН 171040010072.</li>
+                    <li><strong>Cookies</strong> — это небольшие текстовые файлы, в которые браузер записывает данные с посещенных Заказчиками сайтов.</li>
+                    <li><strong>IP-адрес</strong> — уникальный сетевой адрес узла в компьютерной сети, построенной по протоколу IP, позволяющий определить местонахождение Заказчика (не подробнее, чем город и область).</li>
+                  </ul>
+
+                  <h4 className="font-semibold text-slate-900 mt-4">2. Предмет политики конфиденциальности</h4>
+                  <p>
+                    Настоящая Политика конфиденциальности устанавливает обязательства Исполнителя по неразглашению и обеспечению режима защиты конфиденциальности персональных данных, которые Заказчик предоставляет по запросу Исполнителя при регистрации на сайте сервиса и/или при покупке подписки.
+                  </p>
+                  <p>
+                    Персональные данные, разрешённые к обработке в рамках настоящей Политики конфиденциальности, предоставляются Заказчиком путём заполнения регистрационной формы на сайте сервиса и включают в себя: фамилию, имя, отчество (по желанию); контактный телефон; адрес электронной почты (e-mail).
+                  </p>
+                  <p>
+                    В рамках интеграции с Google Calendar, сервис получает и обрабатывает: статусы в календарях (занято/свободно), мероприятия в календаре (создание, изменение, удаление), access и refresh токены для аутентификации. Пользователь может в любой момент отключить интеграцию, удалив плагин.
+                  </p>
+
+                  <h4 className="font-semibold text-slate-900 mt-4">3. Цели сбора и обработки персональных данных Заказчиков</h4>
+                  <p>
+                    Исполнитель собирает, обрабатывает и хранит только те персональные данные, которые необходимы для предоставления Сервисов. Используются для: идентификации Заказчика; обработки и получения платежей; предоставления клиентской поддержки; связи с Заказчиком; улучшения качества Сервисов; проведения исследований на основе неличных данных.
+                  </p>
+
+                  <h4 className="font-semibold text-slate-900 mt-4">4. Права и обязанности сторон</h4>
+                  <p>
+                    Заказчик обязан предоставлять достоверную информацию и изменять ее при необходимости. Заказчик имеет право на доступ, редактирование, исправление или удаление своих персональных данных, а также на отзыв согласия. Запросы отправляются на почту <strong>geducation1017@gmail.com</strong>.
+                  </p>
+                  <p>
+                    Исполнитель обязан использовать информацию только в целях Соглашения, обеспечивать конфиденциальность, принимать меры защиты.
+                  </p>
+
+                  <h4 className="font-semibold text-slate-900 mt-4">5. Прочие условия</h4>
+                  <p>
+                    Пользование сервисом означает безоговорочное согласие с настоящей Политикой. Настоящая Политика применяется только к сайту <strong>https://up-chat.com</strong> и поддоменам. Исполнитель оставляет за собой право в одностороннем порядке изменять Политику. Вопросы принимаются на e-mail: <strong>geducation1017@gmail.com</strong>.
+                  </p>
+
+                  <h4 className="font-semibold text-slate-900 mt-4">6. Контакты</h4>
+                  <p>
+                    <strong>ТОО "SAAMA GROUP"</strong><br />
+                    БИН: 171040010072<br />
+                    Адрес: 140000, Казахстан, г. Павлодар, улица Малахова, дом 11<br />
+                    Электронная почта: <strong>geducation1017@gmail.com</strong>
+                  </p>
+                </>
+              )}
+
+              {activeModal === 'terms' && (
+                <>
+                  <p className="font-normal text-slate-950 text-xs">Дата вступления в силу: 29 мая 2026 г.</p>
+                  <h4 className="font-semibold text-slate-900 mt-4">Введение</h4>
+                  <p>
+                    <strong>ТОО "SAAMA GROUP"</strong> ("Компания", "мы", "наш", "нас"), расположенное по адресу Республика Казахстан, г. Павлодар, улица Малахова, дом 11, БИН: 171040010072, обязуется защищать ваши персональные данные. Для обработки ваших данных нам требуется ваше явное согласие в соответствии со статьями Закона Республики Казахстан "О персональных данных и их защите" (далее - "Закон").
+                  </p>
+
+                  <h4 className="font-semibold text-slate-900 mt-4">1. Цель обработки данных</h4>
+                  <p>
+                    Мы обрабатываем персональные данные для следующих целей: отправка рекламных и информационных электронных писем; персонализация взаимодействия с платформой; передача партнерам для аналитики; обеспечение доступа к функционалу сайта и управления учетной записью; использование инструментов создания проектов и иные законные цели.
+                  </p>
+
+                  <h4 className="font-semibold text-slate-900 mt-4">2. Данные, которые мы собираем</h4>
+                  <p>
+                    Сбор включает в себя: ФИО, дату рождения, пол, адрес электронной почты, номер телефона, данные удостоверения личности, номер расчетного счета и иные необходимые данные. Перечень действий: сбор, запись, систематизация, накопление, хранение, уточнение, извлечение, использование, блокирование, удаление, уничтожение.
+                  </p>
+
+                  <h4 className="font-semibold text-slate-900 mt-4">3. Правовые основания для обработки</h4>
+                  <p>
+                    Ваше согласие обеспечивает правовую основу для обработки. Вы можете отозвать согласие в любое время, отправив запрос на <strong>geducation1017@gmail.com</strong>.
+                  </p>
+
+                  <h4 className="font-semibold text-slate-900 mt-4">4. Ваши права</h4>
+                  <p>
+                    В соответствии с Законом вы имеете право: получить доступ к данным; исправить неточные данные; запросить удаление; ограничивать обработку; отозвать согласие; запрашивать переносимость данных.
+                  </p>
+
+                  <h4 className="font-semibold text-slate-900 mt-4">5. Хранение данных</h4>
+                  <p>
+                    Данные хранятся исключительно в течение срока, необходимого для достижения целей обработки, если иное не предусмотрено законодательством Республики Казахстан.
+                  </p>
+
+                  <h4 className="font-semibold text-slate-900 mt-4">6. Совместное использование третьими лицами</h4>
+                  <p>
+                    Мы можем передавать данные поставщикам услуг, аналитическим партнерам или юридическим государственным органам Республики Казахстан в случаях, когда это требуется по закону.
+                  </p>
+
+                  <h4 className="font-semibold text-slate-900 mt-4">7. Международная передача данных</h4>
+                  <p>
+                    При трансграничной передаче данных Компания принимает все надлежащие меры предосторожности в соответствии с законодательством Республики Казахстан.
+                  </p>
+
+                  <h4 className="font-semibold text-slate-900 mt-4">8. Контактная информация</h4>
+                  <p>
+                    Электронная почта: <strong>geducation1017@gmail.com</strong><br />
+                    Почтовый адрес: 140000, Республика Казахстан, г. Павлодар, улица Малахова, дом 11
+                  </p>
+                </>
+              )}
+
+              {activeModal === 'offer' && (
+                <>
+                  <p className="font-normal text-slate-950 text-xs">Дата вступления в силу: 29 мая 2026 г.</p>
+                  <h3 className="font-semibold text-slate-900 text-sm">Публичный договор-оферта ТОО "SAAMA GROUP" (далее – Исполнитель)</h3>
+                  <p>
+                    Настоящая публичная оферта (далее – Оферта) является Договором, заключенным между Исполнителем и пользователем услуг - физическим лицом и/или юридическим лицом (далее - Заказчик), который определяет условия приобретения и оказания услуг с использованием ресурсов Исполнителя.
+                  </p>
+
+                  <h4 className="font-semibold text-slate-900 mt-4">Термины и Определения</h4>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li><strong>Период действия тарифа</strong> — срок, в течение которого Заказчик имеет право на использование услуг, приобретенных у Исполнителя в рамках выбранного тарифа.</li>
+                    <li><strong>Обработка данных</strong> — совокупность действий с персональными данными, включая сбор, хранение, использование, изменение, передачу и удаление.</li>
+                    <li><strong>Конфиденциальная информация</strong> — информация, предоставленная Заказчиком или полученная Исполнителем в процессе оказания услуг.</li>
+                    <li><strong>ИИ-ассистент</strong> — Программное обеспечение, разработанное Исполнителем, выполняющее функции автоматизации взаимодействия.</li>
+                    <li><strong>Тариф</strong> — комплекс услуг, предлагаемый Исполнителем и описанный на сайте.</li>
+                    <li><strong>Сайт</strong> — сайт, принадлежащий Исполнителю и имеющий адрес: <strong>https://up-chat.com</strong>.</li>
+                    <li><strong>Сервис</strong> — информационная система Исполнителя, разработанная для предоставления услуг.</li>
+                  </ul>
+
+                  <h4 className="font-semibold text-slate-900 mt-4">Общие Положения</h4>
+                  <p>
+                    Исполнитель публикует настоящую Оферту в соответствии со ст. 395, 396 и 447 Гражданского кодекса Республики Казахстан (ГК РК). Договор заключается в момент приобретения тарифа. Заказчик безоговорочно принимает все условия оферты в полном объеме. Акцептом оферты является факт произведения Заказчиком оплаты тарифа на сайте <strong>https://up-chat.com</strong>.
+                  </p>
+
+                  <h4 className="font-semibold text-slate-900 mt-4">Статус Сайта Исполнителя</h4>
+                  <p>
+                    Сайт является собственностью Исполнителя. Произведя оплату оформленного заказа, Заказчик получает услуги на условиях и в порядке, определенных Договором. Исполнитель не несет ответственности за достоверность информации, предоставленной Заказчиком при регистрации.
+                  </p>
+
+                  <h4 className="font-semibold text-slate-900 mt-4">Статус Заказчика</h4>
+                  <p>
+                    Заказчик несет ответственность за достоверность предоставленной информации. Заказчик дает согласие на обработку его персональных данных в целях исполнения соглашения.
+                  </p>
+
+                  <h4 className="font-semibold text-slate-900 mt-4">Предмет Оферты</h4>
+                  <p>
+                    Исполнитель обязуется предоставить услуги по предоставлению доступа к ПО ИИ-ассистента по ценам и тарифам, установленным на сайте. Обязательства считаются исполненными в момент предоставления доступа к личному кабинету с начисленным балансом.
+                  </p>
+
+                  <h4 className="font-semibold text-slate-900 mt-4">Порядок Заключения Договора</h4>
+                  <p>
+                    Заказчик выбирает и оплачивает тариф на странице <strong>https://up-chat.com#pricing-section</strong> после прохождения регистрации. Заявка также может быть подана через почту <strong>geducation1017@gmail.com</strong>.
+                  </p>
+
+                  <h4 className="font-semibold text-slate-900 mt-4">Информация о Тарифах</h4>
+                  <p>
+                    Вся информация о тарифах указана на сайте. Характеристики носят справочный характер. Все вопросы можно задать службе технической поддержки Исполнителя.
+                  </p>
+
+                  <h4 className="font-semibold text-slate-900 mt-4">Порядок Приобретения Услуг</h4>
+                  <p>
+                    Заказчик вправе приобрести выбранный тариф. После оплаты Заказчик в течение 30 минут получает доступ к полному функционалу тарифа. Срок действия тарифа составляет 30 календарных дней.
+                  </p>
+
+                  <h4 className="font-semibold text-slate-900 mt-4">Цена Услуг</h4>
+                  <p>
+                    Цены тарифов приведены на сайте. Указанная на сайте цена может быть изменена Исполнителем в одностороннем порядке для последующих расчетных периодов.
+                  </p>
+
+                  <h4 className="font-semibold text-slate-900 mt-4">Оплата Услуг</h4>
+                  <p>
+                    Оплата услуг производится безналичным расчетом через интегрированную платежную систему. Расчеты производятся в тенге Республики Казахстан. Заказчик может отменить автопродление в своем личному кабинете в любой момент.
+                  </p>
+
+                  <h4 className="font-semibold text-slate-900 mt-4">Возврат Денег За Подписку</h4>
+                  <p>
+                    Возврат денежных средств возможен в случае, если услуги не были оказаны в срок, Исполнитель не предоставил доступ к ПО, либо если выявлены существенные недостатки в работе ИИ-ассистента, которые не были устранены в течение 5 рабочих дней. Заявление о возврате направляется на почту <strong>geducation1017@gmail.com</strong>.
+                  </p>
+
+                  <h4 className="font-semibold text-slate-900 mt-4">Ответственность Сторон</h4>
+                  <p>
+                    Сторон несут ответственность по законодательству Республики Казахстан. Исполнитель не несет ответственности за недостижение Заказчиком субъективно ожидаемых результатов, а также за ошибки, вызванные некорректной интеграцией со стороны Заказчика.
+                  </p>
+
+                  <h4 className="font-semibold text-slate-900 mt-4">Прочие Условия</h4>
+                  <p>
+                    Все споры и разногласия решаются путем переговоров, при невозможности — в суде РК по месту нахождения Исполнителя.
+                  </p>
+
+                  <h4 className="font-semibold text-slate-900 mt-4">Адрес и Реквизиты Исполнителя</h4>
+                  <p className="font-normal text-slate-800">
+                    Наименование: ТОО "SAAMA GROUP"<br />
+                    Юридический адрес: 140000, Республика Казахстан, г. Павлодар, улица Малахова, дом 11<br />
+                    БИН: 171040010072<br />
+                    Номер расчетного счета в тенге: [ВСТАВИТЬ_Р/С_KZT]<br />
+                    Номер расчетного счета в рублях: [ВСТАВИТЬ_Р/С_RUB]<br />
+                    в банке: [ВСТАВИТЬ_НАЗВАНИЕ_БАНКА]<br />
+                    БИК: [ВСТАВИТЬ_БИК]<br />
+                    БИН банка: [ВСТАВИТЬ_БИН_БАНКА]
+                  </p>
+                </>
+              )}
+            </div>
+            
+            {/* Modal Footer */}
+            <div style={{ padding: '16px 28px', borderTop: '1px solid rgba(226, 232, 240, 0.8)', background: '#F8FAFC', display: 'flex', justifyContent: 'flex-end' }}>
+              <button 
+                onClick={() => setActiveModal(null)} 
+                className="bg-slate-900 hover:bg-slate-800 text-white font-medium py-2 px-6 rounded-lg transition-all active:scale-[0.98] text-xs cursor-pointer select-none"
+              >
+                Понятно
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

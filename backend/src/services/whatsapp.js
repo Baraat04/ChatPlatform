@@ -499,6 +499,7 @@ export const startWhatsAppBot = async (bot, prisma, io) => {
             // Fetch latest bot state to check if AI is paused for this chat
             const currentBotState = await prisma.bot.findUnique({ where: { id: botId } });
             if (!currentBotState || !currentBotState.isActive) return;
+            if ((currentBotState.pausedChats || []).includes(senderNumber)) return;
 
         // Fetch last 20 messages for context history (10 user + 10 bot)
         const recentMessages = await prisma.message.findMany({
