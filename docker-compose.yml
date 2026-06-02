@@ -41,6 +41,7 @@ services:
       BASE_URL: https://api.up-chat.com
       DATABASE_URL: postgresql://postgres:postgres@db:5432/ai-consultant?schema=public
       FRONTEND_URL: https://up-chat.com
+    command: sh -c "sleep 3 && npx prisma db push --accept-data-loss && npm start"
     volumes:
       - ./backend/sessions:/app/sessions
       - ./backend/uploads:/app/uploads
