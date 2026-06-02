@@ -33,6 +33,9 @@ const { setTrackerPrisma } = await import('./services/usage-tracker.js')
 const app = express()
 const httpServer = createServer(app)
 
+// CRITICAL: Trust Nginx/reverse proxy so secure cookies work on HTTPS
+app.set('trust proxy', 1)
+
 const corsOptions = {
     origin: ['http://72.62.117.32:3000','https://up-chat.com', 'https://www.up-chat.com', 'http://localhost:3000'],
     credentials: true,
@@ -89,7 +92,10 @@ app.use(
       createTableIfMissing: true,
     }),
     cookie: {
-     maxAge: 7 * 24 * 60 * 60 * 1000 // 1 week
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 1 week
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production', // HTTPS only in prod
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // cross-domain in prod
     },
     secret: process.env.SESSION_SECRET || 'super_secret_session_key',
     resave: false,
@@ -179,6 +185,41 @@ httpServer.listen(PORT, async () => {
         for (const bot of activeBots) {
             console.log(`[Boot] Restoring WhatsApp Bot ${bot.id}...`)
             startWhatsAppBot(bot, prisma, io)
+        }
+
+        // AUTO-REREGISTER: Re-set Telegram webhooks to the current BASE_URL on every boot
+        // This fixes the issue where bots were created with ngrok/old URL and prod URL changed
+        try {
+            const activeTgBots = await prisma.bot.findMany({
+                where: { platform: 'TELEGRAM', isActive: true, apiToken: { not: null } }
+            })
+            
+            let baseUrl = process.env.BASE_URL || 'https://yourdomain.com'
+            baseUrl = baseUrl.replace(/\/+$/, '')
+            
+            for (const tgBot of activeTgBots) {
+                try {
+                    const webhookUrl = `${baseUrl}/api/webhook/telegram/${tgBot.slug}`
+                    const response = await fetch(
+                        `https://api.telegram.org/bot${tgBot.apiToken}/setWebhook`,
+                        {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ url: webhookUrl })
+                        }
+                    )
+                    const result = await response.json()
+                    if (result.ok) {
+                        console.log(`[Boot] ✅ Telegram webhook re-registered: Bot ${tgBot.id} → ${webhookUrl}`)
+                    } else {
+                        console.error(`[Boot] ❌ Telegram webhook failed for Bot ${tgBot.id}:`, result.description)
+                    }
+                } catch (tgErr) {
+                    console.error(`[Boot] Telegram webhook error for Bot ${tgBot.id}:`, tgErr.message)
+                }
+            }
+        } catch (tgBotsErr) {
+            console.error('[Boot] Error re-registering Telegram webhooks:', tgBotsErr)
         }
     } catch (err) {
         console.error("Error restoring bots on boot:", err)
