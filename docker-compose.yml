@@ -1,28 +1,10 @@
+# ============================================================
+# PRODUCTION — docker-compose.yml
+# Подключается к уже запущенному Traefik на VPS (не поднимает свой!)
+# Сеть "traefik_net" должна существовать на VPS.
+# Проверить: docker network ls | grep traefik
+# ============================================================
 services:
-  traefik:
-    image: traefik:v2.10
-    container_name: traefik
-    restart: always
-    command:
-      - "--api.insecure=false"
-      - "--providers.docker=true"
-      - "--providers.docker.exposedbydefault=false"
-      - "--entrypoints.web.address=:80"
-      - "--entrypoints.websecure.address=:443"
-      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
-      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
-      - "--certificatesresolvers.letsencrypt.acme.tlschallenge=true"
-      - "--certificatesresolvers.letsencrypt.acme.email=admin@up-chat.com"
-      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./letsencrypt:/letsencrypt
-    networks:
-      - chat_network
-
   db:
     image: postgres:16-alpine
     container_name: chatplatform_db
@@ -58,19 +40,21 @@ services:
       SESSION_SECRET: prince
       BASE_URL: https://api.up-chat.com
       DATABASE_URL: postgresql://postgres:postgres@db:5432/ai-consultant?schema=public
+      FRONTEND_URL: https://up-chat.com
     volumes:
       - ./backend/sessions:/app/sessions
       - ./backend/uploads:/app/uploads
       - ./backend/google-key.json:/app/google-key.json
     labels:
-      - traefik.enable=true
-      - traefik.docker.network=chat_network
-      - traefik.http.routers.api.rule=Host(`api.up-chat.com`)
-      - traefik.http.routers.api.entrypoints=websecure
-      - traefik.http.routers.api.tls.certresolver=letsencrypt
-      - traefik.http.services.api.loadbalancer.server.port=3001
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik_net"
+      - "traefik.http.routers.upchat-api.rule=Host(`api.up-chat.com`)"
+      - "traefik.http.routers.upchat-api.entrypoints=websecure"
+      - "traefik.http.routers.upchat-api.tls.certresolver=letsencrypt"
+      - "traefik.http.services.upchat-api.loadbalancer.server.port=3001"
     networks:
       - chat_network
+      - traefik_net
 
   frontend:
     build:
@@ -87,15 +71,18 @@ services:
       NODE_ENV: production
       NEXT_PUBLIC_API_URL: https://api.up-chat.com
     labels:
-      - traefik.enable=true
-      - traefik.docker.network=chat_network
-      - traefik.http.routers.frontend.rule=Host(`up-chat.com`) || Host(`www.up-chat.com`)
-      - traefik.http.routers.frontend.entrypoints=websecure
-      - traefik.http.routers.frontend.tls.certresolver=letsencrypt
-      - traefik.http.services.frontend.loadbalancer.server.port=3000
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik_net"
+      - "traefik.http.routers.upchat-frontend.rule=Host(`up-chat.com`) || Host(`www.up-chat.com`)"
+      - "traefik.http.routers.upchat-frontend.entrypoints=websecure"
+      - "traefik.http.routers.upchat-frontend.tls.certresolver=letsencrypt"
+      - "traefik.http.services.upchat-frontend.loadbalancer.server.port=3000"
     networks:
       - chat_network
+      - traefik_net
 
 networks:
   chat_network:
     driver: bridge
+  traefik_net:
+    external: true   # Уже существующая сеть Traefik на VPS
