@@ -52,6 +52,7 @@ services:
       dockerfile: Dockerfile
       args:
         NEXT_PUBLIC_API_URL: http://localhost:3001
+        NEXT_PUBLIC_GOOGLE_CLIENT_ID: 271879614176-cmvq3gr8plp9vl2bgu6pqm3f0ra2tbhq.apps.googleusercontent.com
     container_name: chatplatform_frontend_local
     restart: unless-stopped
     depends_on:

@@ -1,22 +1,36 @@
 
-
 services:
-    db:
-      image: postgres:latest
-      container_name: ai_consultant_db
-      restart: always
-      environment:
-           POSTGRES_USER: postgres
-           POSTGRES_PASSWORD: postgres
-           POSTGRES_DB: ai-consultant
-           POSTGRES_HOST_AUTH_METHOD: trust
-      ports:
-      - "5435:5432"
-      volumes:
-      - "postgres_data:/var/lib/postgresql"
-      networks:
+  db:
+    image: postgres:latest
+    container_name: ai_consultant_db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ai-consultant
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "5436:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    networks:
       - intranet
 
+  backend:
+    build: .
+    container_name: ai_consultant_backend
+    restart: always
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/ai-consultant?schema=public
+      PORT: 3001
+    ports:
+      - "3001:3001"
+    depends_on:
+      - db
+    networks:
+      - intranet
+    command: sh -c "sleep 3 && npx prisma db push --accept-data-loss && npm start"
 
 networks:
   intranet:
@@ -24,4 +38,3 @@ networks:
 
 volumes:
   postgres_data:
-    

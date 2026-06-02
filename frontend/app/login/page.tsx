@@ -2,6 +2,7 @@
 // Force rebuild comment to clear Next.js dev cache
 
 import { useState } from 'react';
+import { GoogleLogin } from '@react-oauth/google';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -81,6 +82,27 @@ export default function Login() {
       setError(t.connError);
     } finally {
       setIsLoggingIn(false);
+    }
+  };
+
+  const handleGoogleSuccess = async (credentialResponse: any) => {
+    try {
+      const res = await fetch(`${API_URL}/auth/google`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ idToken: credentialResponse.credential })
+      });
+      
+      const data = await res.json();
+      if (res.ok) {
+        login(data.user);
+        router.push('/bots');
+      } else {
+        setError(data.error || "Google login failed");
+      }
+    } catch (err) {
+      setError(t.connError);
     }
   };
 
@@ -188,12 +210,23 @@ export default function Login() {
               transition: 'all 0.2s',
               boxShadow: '0 4px 12px rgba(0, 53, 39, 0.2)'
             }}
-            onMouseOver={(e) => { if(!isLoggingIn) e.currentTarget.style.filter = 'brightness(1.15) saturate(1.1)' }}
-            onMouseOut={(e) => { e.currentTarget.style.filter = 'none' }}
-          >
+            >
             {isLoggingIn ? (language === 'RU' ? 'Вход...' : language === 'KZ' ? 'Кіру...' : 'Signing In...') : t.signIn}
           </button>
         </form>
+
+        <div style={{ margin: '20px 0', textAlign: 'center', color: 'var(--on-surface-variant)', fontSize: '14px', position: 'relative' }}>
+          <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: '1px', background: 'var(--outline-variant)', zIndex: 1 }}></div>
+          <span style={{ position: 'relative', zIndex: 2, background: 'var(--surface-container-lowest)', padding: '0 10px' }}>OR</span>
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'center' }}>
+          <GoogleLogin
+            onSuccess={handleGoogleSuccess}
+            onError={() => setError('Google Login Failed')}
+            useOneTap
+          />
+        </div>
         
         <p style={{ marginTop: '32px', textAlign: 'center', color: 'var(--on-surface-variant)', fontSize: '14px' }}>
           {t.noAccount} <Link href="/register" style={{ color: 'var(--primary)', fontWeight: '600', textDecoration: 'none' }}>{t.createAccount}</Link>
