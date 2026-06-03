@@ -696,14 +696,16 @@ router.post('/webhook/telegram/:slug', async (req, res) => {
         if (!bot || !bot.isActive || bot.platform !== 'TELEGRAM') return
 
         const update = req.body
-        if (!update.message) return
+        const message = update.message || update.edited_message || update.callback_query?.message || update.channel_post;
+        
+        if (!message) return
 
-        let text = update.message.text || '';
+        let text = message.text || '';
         let telegramAudioBuffer = null;
         let mimeType = null;
 
-        if (update.message.voice || update.message.audio) {
-            const fileId = update.message.voice?.file_id || update.message.audio?.file_id;
+        if (message.voice || message.audio) {
+            const fileId = message.voice?.file_id || message.audio?.file_id;
             try {
                 const fileData = await fetch(`https://api.telegram.org/bot${bot.apiToken}/getFile?file_id=${fileId}`).then(r=>r.json());
                 if (fileData.ok) {
@@ -711,7 +713,7 @@ router.post('/webhook/telegram/:slug', async (req, res) => {
                     const audioRes = await fetch(`https://api.telegram.org/file/bot${bot.apiToken}/${filePath}`);
                     const arrayBuffer = await audioRes.arrayBuffer();
                     telegramAudioBuffer = Buffer.from(arrayBuffer);
-                    mimeType = update.message.voice?.mime_type || update.message.audio?.mime_type || 'audio/ogg';
+                    mimeType = message.voice?.mime_type || message.audio?.mime_type || 'audio/ogg';
                     
                     const ext = filePath.split('.').pop() || 'ogg';
                     const filename = `tg_audio_${Date.now()}_${Math.floor(Math.random()*1000)}.${ext}`;
@@ -726,10 +728,10 @@ router.post('/webhook/telegram/:slug', async (req, res) => {
 
         if (!text && !telegramAudioBuffer) return
 
-        const telegramChatId = update.message.chat.id.toString()
+        const telegramChatId = message.chat.id.toString()
         let senderName = 'Telegram User'
-        if (update.message.from) {
-            const { first_name, last_name, username } = update.message.from
+        if (message.from) {
+            const { first_name, last_name, username } = message.from
             const fullName = [first_name, last_name].filter(Boolean).join(' ')
             if (fullName && username) {
                 senderName = `${fullName} (@${username})`
