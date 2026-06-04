@@ -48,14 +48,14 @@ services:
       - ./backend/google-key.json:/app/google-key.json
     labels:
       - "traefik.enable=true"
-      - "traefik.docker.network=traefik_net"
+      - "traefik.docker.network=traefik-proxy"
       - "traefik.http.routers.upchat-api.rule=Host(`api.up-chat.com`)"
       - "traefik.http.routers.upchat-api.entrypoints=websecure"
       - "traefik.http.routers.upchat-api.tls.certresolver=letsencrypt"
       - "traefik.http.services.upchat-api.loadbalancer.server.port=3001"
     networks:
       - chat_network
-      - traefik_net
+      - traefik-proxy
 
   frontend:
     build:
@@ -73,17 +73,17 @@ services:
       NEXT_PUBLIC_API_URL: https://api.up-chat.com
     labels:
       - "traefik.enable=true"
-      - "traefik.docker.network=traefik_net"
+      - "traefik.docker.network=traefik-proxy"
       - "traefik.http.routers.upchat-frontend.rule=Host(`up-chat.com`) || Host(`www.up-chat.com`)"
       - "traefik.http.routers.upchat-frontend.entrypoints=websecure"
       - "traefik.http.routers.upchat-frontend.tls.certresolver=letsencrypt"
       - "traefik.http.services.upchat-frontend.loadbalancer.server.port=3000"
     networks:
       - chat_network
-      - traefik_net
+      - traefik-proxy
 
 networks:
   chat_network:
     driver: bridge
-  traefik_net:
-    external: true   # Уже существующая сеть Traefik на VPS
+  traefik-proxy:
+    external: true   # Реальная сеть Traefik на VPS
