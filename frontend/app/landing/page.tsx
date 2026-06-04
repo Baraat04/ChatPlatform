@@ -334,142 +334,182 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Pricing Section (Robokassa KZ Compliant) */}
+        {/* Pricing Section */}
         <section id="pricing-section" className="space-y-16 scroll-mt-24">
           <div className="text-center space-y-3">
             <h2 className="text-3xl font-semibold tracking-tight text-slate-950 heading-font">
-              Пакеты предоплаты сообщений
+              Подписочные тарифы
             </h2>
             <p className="text-slate-500 text-sm max-w-xl mx-auto">
-              Оплата производится без подписок и скрытых автосписаний. Вы платите только за реальные объемы ИИ-консультаций.
+              Выберите план под ваши задачи. Подписка возобновляется ежемесячно — без скрытых платежей.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-            {/* Tariff 1 */}
-            <div className="pricing-card bg-white thin-border rounded-2xl p-8 flex flex-col justify-between shadow-sm relative">
-              <div className="space-y-6">
-                <div className="space-y-2">
-                  <h3 className="text-lg font-semibold text-slate-900 heading-font">Starter</h3>
-                  <p className="text-xs text-slate-400 font-light">Для небольших проектов или тестирования</p>
+          {/* Pricing Cards — 4 columns */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 max-w-6xl mx-auto">
+
+            {/* Free */}
+            <div className="pricing-card bg-white thin-border rounded-2xl p-7 flex flex-col justify-between shadow-sm relative">
+              <div className="space-y-5">
+                <div className="space-y-1">
+                  <h3 className="text-base font-semibold text-slate-900 heading-font">Free</h3>
+                  <p className="text-xs text-slate-400 font-light">Попробуйте без оплаты</p>
                 </div>
                 <div className="flex items-baseline gap-1">
-                  <span className="text-3xl font-bold text-slate-900 heading-font">6 750 ₸</span>
-                  <span className="text-sm text-slate-500 font-light">(≈ $15)</span>
+                  <span className="text-3xl font-bold text-slate-900 heading-font">0 ₸</span>
+                  <span className="text-xs text-slate-500 font-light">/мес</span>
                 </div>
-                <div className="border-t border-slate-100 pt-6 space-y-4">
-                  <div className="flex items-center gap-2.5 text-sm text-slate-600">
-                    <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
-                    <span>1 000 ИИ-сообщений</span>
-                  </div>
-                  <div className="flex items-center gap-2.5 text-sm text-slate-600">
-                    <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
-                    <span>Интеграция с WhatsApp/Telegram</span>
-                  </div>
-                  <div className="flex items-center gap-2.5 text-sm text-slate-600">
-                    <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
-                    <span>ИИ-обработка 24/7</span>
-                  </div>
-                </div>
+                <ul className="border-t border-slate-100 pt-5 space-y-3">
+                  {['100 ИИ-сообщений','1 канал','WhatsApp или Telegram','ИИ-обработка 24/7'].map(f => (
+                    <li key={f} className="flex items-center gap-2.5 text-xs text-slate-600">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-teal-600 shrink-0" /><span>{f}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
-              <div className="pt-8">
-                <Link 
-                  href="/register" 
-                  className="block text-center bg-slate-50 hover:bg-slate-100 text-slate-800 py-3 rounded-lg text-sm font-medium transition-all"
-                >
+              <div className="pt-7">
+                <Link href="/register" className="block text-center bg-slate-50 hover:bg-slate-100 text-slate-800 py-2.5 rounded-lg text-xs font-medium transition-all">
+                  Начать бесплатно
+                </Link>
+              </div>
+            </div>
+
+            {/* Starter */}
+            <div className="pricing-card bg-white thin-border rounded-2xl p-7 flex flex-col justify-between shadow-sm relative">
+              <div className="space-y-5">
+                <div className="space-y-1">
+                  <h3 className="text-base font-semibold text-slate-900 heading-font">Starter</h3>
+                  <p className="text-xs text-slate-400 font-light">Для небольших проектов</p>
+                </div>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-3xl font-bold text-slate-900 heading-font">6 990 ₸</span>
+                  <span className="text-xs text-slate-500 font-light">/мес</span>
+                </div>
+                <ul className="border-t border-slate-100 pt-5 space-y-3">
+                  {['1 000 ИИ-сообщений','1 канал','WhatsApp или Telegram','ИИ-обработка 24/7','Email-поддержка'].map(f => (
+                    <li key={f} className="flex items-center gap-2.5 text-xs text-slate-600">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-teal-600 shrink-0" /><span>{f}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="pt-7">
+                <Link href="/register" className="block text-center bg-slate-50 hover:bg-slate-100 text-slate-800 py-2.5 rounded-lg text-xs font-medium transition-all">
                   Выбрать Starter
                 </Link>
               </div>
             </div>
 
-            {/* Tariff 2 (Popular) */}
-            <div className="pricing-card bg-white thin-border rounded-2xl p-8 flex flex-col justify-between shadow-sm relative border-teal-600 ring-1 ring-teal-600/30">
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-teal-600 text-white px-3 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase">
+            {/* Growth (Popular) */}
+            <div className="pricing-card bg-white thin-border rounded-2xl p-7 flex flex-col justify-between shadow-sm relative border-teal-600 ring-1 ring-teal-600/30">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-teal-600 text-white px-3 py-1 rounded-full text-[9px] font-bold tracking-wider uppercase whitespace-nowrap">
                 Популярно ⭐
               </div>
-              <div className="space-y-6">
-                <div className="space-y-2">
-                  <h3 className="text-lg font-semibold text-slate-900 heading-font">Growth</h3>
-                  <p className="text-xs text-slate-400 font-light">Отличное решение для растущих компаний</p>
+              <div className="space-y-5">
+                <div className="space-y-1">
+                  <h3 className="text-base font-semibold text-slate-900 heading-font">Growth</h3>
+                  <p className="text-xs text-slate-400 font-light">Для растущего бизнеса</p>
                 </div>
                 <div className="flex items-baseline gap-1">
-                  <span className="text-3xl font-bold text-slate-900 heading-font">15 750 ₸</span>
-                  <span className="text-sm text-slate-500 font-light">(≈ $35)</span>
+                  <span className="text-3xl font-bold text-slate-900 heading-font">15 990 ₸</span>
+                  <span className="text-xs text-slate-500 font-light">/мес</span>
                 </div>
-                <div className="border-t border-slate-100 pt-6 space-y-4">
-                  <div className="flex items-center gap-2.5 text-sm text-slate-600">
-                    <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
-                    <span className="font-medium text-slate-900">6 000 ИИ-сообщений</span>
-                  </div>
-                  <div className="flex items-center gap-2.5 text-sm text-slate-600">
-                    <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
-                    <span>Интеграция с WhatsApp/Telegram</span>
-                  </div>
-                  <div className="flex items-center gap-2.5 text-sm text-slate-600">
-                    <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
-                    <span>Приоритетная скорость обработки</span>
-                  </div>
-                  <div className="flex items-center gap-2.5 text-sm text-slate-600">
-                    <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
-                    <span>Приоритетная техподдержка</span>
-                  </div>
-                </div>
+                <ul className="border-t border-slate-100 pt-5 space-y-3">
+                  {['6 000 ИИ-сообщений','До 3 каналов','WhatsApp + Telegram + Instagram','ИИ-обработка 24/7','Приоритетная поддержка','Аналитика'].map(f => (
+                    <li key={f} className="flex items-center gap-2.5 text-xs text-slate-800">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-teal-600 shrink-0" /><span className="font-medium">{f}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
-              <div className="pt-8">
-                <Link 
-                  href="/register" 
-                  className="block text-center bg-teal-600 hover:bg-teal-700 text-white py-3 rounded-lg text-sm font-medium transition-all shadow-sm shadow-teal-600/10"
-                >
+              <div className="pt-7">
+                <Link href="/register" className="block text-center bg-teal-600 hover:bg-teal-700 text-white py-2.5 rounded-lg text-xs font-medium transition-all shadow-sm shadow-teal-600/10">
                   Выбрать Growth
                 </Link>
               </div>
             </div>
 
-            {/* Tariff 3 */}
-            <div className="pricing-card bg-white thin-border rounded-2xl p-8 flex flex-col justify-between shadow-sm relative">
-              <div className="space-y-6">
-                <div className="space-y-2">
-                  <h3 className="text-lg font-semibold text-slate-900 heading-font">Pro Unlimited</h3>
-                  <p className="text-xs text-slate-400 font-light">Для крупного бизнеса с большим трафиком</p>
+            {/* Pro */}
+            <div className="pricing-card bg-white thin-border rounded-2xl p-7 flex flex-col justify-between shadow-sm relative">
+              <div className="space-y-5">
+                <div className="space-y-1">
+                  <h3 className="text-base font-semibold text-slate-900 heading-font">Pro</h3>
+                  <p className="text-xs text-slate-400 font-light">Для крупного бизнеса</p>
                 </div>
                 <div className="flex items-baseline gap-1">
-                  <span className="text-3xl font-bold text-slate-900 heading-font">33 750 ₸</span>
-                  <span className="text-sm text-slate-500 font-light">(≈ $75)</span>
+                  <span className="text-3xl font-bold text-slate-900 heading-font">33 990 ₸</span>
+                  <span className="text-xs text-slate-500 font-light">/мес</span>
                 </div>
-                <div className="border-t border-slate-100 pt-6 space-y-4">
-                  <div className="flex items-center gap-2.5 text-sm text-slate-600">
-                    <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
-                    <span className="font-medium text-slate-900">15 000 ИИ-сообщений</span>
-                  </div>
-                  <div className="flex items-center gap-2.5 text-sm text-slate-600">
-                    <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
-                    <span>Подключение всех мессенджеров</span>
-                  </div>
-                  <div className="flex items-center gap-2.5 text-sm text-slate-600">
-                    <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
-                    <span>Максимальная скорость ответа ИИ</span>
-                  </div>
-                  <div className="flex items-center gap-2.5 text-sm text-slate-600">
-                    <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
-                    <span>Выделенный менеджер</span>
-                  </div>
-                </div>
+                <ul className="border-t border-slate-100 pt-5 space-y-3">
+                  {['15 000 ИИ-сообщений','Неограниченные каналы','Все мессенджеры','ИИ-обработка 24/7','Выделенный менеджер','Аналитика','API-доступ'].map(f => (
+                    <li key={f} className="flex items-center gap-2.5 text-xs text-slate-600">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-teal-600 shrink-0" /><span>{f}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
-              <div className="pt-8">
-                <Link 
-                  href="/register" 
-                  className="block text-center bg-slate-50 hover:bg-slate-100 text-slate-800 py-3 rounded-lg text-sm font-medium transition-all"
-                >
-                  Выбрать Pro Unlimited
+              <div className="pt-7">
+                <Link href="/register" className="block text-center bg-slate-900 hover:bg-slate-800 text-white py-2.5 rounded-lg text-xs font-medium transition-all">
+                  Выбрать Pro
                 </Link>
               </div>
+            </div>
+          </div>
+
+          {/* Comparison Table */}
+          <div className="max-w-5xl mx-auto overflow-x-auto">
+            <div className="bg-white thin-border rounded-2xl shadow-sm overflow-hidden">
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-100">
+                    <th className="text-left p-5 pl-6 font-semibold text-slate-900 heading-font text-sm w-2/5">Возможности</th>
+                    <th className="text-center p-5 font-semibold text-slate-500 heading-font text-xs">Free</th>
+                    <th className="text-center p-5 font-semibold text-slate-500 heading-font text-xs">Starter</th>
+                    <th className="text-center p-5 font-semibold text-teal-700 heading-font text-xs bg-teal-50/60">Growth</th>
+                    <th className="text-center p-5 font-semibold text-slate-700 heading-font text-xs">Pro</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {([
+                    { feature: 'ИИ-сообщений / мес',    free: '100',  starter: '1 000', growth: '6 000',  pro: '15 000' },
+                    { feature: 'Подключённых каналов',   free: '1',    starter: '1',     growth: 'до 3',   pro: 'без лим.' },
+                    { feature: 'WhatsApp',               free: true,   starter: true,    growth: true,     pro: true },
+                    { feature: 'Telegram',               free: true,   starter: true,    growth: true,     pro: true },
+                    { feature: 'Instagram',              free: false,  starter: false,   growth: true,     pro: true },
+                    { feature: 'База знаний PDF/TXT',    free: true,   starter: true,    growth: true,     pro: true },
+                    { feature: 'Live-чат с оператором',  free: false,  starter: false,   growth: true,     pro: true },
+                    { feature: 'Аналитика',              free: false,  starter: false,   growth: true,     pro: true },
+                    { feature: 'API-доступ',             free: false,  starter: false,   growth: false,    pro: true },
+                    { feature: 'Выделенный менеджер',    free: false,  starter: false,   growth: false,    pro: true },
+                    { feature: 'Приоритетная поддержка', free: false,  starter: false,   growth: true,     pro: true },
+                  ] as const).map((row, i) => (
+                    <tr key={i} className={`border-b border-slate-50 last:border-0 ${i % 2 === 0 ? 'bg-slate-50/40' : ''}`}>
+                      <td className="p-4 pl-6 text-slate-700 font-medium text-xs">{row.feature}</td>
+                      {(['free', 'starter', 'growth', 'pro'] as const).map(plan => {
+                        const val = row[plan];
+                        const isGrowth = plan === 'growth';
+                        return (
+                          <td key={plan} className={`p-4 text-center ${isGrowth ? 'bg-teal-50/40' : ''}`}>
+                            {typeof val === 'boolean'
+                              ? val
+                                ? <CheckCircle2 className="w-4 h-4 text-teal-600 mx-auto" />
+                                : <span className="text-slate-300 text-lg leading-none">—</span>
+                              : <span className={`text-xs font-semibold ${isGrowth ? 'text-teal-700' : 'text-slate-700'}`}>{val}</span>
+                            }
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
 
           <div className="text-center max-w-xl mx-auto">
             <p className="text-xs text-slate-400 leading-normal font-light">
               * 1 сообщение = 1 полный цикл ответа ИИ (до 10 000 токенов контекста, без скрытых доплат).<br />
-              По исчерпанию пакета вы можете докупить любой необходимый объём сообщений в панели настроек в любой момент.
+              По исчерпанию месячного лимита вы можете докупить дополнительный пакет сообщений в любой момент.
             </p>
           </div>
         </section>

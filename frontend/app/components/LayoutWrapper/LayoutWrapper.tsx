@@ -141,7 +141,10 @@ export default function LayoutWrapper({ children }: LayoutWrapperProps) {
   const closeSidebar = () => setIsSidebarOpen(false);
 
   const isAuthPage = pathname === '/login' || pathname === '/register';
-  const noLayoutPage = isAuthPage || pathname === '/landing' || pathname === '/demo';
+  const publicPage = pathname === '/landing' || pathname === '/demo' || 
+    pathname === '/privacy-policy' || pathname === '/offer' || pathname === '/terms-of-use' ||
+    pathname?.startsWith('/verify-email');
+  const noLayoutPage = isAuthPage || publicPage;
 
   useEffect(() => {
     if (!loading && !user && !noLayoutPage) {
