@@ -1,9 +1,3 @@
-# ============================================================
-# PRODUCTION — docker-compose.yml
-# Подключается к уже запущенному Traefik на VPS (не поднимает свой!)
-# Сеть "traefik_net" должна существовать на VPS.
-# Проверить: docker network ls | grep traefik
-# ============================================================
 services:
   db:
     image: postgres:16-alpine
@@ -41,7 +35,6 @@ services:
       BASE_URL: https://api.up-chat.com
       DATABASE_URL: postgresql://postgres:postgres@db:5432/ai-consultant?schema=public
       FRONTEND_URL: https://up-chat.com
-    command: sh -c "sleep 3 && npx prisma db push --accept-data-loss && npm start"
     volumes:
       - ./backend/sessions:/app/sessions
       - ./backend/uploads:/app/uploads
@@ -86,4 +79,4 @@ networks:
   chat_network:
     driver: bridge
   traefik-proxy:
-    external: true   # Реальная сеть Traefik на VPS
+    external: true
