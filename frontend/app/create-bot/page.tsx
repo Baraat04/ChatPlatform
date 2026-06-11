@@ -1,902 +1,992 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { ArrowRight, ArrowLeft, Bot, Database, Key, MessageCircle, Phone, Plus, Trash2, CheckCircle2, ChevronDown, Check, X } from 'lucide-react';
-import styles from './page.module.css';
-import { io, Socket } from 'socket.io-client';
+import { createPortal } from 'react-dom';
+import { Bot, MessageCircle, Phone, Globe, ArrowRight, ArrowLeft, CheckCircle2, ChevronDown, Sparkles } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useLanguage } from '../contexts/LanguageContext';
-import { API_URL, SOCKET_URL } from '../config';
+import { API_URL } from '../config';
 
 const InstagramIcon = ({ size = 24, color = 'currentColor' }: { size?: number; color?: string }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke={color}
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
+  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
     <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
     <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
   </svg>
 );
 
-const TONES = [
-  "Мотивирующий и энергичный",
-  "Дружелюбный и тёплый",
-  "Профессиональный и деловой",
-  "Заботливый и внимательный",
-  "Краткий и лаконичный",
-  "Продающий"
-];
-
-const INDUSTRIES = [
-  "Финансы",
-  "Косметология",
-  "Фитнес и спорт",
-  "Образование",
-  "Кафе и кофейни",
-  "Ресторанный бизнес",
-  "Автомобильный бизнес",
-  "Туризм",
-  "Отельный бизнес",
-  "Розничная торговля",
-  "IT и технологии"
-];
-
-const DATA_FIELDS = [
-  "Имя клиента",
-  "Номер телефона",
-  "Бронирование",
-  "Запись на консультацию",
-  "Адрес",
-  "Цель обращения",
-  "Желаемые сроки",
-  "Количество человек",
-  "Город",
-  "Предпочтения",
-  "Прошлый опыт клиента"
-];
-
+// Custom Select Component — uses portal to escape overflow/z-index issues
 function CustomSelect({ options, value, onChange, placeholder }: any) {
   const [isOpen, setIsOpen] = useState(false);
-  const [customInput, setCustomInput] = useState('');
-  const [isAddingCustom, setIsAddingCustom] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
+  const [mounted, setMounted] = useState(false);
+  const isCustomOption = value !== '' && !options.includes(value);
+  const [showCustomInput, setShowCustomInput] = useState(isCustomOption);
+  const triggerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+    const isCustom = value !== '' && !options.includes(value);
+    setShowCustomInput(isCustom);
+  }, [value, options]);
 
-  const addCustom = (e: any) => {
-    e.preventDefault();
-    if (customInput.trim()) {
-      onChange(customInput.trim());
-      setCustomInput('');
-      setIsAddingCustom(false);
-      setIsOpen(false);
+  const openDropdown = () => {
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setDropdownStyle({
+        position: 'fixed',
+        top: rect.bottom + 8,
+        left: rect.left,
+        width: rect.width,
+        zIndex: 99999,
+        background: '#ffffff',
+        border: '1px solid #cbd5e1',
+        borderRadius: '16px',
+        boxShadow: '0 20px 40px rgba(0,0,0,0.15)',
+        maxHeight: '260px',
+        overflowY: 'auto',
+        padding: '8px 0',
+      });
     }
+    setIsOpen(true);
   };
 
-  return (
-    <div ref={ref} style={{ position: 'relative', width: '100%' }}>
-      <div 
-        onClick={() => setIsOpen(!isOpen)}
-        style={{ 
-          background: 'var(--surface-container-lowest)', 
-          border: isOpen ? '1px solid var(--primary)' : '1px solid var(--outline)', 
-          borderRadius: 'var(--radius-DEFAULT)', 
-          padding: '12px 16px', 
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          color: 'var(--on-surface)',
-          transition: 'all 0.2s',
-          boxShadow: isOpen ? '0 0 0 2px rgba(43, 108, 0, 0.1)' : 'none'
-        }}
-      >
-        <span>{value || placeholder}</span>
-        <ChevronDown size={18} style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }} />
-      </div>
-      
-      {isOpen && (
-        <div className="custom-select-dropdown">
-          {options.map((opt: string) => (
-            <div 
-              key={opt}
-              className={`custom-select-option ${value === opt ? 'selected' : ''}`}
-              onClick={() => { onChange(opt); setIsOpen(false); }}
-            >
-              <span>{opt}</span>
-              {value === opt && <Check size={16} />}
-            </div>
-          ))}
-
-          {!isAddingCustom ? (
-            <div 
-              className="custom-select-option" 
-              style={{ color: 'var(--primary)', fontWeight: '600', justifyContent: 'center', marginTop: '8px', borderTop: '1px solid var(--outline-variant)' }}
-              onClick={() => setIsAddingCustom(true)}
-            >
-              <Plus size={16} style={{ marginRight: '8px' }}/> Свой вариант
-            </div>
-          ) : (
-            <div style={{ padding: '12px', marginTop: '8px', borderTop: '1px solid var(--outline-variant)' }}>
-              <form onSubmit={addCustom} style={{ display: 'flex', gap: '8px' }}>
-                <input 
-                  type="text" 
-                  value={customInput} 
-                  onChange={(e) => setCustomInput(e.target.value)} 
-                  placeholder="Введите свой..." 
-                  style={{ flex: 1, padding: '8px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--outline)', background: 'var(--surface-container-lowest)' }}
-                  autoFocus
-                />
-                <button type="submit" style={{ padding: '8px 16px', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontWeight: '600' }}>OK</button>
-              </form>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function CustomMultiSelect({ options, value, onChange, placeholder }: any) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [customInput, setCustomInput] = useState('');
-  const [isAddingCustom, setIsAddingCustom] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const toggleOption = (opt: string) => {
-    if (value.includes(opt)) {
-      onChange(value.filter((v: string) => v !== opt));
+  const handleSelectOption = (opt: string) => {
+    if (opt === 'CUSTOM_OPTION') {
+      setShowCustomInput(true);
+      onChange('');
     } else {
-      onChange([...value, opt]);
+      setShowCustomInput(false);
+      onChange(opt);
     }
+    setIsOpen(false);
   };
 
-  const addCustom = (e: any) => {
-    e.preventDefault();
-    if (customInput.trim() && !value.includes(customInput.trim())) {
-      onChange([...value, customInput.trim()]);
-      setCustomInput('');
-      setIsAddingCustom(false);
-    }
-  };
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.cs-trigger') && !target.closest('.cs-dropdown')) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, [isOpen]);
+
+  const displayLabel = showCustomInput ? '✍️ Свой вариант...' : (value || placeholder);
+
+  const dropdownContent = (
+    <div className="cs-dropdown" style={dropdownStyle}>
+      {options.map((opt: string) => {
+        const isSelected = value === opt;
+        return (
+          <div
+            key={opt}
+            onMouseDown={(e) => { e.preventDefault(); handleSelectOption(opt); }}
+            style={{
+              padding: '12px 20px',
+              fontSize: '15px',
+              color: isSelected ? '#047857' : '#0f172a',
+              fontWeight: isSelected ? '600' : '400',
+              background: isSelected ? '#ecfdf5' : '#ffffff',
+              cursor: 'pointer',
+            }}
+            onMouseOver={(e) => { if (!isSelected) e.currentTarget.style.background = '#f1f5f9'; }}
+            onMouseOut={(e) => { if (!isSelected) e.currentTarget.style.background = '#ffffff'; }}
+          >
+            {opt}
+          </div>
+        );
+      })}
+      <div
+        onMouseDown={(e) => { e.preventDefault(); handleSelectOption('CUSTOM_OPTION'); }}
+        style={{
+          padding: '12px 20px',
+          fontSize: '15px',
+          color: showCustomInput ? '#047857' : '#64748b',
+          fontWeight: showCustomInput ? '600' : '500',
+          borderTop: '1px solid #e2e8f0',
+          cursor: 'pointer',
+          background: showCustomInput ? '#ecfdf5' : '#ffffff',
+          marginTop: '4px',
+        }}
+        onMouseOver={(e) => { if (!showCustomInput) e.currentTarget.style.background = '#f1f5f9'; }}
+        onMouseOut={(e) => { if (!showCustomInput) e.currentTarget.style.background = '#ffffff'; }}
+      >
+        ✍️ Свой вариант...
+      </div>
+    </div>
+  );
 
   return (
-    <div ref={ref} style={{ position: 'relative', width: '100%' }}>
-      <div 
-        onClick={() => setIsOpen(!isOpen)}
-        style={{ 
-          background: 'var(--surface-container-lowest)', 
-          border: isOpen ? '1px solid var(--primary)' : '1px solid var(--outline)', 
-          borderRadius: 'var(--radius-DEFAULT)', 
-          padding: '12px 16px', 
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
+      <div
+        ref={triggerRef}
+        className="cs-trigger"
+        onClick={() => isOpen ? setIsOpen(false) : openDropdown()}
+        style={{
+          width: '100%',
+          padding: '16px 20px',
+          borderRadius: '16px',
+          border: isOpen ? '1px solid var(--primary)' : '1px solid var(--outline-variant)',
+          background: '#ffffff',
+          color: value || showCustomInput ? '#0f172a' : '#64748b',
+          fontSize: '16px',
           cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          color: 'var(--on-surface)',
           transition: 'all 0.2s',
-          boxShadow: isOpen ? '0 0 0 2px rgba(43, 108, 0, 0.1)' : 'none'
+          boxShadow: isOpen ? '0 0 0 4px rgba(4,120,87,0.1)' : '0 2px 8px rgba(0,0,0,0.04)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          userSelect: 'none',
         }}
       >
-        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: '8px' }}>
-          {value.length > 0 ? value.join(', ') : placeholder}
-        </span>
-        <ChevronDown size={18} style={{ flexShrink: 0, transform: isOpen ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }} />
+        <span style={{ flex: 1, color: 'inherit' }}>{displayLabel}</span>
+        <ChevronDown
+          size={20}
+          color="#64748b"
+          style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s', pointerEvents: 'none' }}
+        />
       </div>
-      
-      {isOpen && (
-        <div className="custom-select-dropdown" style={{ maxHeight: '300px' }}>
-          {options.map((opt: string) => (
-            <label key={opt} className="custom-select-option" style={{ display: 'flex', justifyContent: 'flex-start', gap: '12px' }}>
-              <input 
-                type="checkbox" 
-                checked={value.includes(opt)} 
-                onChange={() => toggleOption(opt)} 
-                style={{ width: '18px', height: '18px', accentColor: 'var(--primary)', cursor: 'pointer' }}
-              />
-              <span style={{ cursor: 'pointer', userSelect: 'none' }}>{opt}</span>
-            </label>
-          ))}
-          
-          {value.filter((v: string) => !options.includes(v)).map((opt: string) => (
-            <label key={opt} className="custom-select-option" style={{ display: 'flex', justifyContent: 'flex-start', gap: '12px' }}>
-              <input 
-                type="checkbox" 
-                checked={true} 
-                onChange={() => toggleOption(opt)} 
-                style={{ width: '18px', height: '18px', accentColor: 'var(--primary)', cursor: 'pointer' }}
-              />
-              <span style={{ cursor: 'pointer', userSelect: 'none' }}>{opt} (Свой вариант)</span>
-            </label>
-          ))}
-          
-          {!isAddingCustom ? (
-            <div 
-              className="custom-select-option" 
-              style={{ color: 'var(--primary)', fontWeight: '600', justifyContent: 'center', marginTop: '8px', borderTop: '1px solid var(--outline-variant)' }}
-              onClick={() => setIsAddingCustom(true)}
-            >
-              <Plus size={16} style={{ marginRight: '8px' }}/> Добавить своё
-            </div>
-          ) : (
-            <div style={{ padding: '12px', marginTop: '8px', borderTop: '1px solid var(--outline-variant)' }}>
-              <form onSubmit={addCustom} style={{ display: 'flex', gap: '8px' }}>
-                <input 
-                  type="text" 
-                  value={customInput} 
-                  onChange={(e) => setCustomInput(e.target.value)} 
-                  placeholder="Введите свой вариант..." 
-                  style={{ flex: 1, padding: '8px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--outline)', background: 'var(--surface-container-lowest)' }}
-                  autoFocus
-                />
-                <button type="submit" style={{ padding: '8px 16px', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontWeight: '600' }}>OK</button>
-              </form>
-            </div>
-          )}
-        </div>
+
+      {mounted && isOpen && createPortal(dropdownContent, document.body)}
+
+      {showCustomInput && (
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); (e.target as HTMLInputElement).blur(); } }}
+          placeholder="Напишите свой вариант здесь..."
+          className="input-field anim-item"
+          autoFocus
+          style={{ marginTop: '4px' }}
+        />
       )}
     </div>
   );
 }
 
-export default function CreateBot() {
+export default function CreateBotFast() {
+  const router = useRouter();
   const { t } = useLanguage();
-  const [currentStep, setCurrentStep] = useState(1);
-  const [isTransitioning, setIsTransitioning] = useState(false);
-
-  // Step 1
-  const [industry, setIndustry] = useState('Финансы');
-  const [companyName, setCompanyName] = useState('');
-  const [botGoal, setBotGoal] = useState('Консультировать клиентов');
-  const [tone, setTone] = useState('Дружелюбный и тёплый');
   
-  const [rules, setRules] = useState({
-    onlyKnowledgeBase: true,
-    noFabrication: true,
-    userLanguage: true,
-    leadToRequest: false
-  });
-
-  const [isManualSystemPrompt, setIsManualSystemPrompt] = useState(false);
-  const [systemPrompt, setSystemPrompt] = useState('');
-
-  // Step 2
-  const [businessInfo, setBusinessInfo] = useState('');
-  const [isUploadingPdf, setIsUploadingPdf] = useState(false);
-
-  // Reset form on mount
-  useEffect(() => {
-    setIndustry('Финансы');
-    setCompanyName('');
-    setBotGoal('Консультировать клиентов');
-    setTone('Дружелюбный и тёплый');
-    setRules({ onlyKnowledgeBase: true, noFabrication: true, userLanguage: true, leadToRequest: false });
-    setIsManualSystemPrompt(false);
-    setSystemPrompt('');
-    setBusinessInfo('');
-  }, []);
-
-  useEffect(() => {
-    if (!isManualSystemPrompt) {
-      let rulesText = '';
-      if (rules.onlyKnowledgeBase) rulesText += `- ${t.onlyKb}.\n`;
-      if (rules.noFabrication) rulesText += `- ${t.noFabrication}.\n`;
-      if (rules.userLanguage) rulesText += `- ${t.userLanguage}.\n`;
-      rulesText += '- Общайся естественно и профессионально.\n';
-      if (rules.leadToRequest) rulesText += `- ${t.leadToRequest}.\n`;
-
-      const generated = `Ты AI-консультант: ${companyName || '[Имя / Роль]'}.
-
-Сфера деятельности: ${industry}
-
-Твоя основная задача и инструкции:
-${botGoal || '[Описание задачи]'}
-
-Стиль общения:
-${tone}
-
-Основные правила:
-${rulesText}`;
-      setSystemPrompt(generated);
-    }
-  }, [industry, companyName, botGoal, tone, rules, isManualSystemPrompt]);
-
-  const generateDataPrompt = () => {
-    return `Компания:
-${companyName}
-
-База знаний (Произвольная информация):
-${businessInfo}`;
-  };
-
-  const dataPrompt = generateDataPrompt();
-
-  async function handlePdfUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.type !== 'application/pdf') {
-      alert("Пожалуйста, выберите PDF файл.");
-      return;
-    }
-    setIsUploadingPdf(true);
-    const formData = new FormData();
-    formData.append('file', file);
-    try {
-      const res = await fetch(`${API_URL}/bot/0/upload-pdf`, {
-        method: 'POST',
-        body: formData,
-        credentials: 'include'
-      });
-      const data = await res.json();
-      if (data.text) {
-        const appendedData = `\n\n--- ДАННЫЕ ИЗ PDF (${file.name}) ---\n${data.text}`;
-        setBusinessInfo(prev => prev + appendedData);
-      } else {
-        alert("Не удалось извлечь текст из PDF.");
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Ошибка при загрузке PDF.");
-    } finally {
-      setIsUploadingPdf(false);
-      e.target.value = '';
-    }
-  }
-
-  // Step 3
-  const [platform, setPlatform] = useState<'TELEGRAM' | 'WHATSAPP' | 'INSTAGRAM'>('TELEGRAM');
-  const [botToken, setBotToken] = useState('');
-
-  // Step 4
+  const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [qrCode, setQrCode] = useState<string | null>(null);
-  const [waStatus, setWaStatus] = useState<string | null>(null);
-  const [socket, setSocket] = useState<Socket | null>(null);
+  const [errorMsg, setErrorMsg] = useState('');
 
-  // Test Chat
-  const [createdBotId, setCreatedBotId] = useState<number | null>(null);
-  const [testChatOpen, setTestChatOpen] = useState(false);
-  const [testMessages, setTestMessages] = useState<{role: 'user'|'assistant', content: string}[]>([]);
-  const [testInput, setTestInput] = useState('');
-  const [isTestLoading, setIsTestLoading] = useState(false);
+  // Form State
+  const [platform, setPlatform] = useState('');
+  const [companyName, setCompanyName] = useState('');
+  const [industry, setIndustry] = useState('');
+  const [tone, setTone] = useState('');
+  const [goal, setGoal] = useState('');
 
-  const handleTestSend = async () => {
-    if (!testInput.trim() || !createdBotId) return;
-    const userText = testInput.trim();
-    const newHistory = [...testMessages, { role: 'user' as const, content: userText }];
-    setTestMessages(newHistory);
-    setTestInput('');
-    setIsTestLoading(true);
+  // Data Options
+  const platforms = [
+    { id: 'TELEGRAM', name: 'Telegram', icon: <MessageCircle size={32} color="#3b82f6" />, bg: 'rgba(59,130,246,0.1)' },
+    { id: 'WHATSAPP', name: 'WhatsApp', icon: <Phone size={32} color="#22c55e" />, bg: 'rgba(34,197,94,0.1)' },
+  ];
 
-    try {
-      const res = await fetch(`${API_URL}/bot/${createdBotId}/test-chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ text: userText, history: testMessages })
-      });
-      const data = await res.json();
-      setTestMessages([...newHistory, { role: 'assistant', content: data.reply || "Ошибка" }]);
-    } catch (e) {
-      setTestMessages([...newHistory, { role: 'assistant', content: "Не удалось получить ответ" }]);
-    } finally {
-      setIsTestLoading(false);
-    }
-  };
+  const industries = [
+    "Страхование",
+    "Право и бухгалтерия",
+    "Недвижимость",
+    "Ремонт",
+    "Строительство",
+    "Логистика и транспорт",
+    "Производство",
+    "IT и технологии",
+    "Маркетинг и реклама",
+    "Креатив и контент",
+    "HR и услуги для бизнеса",
+    "Сфера услуг",
+    "Торговля",
+    "Интернет-магазин",
+    "Красота",
+    "Медицина и здоровье",
+    "Стоматология",
+    "Косметология",
+    "Фитнес и спорт",
+    "Образование",
+    "Кафе и кофейни",
+    "Ресторанный бизнес",
+    "Автомобильный бизнес",
+    "Туризм",
+    "Отельный бизнес",
+    "Финансы"
+  ];
 
-  useEffect(() => {
-    const newSocket = io(SOCKET_URL);
-    setSocket(newSocket);
-    return () => { newSocket.disconnect(); }
-  }, []);
+  const tones = [
+    "Дружелюбный и заботливый (как приятель)",
+    "Строгий и деловой (корпоративный стиль)",
+    "Энергичный и продающий (мотиватор)",
+    "Лаконичный помощник (только суть, без воды)",
+    "Дерзкий и молодежный (юмор, сленг)",
+    "Успокаивающий и эмпатичный",
+    "Экспертный и академичный"
+  ];
+
+  const goals = [
+    "Квалифицировать заявку (задать вопросы и собрать контакты)",
+    "Записать на консультацию/приём (согласовать время)",
+    "Ответить на частые вопросы (FAQ и техподдержка)",
+    "Продать товар/услугу (работа с возражениями и ценами)",
+    "Собрать отзывы после оказания услуги",
+    "Напомнить о брони или вебинаре (Follow-up)"
+  ];
+
+  const totalSteps = 3;
 
   const handleSubmit = async () => {
-    if (isSubmitting) return;
     setIsSubmitting(true);
-    setMessage(null);
-    setQrCode(null);
-    setWaStatus(null);
-    
+    setErrorMsg('');
+
     try {
+      const systemPrompt = `Ты AI-сотрудник компании "${companyName}" (Сфера: ${industry}).
+Твоя главная цель: ${goal}.
+Формат общения: ${tone}.
+Общайся с клиентами естественно, всегда придерживайся своего формата общения и стремись выполнить свою главную цель.`;
+      
+      const pId = platforms.find(p => p.name === platform)?.id || 'TELEGRAM';
+      
       const response = await fetch(`${API_URL}/bot`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
           system_prompt: systemPrompt,
-          data_prompt: dataPrompt,
-          apiToken: (platform === 'TELEGRAM' || platform === 'INSTAGRAM') ? botToken : undefined,
-          platform: platform
+          data_prompt: `Название компании: ${companyName}\nСфера: ${industry}`,
+          platform: pId,
+          apiToken: '' // Without token for fast creation
         }),
       });
 
-      const text = await response.text();
-      let data: any;
-      try { data = JSON.parse(text); } catch {
-        setMessage({ type: 'error', text: `Ошибка сервера: ${text.slice(0, 300)}` });
-        return;
-      }
-
+      const data = await response.json();
       if (response.ok) {
-        if (platform === 'TELEGRAM' || platform === 'INSTAGRAM') {
-          setMessage({ type: 'success', text: `✅ ${platform === 'TELEGRAM' ? 'Telegram' : 'Instagram'} бот успешно создан!` });
-          setCreatedBotId(data.id);
-          setTestChatOpen(true);
-        } else {
-          setMessage({ type: 'success', text: '⏳ Генерируем QR-код WhatsApp...' });
-          const botId = data.id;
-          if (socket) {
-            socket.on(`qr-${botId}`, (qrDataUrl) => {
-              setQrCode(qrDataUrl);
-              setMessage({ type: 'success', text: '📷 Отсканируйте этот QR-код в WhatsApp -> Связанные устройства' });
-            });
-            socket.on(`status-${botId}`, (status) => {
-              if (status === 'connected') {
-                setWaStatus('✅ Подключено к WhatsApp!');
-                setQrCode(null);
-                setMessage({ type: 'success', text: '✅ WhatsApp бот теперь активен и готов к работе!' });
-              } else if (status === 'logged_out') {
-                setWaStatus('❌ Отключено');
-              }
-            });
-          }
-        }
+        // Успешно создали - редирект на страницу бота с задержкой для проигрывания анимации
+        setTimeout(() => {
+          router.push(`/bots/${data.id}?new=true`);
+        }, 2500);
       } else {
-        setMessage({ type: 'error', text: `❌ ${data.error || data.details || 'Не удалось создать бота'}` });
+        setErrorMsg(data.error || 'Ошибка при создании бота');
+        setIsSubmitting(false);
       }
-    } catch (error: any) {
-      setMessage({ type: 'error', text: '❌ Не удалось подключиться к бекенду.' });
-    } finally {
+    } catch (err) {
+      console.error(err);
+      setErrorMsg('Сетевая ошибка при создании бота. Проверьте подключение к серверу.');
       setIsSubmitting(false);
     }
   };
 
   const nextStep = () => {
-    setIsTransitioning(true);
-    setTimeout(() => {
-      setCurrentStep(p => Math.min(p + 1, 4));
-      setIsTransitioning(false);
-    }, 300);
-  };
-  
-  const prevStep = () => {
-    setIsTransitioning(true);
-    setTimeout(() => {
-      setCurrentStep(p => Math.max(p - 1, 1));
-      setIsTransitioning(false);
-    }, 300);
+    if (step === 1 && !platform) return;
+    if (step === 2 && (!companyName || !industry)) return;
+    if (step === 3 && (!tone || !goal)) return;
+
+    if (step < totalSteps) {
+      setStep(step + 1);
+    } else {
+      handleSubmit();
+    }
   };
 
-  const renderStepsIndicator = () => (
-    <div style={{ overflowX: 'auto', marginBottom: '32px', WebkitOverflowScrolling: 'touch' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', position: 'relative', minWidth: '260px' }}>
-        {[1, 2, 3, 4].map(step => (
-          <div key={step} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 1, flex: 1 }}>
-            <div style={{
-              width: '32px', height: '32px', borderRadius: '50%',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: step === currentStep ? 'var(--primary)' : step < currentStep ? 'var(--primary-fixed)' : 'var(--surface-container-high)',
-              color: step <= currentStep ? 'var(--on-primary)' : 'var(--on-surface-variant)', 
-              fontWeight: 'bold', fontSize: '14px',
-              border: `2px solid ${step <= currentStep ? 'transparent' : 'var(--outline-variant)'}`,
-              transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-              boxShadow: step === currentStep ? '0 0 15px var(--primary-fixed-dim)' : 'none',
-              flexShrink: 0,
-            }} className={step === currentStep ? 'ai-pulse' : ''}>
-              {step < currentStep ? <CheckCircle2 size={16} /> : step}
+  const prevStep = () => {
+    if (step > 1) setStep(step - 1);
+  };
+
+  const renderRightPanelPreview = () => {
+    if (step === 1) {
+      const selectedPlatformInfo = platforms.find(p => p.name === platform) || { name: 'Выберите платформу', icon: <Bot size={32} color="#ffffff" />, bg: 'rgba(255,255,255,0.2)' };
+      return (
+        <div className="anim-item" style={{ animationDelay: '0.2s', margin: 'auto 0', display: 'flex', justifyContent: 'center' }}>
+          <div style={{
+            width: '280px',
+            height: '240px',
+            background: '#0f172a',
+            border: '1px solid rgba(255, 255, 255, 0.15)',
+            borderRadius: '24px',
+            padding: '20px',
+            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.15)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '16px',
+            position: 'relative',
+            color: 'white'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', paddingBottom: '12px' }}>
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ff5f56' }}></div>
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ffbd2e' }}></div>
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#27c93f' }}></div>
+              <span style={{ fontSize: '12px', opacity: 0.5, marginLeft: 'auto' }}>Preview</span>
             </div>
-            <span style={{ fontSize: '12px', marginTop: '8px', color: step <= currentStep ? 'var(--primary)' : 'var(--on-surface-variant)', fontWeight: step <= currentStep ? '600' : '400', transition: 'all 0.3s', whiteSpace: 'nowrap' }}>
-              {step === 1 && t.behavior}
-              {step === 2 && t.dataBase}
-              {step === 3 && t.platform}
-              {step === 4 && 'Предпросмотр'}
-            </span>
+
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', marginTop: '10px' }}>
+              <div style={{ 
+                width: '60px', 
+                height: '60px', 
+                borderRadius: '50%', 
+                background: '#1e293b', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                boxShadow: '0 8px 16px rgba(0,0,0,0.1)'
+              }}>
+                {selectedPlatformInfo.icon}
+              </div>
+              <span style={{ fontSize: '15px', fontWeight: '600' }}>{selectedPlatformInfo.name}</span>
+            </div>
+
+            <div style={{
+              background: '#1e293b',
+              borderRadius: '12px 12px 12px 0px',
+              padding: '12px',
+              fontSize: '13px',
+              lineHeight: '1.4',
+              alignSelf: 'flex-start',
+              maxWidth: '90%',
+              marginTop: '10px',
+              border: '1px solid rgba(255,255,255,0.05)'
+            }}>
+              {platform 
+                ? `Привет! Я твой новый AI-ассистент в ${platform}. Жду запуска! 🚀` 
+                : 'Выберите платформу слева, чтобы привязать своего ИИ-сотрудника.'}
+            </div>
           </div>
-        ))}
-        <div style={{ position: 'absolute', top: '16px', left: '12%', right: '12%', height: '2px', background: 'var(--surface-container-high)', zIndex: 0 }}>
-          <div style={{ height: '100%', background: 'var(--primary)', width: `${((currentStep - 1) / 3) * 100}%`, transition: 'width 0.5s cubic-bezier(0.4, 0, 0.2, 1)' }} />
         </div>
-      </div>
-    </div>
-  );
+      );
+    }
+    
+    if (step === 2) {
+      return (
+        <div className="anim-item" style={{ animationDelay: '0.2s', margin: 'auto 0', display: 'flex', justifyContent: 'center' }}>
+          <div style={{
+            width: '300px',
+            background: '#0f172a',
+            border: '1px solid rgba(255, 255, 255, 0.15)',
+            borderRadius: '24px',
+            padding: '24px',
+            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.15)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '16px',
+            color: 'white'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '11px', fontWeight: 'bold', letterSpacing: '1px', opacity: 0.6, textTransform: 'uppercase' }}>Память ИИ-Агента</span>
+              <span style={{ fontSize: '12px', background: '#1e293b', padding: '2px 8px', borderRadius: '20px' }}>Шаг 2 из 3</span>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '8px' }}>
+              <div style={{ borderLeft: '3px solid #60a5fa', paddingLeft: '12px' }}>
+                <div style={{ fontSize: '11px', opacity: 0.5 }}>Компания / Имя</div>
+                <div style={{ fontSize: '15px', fontWeight: '600' }}>{companyName || 'Укажите название...'}</div>
+              </div>
+
+              <div style={{ borderLeft: '3px solid #34d399', paddingLeft: '12px' }}>
+                <div style={{ fontSize: '11px', opacity: 0.5 }}>Сфера деятельности</div>
+                <div style={{ fontSize: '15px', fontWeight: '600' }}>{industry || 'Выберите сферу...'}</div>
+              </div>
+            </div>
+
+            <div style={{ fontSize: '12px', opacity: 0.8, lineHeight: '1.4', background: '#1e293b', padding: '10px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+              🧠 На основе этих данных ИИ автоматически сгенерирует профиль компетенций вашей компании.
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (step === 3) {
+      const getSampleMessage = () => {
+        let msg = "Здравствуйте! Чем я могу помочь вам сегодня?";
+        if (tone.includes("Дружелюбный")) {
+          msg = "Привет! 😊 Рад тебя слышать! Как дела, чем могу помочь тебе сегодня?";
+        } else if (tone.includes("Мотивирующий")) {
+          msg = "Привет! 🔥 У нас сегодня отличные новости! Готовы сделать лучший выбор прямо сейчас?";
+        } else if (tone.includes("Профессиональный")) {
+          msg = "Приветствую вас. Компания приветствует ваше обращение. Какая задача перед нами стоит?";
+        } else if (tone.includes("Заботливый")) {
+          msg = "Здравствуйте. Не волнуйтесь, я здесь, чтобы спокойно во всем разобраться и помочь вам.";
+        }
+        
+        let goalMsg = "Я помогу квалифицировать заявку.";
+        if (goal.includes("собрать контакты") || goal.includes("Квалифицировать")) {
+          goalMsg = "Для начала, подскажите, пожалуйста, ваш номер телефона или email?";
+        } else if (goal.includes("Записать") || goal.includes("запись")) {
+          goalMsg = "В какое время вам было бы удобно подойти на консультацию?";
+        } else if (goal.includes("Ответить") || goal.includes("вопросы")) {
+          goalMsg = "Вы можете задать любой интересующий вас вопрос по нашим тарифам и услугам!";
+        } else if (goal.includes("Продать") || goal.includes("оформить")) {
+          goalMsg = "У нас как раз действует специальная акция. Будем оформлять заказ?";
+        }
+        
+        return { msg, goalMsg };
+      };
+
+      const sample = getSampleMessage();
+
+      return (
+        <div className="anim-item" style={{ animationDelay: '0.2s', margin: 'auto 0', display: 'flex', justifyContent: 'center' }}>
+          <div style={{
+            width: '320px',
+            background: '#0f172a',
+            border: '1px solid rgba(255, 255, 255, 0.15)',
+            borderRadius: '24px',
+            padding: '20px',
+            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.15)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px',
+            color: 'white'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', opacity: 0.6, fontSize: '11px', fontWeight: 'bold' }}>
+              <span>💬 СИМУЛЯТОР ДИАЛОГА</span>
+              <span style={{ marginLeft: 'auto', color: '#34d399' }}>Live Preview</span>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
+              <div style={{
+                background: '#1e293b',
+                alignSelf: 'flex-start',
+                padding: '10px 14px',
+                borderRadius: '16px 16px 16px 4px',
+                fontSize: '13px',
+                lineHeight: '1.4',
+                maxWidth: '90%'
+              }}>
+                {sample.msg}
+              </div>
+
+              <div style={{
+                background: '#1e293b',
+                alignSelf: 'flex-start',
+                padding: '10px 14px',
+                borderRadius: '16px 16px 16px 4px',
+                fontSize: '13px',
+                lineHeight: '1.4',
+                maxWidth: '90%'
+              }}>
+                {sample.goalMsg}
+              </div>
+            </div>
+
+            <div style={{ fontSize: '11px', opacity: 0.5, textAlign: 'center', marginTop: '4px', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '8px' }}>
+              Цель: {goal ? goal.slice(0, 35) : 'Не выбрана'}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return null;
+  };
+
+  // Helper for step validation
+  const isStep1Valid = !!platform;
+  const isStep2Valid = !!companyName && !!industry;
+  const isStep3Valid = !!tone && !!goal;
+  
+  const canProceed = 
+    (step === 1 && isStep1Valid) || 
+    (step === 2 && isStep2Valid) || 
+    (step === 3 && isStep3Valid);
+
+  // Right Panel Content based on step
+  const getRightPanelTitle = () => {
+    if (step === 1) return "Привет! 👋 Давай создадим твоего первого AI-агента.";
+    if (step === 2) return "Отлично! Расскажи немного о своём бизнесе.";
+    if (step === 3) return "Почти готово! Как твой агент должен общаться?";
+    return "Создаем магию... ✨";
+  };
+
+  const getRightPanelDesc = () => {
+    if (step === 1) return "Выбери платформу, где бот будет встречать твоих клиентов. Ты всегда сможешь добавить другие платформы позже.";
+    if (step === 2) return "Эта информация поможет ИИ понять контекст вашей работы и лучше отвечать клиентам.";
+    if (step === 3) return "Тон общения и главная цель — это то, что отличает обычного бота от гениального AI-сотрудника.";
+    return "Пакуем нейросети, настраиваем серверы и готовим твой дашборд.";
+  };
 
   return (
-    <div className={styles.container}>
+    <div className="main-container">
       <style>{`
-        @keyframes slideUpFade {
-          0% { opacity: 0; transform: translateY(20px); }
-          100% { opacity: 1; transform: translateY(0); }
+        @keyframes fadeInScale {
+          0% { opacity: 0; transform: scale(0.95) translateY(10px); }
+          100% { opacity: 1; transform: scale(1) translateY(0); }
         }
-        @keyframes pulseGlow {
-          0% { box-shadow: 0 0 0 0 rgba(43, 108, 0, 0.4); }
-          70% { box-shadow: 0 0 0 10px rgba(43, 108, 0, 0); }
-          100% { box-shadow: 0 0 0 0 rgba(43, 108, 0, 0); }
+        @keyframes slideInRight {
+          0% { opacity: 0; transform: translateX(-20px); }
+          100% { opacity: 1; transform: translateX(0); }
         }
-        .ai-animated {
-          animation: slideUpFade 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+        @keyframes pulseBg {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
         }
-        .ai-transition-out {
+        .anim-step {
+          animation: fadeInScale 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+        }
+        .anim-item {
           opacity: 0;
-          transform: translateY(-20px);
-          transition: all 0.3s cubic-bezier(0.4, 0, 1, 1);
+          animation: slideInRight 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
         }
-        .ai-pulse {
-          animation: pulseGlow 2s infinite;
-        }
-        .custom-select-dropdown {
-          position: absolute;
-          top: calc(100% + 8px);
-          left: 0; right: 0;
-          background: var(--surface-container-lowest);
-          border: 1px solid var(--outline-variant);
-          border-radius: var(--radius-md);
-          box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
-          z-index: 50;
-          max-height: 250px;
-          overflow-y: auto;
-          padding: 8px;
-          animation: slideUpFade 0.2s ease-out;
-        }
-        .custom-select-option {
-          padding: 10px 12px;
-          border-radius: var(--radius-sm);
-          cursor: pointer;
+        
+        .platform-card {
+          border: 2px solid var(--outline-variant);
           transition: all 0.2s;
+        }
+        .platform-card:hover {
+          border-color: var(--primary);
+          transform: translateY(-4px);
+          box-shadow: 0 12px 24px rgba(43, 108, 0, 0.1);
+        }
+        .platform-card.selected {
+          border-color: var(--primary);
+          background: var(--primary-container);
+        }
+
+        .primary-btn {
+          background: var(--primary);
+          color: var(--on-primary);
+          transition: all 0.2s;
+        }
+        .primary-btn:hover:not(:disabled) {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 16px rgba(43, 108, 0, 0.2);
+        }
+        .primary-btn:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
+        .input-field {
+          width: 100%;
+          padding: 16px 20px;
+          border-radius: 16px;
+          border: 1px solid var(--outline-variant);
+          background: var(--surface-container-lowest);
+          color: var(--on-surface);
+          font-size: 16px;
+          transition: all 0.2s;
+          outline: none;
+        }
+        .input-field:focus {
+          border-color: var(--primary);
+          box-shadow: 0 0 0 4px rgba(43, 108, 0, 0.1);
+        }
+
+        /* Responsive Layout Rules */
+        .main-container {
+          display: flex;
+          height: 100vh;
+          height: 100dvh;
+          background: var(--surface-container-lowest);
+          width: 100%;
+          overflow: hidden;
+        }
+        .left-panel {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          position: relative;
+          background: var(--surface-container-lowest);
+          overflow: hidden;
+        }
+        .right-panel {
+          flex: 1;
+          background: linear-gradient(135deg, var(--primary), #0a2f00);
+          background-size: 200% 200%;
+          animation: pulseBg 15s ease infinite;
+          color: #ffffff;
+          padding: clamp(24px, 4vw, 48px);
+          display: flex;
+          flex-direction: column;
+          min-width: 0;
+          position: relative;
+        }
+        .right-panel * {
+          color: inherit;
+        }
+        .header-container {
+          padding: 16px 32px;
           display: flex;
           align-items: center;
           justify-content: space-between;
-          color: var(--on-surface);
+          border-bottom: 1px solid var(--outline-variant);
+          position: relative;
+          z-index: 1;
         }
-        .custom-select-option:hover {
-          background: var(--surface-container-high);
+        .form-outer {
+          flex: 1;
+          display: flex;
+          align-items: flex-start;
+          justify-content: center;
+          padding: 32px 32px 0 32px;
+          overflow-y: auto;
+          overflow-x: visible;
         }
-        .custom-select-option.selected {
-          background: var(--primary-container);
-          color: var(--primary);
-          font-weight: 600;
+        .form-inner {
+          width: 100%;
+          max-width: 560px;
+          padding-bottom: 48px;
+        }
+        .mobile-step-badge {
+          display: none;
+        }
+
+        @media (max-width: 1023px) {
+          .main-container {
+            flex-direction: column;
+            height: auto;
+            min-height: 100dvh;
+            overflow: visible;
+          }
+          .left-panel {
+            min-height: auto;
+            order: 2;
+            display: flex;
+            flex-direction: column;
+            overflow: visible;
+          }
+          .right-panel {
+            min-height: auto;
+            width: 100%;
+            padding: 32px 20px;
+            order: 1;
+          }
+          .right-panel-steps {
+            display: none !important;
+          }
+          .header-container {
+            padding: 12px 20px;
+            border-top: 1px solid var(--outline-variant);
+            border-bottom: none;
+            order: 3;
+            margin-top: auto;
+          }
+          .form-outer {
+            padding: 24px 20px 0 20px;
+            order: 1;
+          }
+          .form-inner {
+            padding-bottom: 32px;
+          }
+          .mobile-step-badge {
+            display: inline-block;
+            font-size: 13px;
+            font-weight: 600;
+            background: var(--primary-container);
+            color: var(--on-primary-container);
+            padding: 4px 12px;
+            border-radius: 12px;
+          }
+        }
+        
+        @media (max-width: 480px) {
+          .platform-grid {
+            grid-template-columns: 1fr !important;
+          }
         }
       `}</style>
-      
-      <div className={`${styles.header} ai-animated`}>
-        <h2 className={styles.title} style={{ color: 'var(--on-surface)', display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <Bot size={32} color="var(--primary)" /> {t.navCreateBot}
-        </h2>
-        <p className={styles.subtitle} style={{ color: 'var(--on-surface-variant)' }}>{t.configBotSub}</p>
-      </div>
 
-      <div className="ai-animated" style={{ animationDelay: '0.1s' }}>
-        {renderStepsIndicator()}
-      </div>
+      {/* LEFT PANEL - FORM */}
+      <div className="left-panel">
+        
+        {/* Top Header/Nav */}
+        <div className="header-container">
+          {/* Always-visible: back to dashboard */}
+          <button 
+            onClick={() => router.push('/')} 
+            style={{ background: 'none', border: 'none', color: 'var(--on-surface-variant)', fontSize: '15px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', transition: 'color 0.2s', padding: '8px 0' }}
+          >
+            <ArrowLeft size={18} /> На главную
+          </button>
 
-      {message && (
-        <div className="ai-animated" style={{
-          padding: '16px', borderRadius: 'var(--radius-md)', marginBottom: '24px',
-          background: message.type === 'success' ? 'var(--primary-container)' : 'var(--error-container)',
-          border: `1px solid ${message.type === 'success' ? 'var(--primary)' : 'var(--error)'}`,
-          color: message.type === 'success' ? 'var(--on-primary-container)' : 'var(--on-error-container)', 
-          fontSize: '15px', fontWeight: '500'
-        }}>
-          {message.text}
-        </div>
-      )}
-
-      {qrCode && (
-        <div className="ai-animated" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '24px', padding: '24px', background: 'var(--surface-container-lowest)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--outline-variant)' }}>
-          <h3 style={{ color: 'var(--on-surface)', marginBottom: '16px', fontSize: '18px', fontWeight: '600' }}>Отсканируйте код в WhatsApp</h3>
-          <img src={qrCode} alt="WhatsApp QR Code" style={{ width: '100%', maxWidth: '250px', height: 'auto', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline-variant)' }} />
-        </div>
-      )}
-      
-      {waStatus && (
-        <div className="ai-animated" style={{ textAlign: 'center', marginBottom: '24px', color: 'var(--primary)', fontWeight: 'bold', fontSize: '16px' }}>
-          {waStatus}
-        </div>
-      )}
-
-      {(!qrCode && !waStatus) && (
-      <div className={`${styles.card} ${isTransitioning ? 'ai-transition-out' : 'ai-animated'}`} style={{ background: 'var(--surface-container-lowest)', border: '1px solid var(--outline-variant)', animationDelay: '0.2s' }}>
-        {currentStep === 1 && (
-          <div className={styles.formGrid}>
-            <div className={`${styles.formGroup} ${styles.colSpan12}`}>
-              <h3 style={{ fontSize: '20px', fontWeight: '700', color: 'var(--on-surface)', marginBottom: '16px' }}>Шаг 1. {t.behavior}</h3>
-            </div>
-            
-            <div className={`${styles.formGroup} ${styles.colSpan12}`} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 250px), 1fr))', gap: '16px' }}>
-              <div>
-                <label className={styles.label} style={{ color: 'var(--on-surface)' }}>{t.industry}</label>
-                <CustomSelect 
-                  options={INDUSTRIES} 
-                  value={industry} 
-                  onChange={setIndustry} 
-                  placeholder="..."
-                />
-              </div>
-              <div>
-                <label className={styles.label} style={{ color: 'var(--on-surface)' }}>{t.companyName}</label>
-                <input className={styles.input} type="text" value={companyName} onChange={e => setCompanyName(e.target.value)} placeholder="..." />
-              </div>
-            </div>
-
-            <div className={`${styles.formGroup} ${styles.colSpan12}`}>
-              <label className={styles.label} style={{ color: 'var(--on-surface)' }}>Основная задача и описание (Твоя роль)</label>
-              <textarea className={styles.input} rows={4} value={botGoal} onChange={e => setBotGoal(e.target.value)} placeholder="Пример: Твоя задача консультировать клиентов по нашим услугам и собирать их контакты." />
-            </div>
-            
-            <div className={`${styles.formGroup} ${styles.colSpan12}`} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 250px), 1fr))', gap: '16px' }}>
-              <div>
-                <label className={styles.label} style={{ color: 'var(--on-surface)' }}>{t.tone}</label>
-                <CustomSelect 
-                  options={TONES} 
-                  value={tone} 
-                  onChange={setTone} 
-                  placeholder="..."
-                />
-              </div>
-            </div>
-
-            <div className={`${styles.formGroup} ${styles.colSpan12}`}>
-              <label className={styles.label} style={{ color: 'var(--on-surface)' }}>{t.additionalRules}</label>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '8px', padding: '16px', background: 'var(--surface-container)', borderRadius: 'var(--radius-md)' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--on-surface)', fontWeight: '500' }}>
-                  <input type="checkbox" checked={rules.onlyKnowledgeBase} onChange={e => setRules({...rules, onlyKnowledgeBase: e.target.checked})} style={{ width: '18px', height: '18px', accentColor: 'var(--primary)' }} />
-                  {t.onlyKb}
-                </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--on-surface)', fontWeight: '500' }}>
-                  <input type="checkbox" checked={rules.noFabrication} onChange={e => setRules({...rules, noFabrication: e.target.checked})} style={{ width: '18px', height: '18px', accentColor: 'var(--primary)' }} />
-                  {t.noFabrication}
-                </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--on-surface)', fontWeight: '500' }}>
-                  <input type="checkbox" checked={rules.userLanguage} onChange={e => setRules({...rules, userLanguage: e.target.checked})} style={{ width: '18px', height: '18px', accentColor: 'var(--primary)' }} />
-                  {t.userLanguage}
-                </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--on-surface)', fontWeight: '500' }}>
-                  <input type="checkbox" checked={rules.leadToRequest} onChange={e => setRules({...rules, leadToRequest: e.target.checked})} style={{ width: '18px', height: '18px', accentColor: 'var(--primary)' }} />
-                  {t.leadToRequest}
-                </label>
-              </div>
-            </div>
-
-            <div className={`${styles.formGroup} ${styles.colSpan12}`} style={{ borderTop: '1px solid var(--outline-variant)', paddingTop: '24px', marginTop: '16px' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--on-surface)', fontWeight: '600' }}>
-                <input type="checkbox" checked={isManualSystemPrompt} onChange={e => setIsManualSystemPrompt(e.target.checked)} style={{ width: '18px', height: '18px', accentColor: 'var(--primary)' }} />
-                Редактировать инструкции вручную
-              </label>
-              
-              {isManualSystemPrompt && (
-                <div style={{ marginTop: '16px' }} className="ai-animated">
-                  <textarea className={styles.input} rows={12} value={systemPrompt} onChange={e => setSystemPrompt(e.target.value)} style={{ resize: 'vertical', fontFamily: 'monospace', background: 'var(--surface-container-low)', color: 'var(--on-surface)', border: '1px solid var(--outline)' }} />
-                </div>
-              )}
-            </div>
+          {/* Mobile step indicator */}
+          <div className="mobile-step-badge">
+            Шаг {step} из {totalSteps}
           </div>
-        )}
 
-        {currentStep === 2 && (
-          <div className={styles.formGrid}>
-            <div className={`${styles.formGroup} ${styles.colSpan12}`}>
-              <h3 style={{ fontSize: '20px', fontWeight: '700', color: 'var(--on-surface)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Database size={24} color="var(--primary)" /> 📚 {t.dataBase}
-              </h3>
-              <p style={{ color: 'var(--on-surface-variant)', fontSize: '15px', marginBottom: '24px', lineHeight: '1.5' }}>
-                {t.dataBaseDesc}
-              </p>
-            </div>
+          {/* Prev step (only if step > 1) */}
+          {step > 1 && !isSubmitting ? (
+            <button 
+              onClick={prevStep} 
+              style={{ background: 'var(--surface-container-high)', border: 'none', color: 'var(--on-surface)', fontSize: '14px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', transition: 'all 0.2s', padding: '8px 16px', borderRadius: '30px' }}
+            >
+              <ArrowLeft size={16} /> Назад
+            </button>
+          ) : <div />}
+        </div>
 
-            <div className={`${styles.formGroup} ${styles.colSpan12}`}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <label className={styles.label} style={{ color: 'var(--on-surface)', margin: 0 }}>Произвольная информация (База знаний)</label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--primary)', fontWeight: '600', padding: '8px 16px', background: 'var(--primary-container)', borderRadius: 'var(--radius-md)' }}>
-                  <Plus size={16} /> Загрузить PDF
-                  <input type="file" accept="application/pdf" style={{ display: 'none' }} onChange={handlePdfUpload} disabled={isUploadingPdf} />
-                </label>
-              </div>
-              {isUploadingPdf && <div style={{ color: 'var(--primary)', fontSize: '14px', marginBottom: '8px' }}>⏳ Извлекаем текст из PDF...</div>}
-              <textarea className={styles.input} rows={12} value={businessInfo} onChange={e => setBusinessInfo(e.target.value)} placeholder="Скопируйте сюда любую информацию о компании, ценах, услугах, FAQ..." style={{ background: 'var(--surface-container-low)', color: 'var(--on-surface)' }} />
-              <p style={{ color: 'var(--on-surface-variant)', fontSize: '13px', marginTop: '8px' }}>Пишите в свободном формате, искусственный интеллект сам все поймет.</p>
-            </div>
-          </div>
-        )}
 
-        {currentStep === 3 && (
-          <div className={styles.formGrid}>
-            <div className={`${styles.formGroup} ${styles.colSpan12}`}>
-              <h3 style={{ fontSize: '20px', fontWeight: '700', color: 'var(--on-surface)', marginBottom: '16px' }}>Шаг 3. {t.platform}</h3>
-            </div>
-
-            <div className={`${styles.formGroup} ${styles.colSpan12}`}>
-              <label className={styles.label} style={{ color: 'var(--on-surface)', fontSize: '16px', marginBottom: '16px' }}>
-                <span>{t.platform}</span>
-              </label>
-              <div style={{ display: 'flex', gap: '16px' }}>
-                <button 
-                  type="button" 
-                  onClick={() => setPlatform('TELEGRAM')}
-                  style={{ flex: 1, padding: '24px 16px', borderRadius: 'var(--radius-lg)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', border: platform === 'TELEGRAM' ? '2px solid #3b82f6' : '1px solid var(--outline)', background: platform === 'TELEGRAM' ? 'rgba(59,130,246,0.1)' : 'var(--surface-container-lowest)', color: 'var(--on-surface)', cursor: 'pointer', transition: 'all 0.2s', boxShadow: platform === 'TELEGRAM' ? '0 4px 12px rgba(59,130,246,0.15)' : 'none' }}>
-                  <MessageCircle size={32} color={platform === 'TELEGRAM' ? '#3b82f6' : 'var(--outline)'} /> 
-                  <span style={{ fontWeight: '600', fontSize: '16px' }}>Telegram</span>
-                </button>
-                <button 
-                  type="button" 
-                  onClick={() => setPlatform('WHATSAPP')}
-                  style={{ flex: 1, padding: '24px 16px', borderRadius: 'var(--radius-lg)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', border: platform === 'WHATSAPP' ? '2px solid #22c55e' : '1px solid var(--outline)', background: platform === 'WHATSAPP' ? 'rgba(34,197,94,0.1)' : 'var(--surface-container-lowest)', color: 'var(--on-surface)', cursor: 'pointer', transition: 'all 0.2s', boxShadow: platform === 'WHATSAPP' ? '0 4px 12px rgba(34,197,94,0.15)' : 'none' }}>
-                  <Phone size={32} color={platform === 'WHATSAPP' ? '#22c55e' : 'var(--outline)'} /> 
-                  <span style={{ fontWeight: '600', fontSize: '16px' }}>WhatsApp</span>
-                </button>
-                <button 
-                  type="button" 
-                  onClick={() => setPlatform('INSTAGRAM')}
-                  style={{ flex: 1, padding: '24px 16px', borderRadius: 'var(--radius-lg)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', border: platform === 'INSTAGRAM' ? '2px solid #e1306c' : '1px solid var(--outline)', background: platform === 'INSTAGRAM' ? 'rgba(225,48,108,0.1)' : 'var(--surface-container-lowest)', color: 'var(--on-surface)', cursor: 'pointer', transition: 'all 0.2s', boxShadow: platform === 'INSTAGRAM' ? '0 4px 12px rgba(225,48,108,0.15)' : 'none' }}>
-                  <InstagramIcon size={32} color={platform === 'INSTAGRAM' ? '#e1306c' : 'var(--outline)'} /> 
-                  <span style={{ fontWeight: '600', fontSize: '16px' }}>Instagram</span>
-                </button>
-              </div>
-            </div>
-
-            {platform === 'TELEGRAM' && (
-              <div className={`ai-animated ${styles.formGroup} ${styles.colSpan12}`} style={{ marginTop: '16px', padding: '20px', background: 'var(--surface-container)', borderRadius: 'var(--radius-lg)' }}>
-                <label className={styles.label} htmlFor="botToken" style={{ color: 'var(--on-surface)' }}>
-                  <span>{t.telegramToken}</span>
-                  <span style={{ color: '#ef4444', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '13px' }}><Key size={16} /> {t.required}</span>
-                </label>
-                <input className={styles.input} id="botToken"
-                  placeholder="1234567890:ABCDefGhIjKlMnOpQrStUvWxYz"
-                  type="text" value={botToken}
-                  onChange={(e) => setBotToken(e.target.value)} required style={{ border: '1px solid var(--outline)' }} />
-                <div style={{ padding: '16px', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.3)', borderRadius: 'var(--radius-md)', marginTop: '16px', color: 'var(--on-surface)', fontSize: '14px', lineHeight: '1.6' }}>
-                  <h4 style={{ margin: '0 0 12px 0', color: '#3b82f6', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <MessageCircle size={18} /> Как получить токен в Telegram:
-                  </h4>
-                  <ol style={{ margin: 0, paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <li>Откройте Telegram и найдите официального бота <strong>@BotFather</strong></li>
-                    <li>Нажмите <strong>Start</strong> или отправьте команду <code>/newbot</code></li>
-                    <li>Введите имя для вашего бота (например, "Мой Консультант")</li>
-                    <li>Введите уникальное системное имя (должно заканчиваться на "bot", например "MyAI_bot")</li>
-                    <li>BotFather пришлет вам сообщение с токеном (длинная строка символов)</li>
-                    <li>Скопируйте и вставьте этот токен в поле выше</li>
-                  </ol>
+        {/* Form Container */}
+        <div className="form-outer">
+          <div className="form-inner">
+            
+            {/* STEP 1: PLATFORM */}
+            {step === 1 && (
+              <div key="step1" className="anim-step">
+                <h2 style={{ fontSize: '28px', fontWeight: 'bold', color: 'var(--on-surface)', marginBottom: '24px' }}>Где будет работать ваш ИИ-агент?</h2>
+                
+                <div className="platform-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
+                  {platforms.map((p, idx) => (
+                    <div 
+                      key={p.id} 
+                      className={`platform-card anim-item ${platform === p.name ? 'selected' : ''}`}
+                      style={{ animationDelay: `${idx * 0.1}s`, padding: '24px', borderRadius: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', cursor: 'pointer', background: 'var(--surface-container-lowest)' }}
+                      onClick={() => setPlatform(p.name)}
+                    >
+                      <div style={{ background: p.bg, padding: '16px', borderRadius: '50%' }}>
+                        {p.icon}
+                      </div>
+                      <span style={{ fontSize: '18px', fontWeight: '600', color: 'var(--on-surface)' }}>{p.name}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
 
-            {platform === 'INSTAGRAM' && (
-              <div className={`ai-animated ${styles.formGroup} ${styles.colSpan12}`} style={{ marginTop: '16px', padding: '20px', background: 'var(--surface-container)', borderRadius: 'var(--radius-lg)' }}>
-                <label className={styles.label} htmlFor="botToken" style={{ color: 'var(--on-surface)' }}>
-                  <span>Instagram API Token (Page Access Token)</span>
-                  <span style={{ color: '#ef4444', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '13px' }}><Key size={16} /> {t.required}</span>
-                </label>
-                <input className={styles.input} id="botToken"
-                  placeholder="EAAB..."
-                  type="text" value={botToken}
-                  onChange={(e) => setBotToken(e.target.value)} required style={{ border: '1px solid var(--outline)' }} />
-                <div style={{ padding: '16px', background: 'rgba(225,48,108,0.1)', border: '1px solid rgba(225,48,108,0.3)', borderRadius: 'var(--radius-md)', marginTop: '16px', color: 'var(--on-surface)', fontSize: '14px', lineHeight: '1.6' }}>
-                  <h4 style={{ margin: '0 0 12px 0', color: '#e1306c', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <InstagramIcon size={18} /> Как подключить Instagram:
-                  </h4>
-                  <ol style={{ margin: 0, paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <li>Откройте <strong>Meta for Developers</strong> и создайте приложение типа "Business"</li>
-                    <li>Подключите продукт <strong>Instagram Graph API</strong></li>
-                    <li>В настройках сгенерируйте <strong>Маркер доступа страницы (Page Access Token)</strong> и вставьте его выше</li>
-                    <li>Вам также понадобится настроить Webhook в Meta, используя адрес этого сервера</li>
-                  </ol>
+            {/* STEP 2: COMPANY INFO */}
+            {step === 2 && (
+              <div key="step2" className="anim-step">
+                <h2 style={{ fontSize: '28px', fontWeight: 'bold', color: 'var(--on-surface)', marginBottom: '24px' }}>Базовая информация</h2>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                  <div className="anim-item" style={{ animationDelay: '0.1s' }}>
+                    <label style={{ display: 'block', fontSize: '15px', fontWeight: '600', color: 'var(--on-surface)', marginBottom: '8px' }}>Название компании (или ваше имя)</label>
+                    <input 
+                      type="text" 
+                      className="input-field" 
+                      placeholder="Например: Студия красоты 'Эйфория'" 
+                      value={companyName}
+                      onChange={(e) => setCompanyName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                        }
+                      }}
+                    />
+                  </div>
+
+                  <div className="anim-item" style={{ animationDelay: '0.2s', position: 'relative', zIndex: 100 }}>
+                    <label style={{ display: 'block', fontSize: '15px', fontWeight: '600', color: 'var(--on-surface)', marginBottom: '8px' }}>Сфера деятельности</label>
+                    <CustomSelect 
+                      options={industries} 
+                      value={industry} 
+                      onChange={setIndustry} 
+                      placeholder="Выберите сферу бизнеса..."
+                    />
+                  </div>
                 </div>
               </div>
             )}
-            
-            {platform === 'WHATSAPP' && (
-              <div className={`ai-animated ${styles.formGroup} ${styles.colSpan12}`} style={{ marginTop: '16px' }}>
-                <div style={{ padding: '20px', borderRadius: 'var(--radius-lg)', background: 'var(--primary-container)', border: '1px solid var(--primary)', color: 'var(--on-surface)' }}>
-                  <p style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', fontWeight: '600', fontSize: '16px', color: 'var(--primary)' }}>
-                    <CheckCircle2 size={20} /> WhatsApp выбран
-                  </p>
-                  <p style={{ fontSize: '15px', color: 'var(--on-surface-variant)', lineHeight: '1.5' }}>
-                    Токен не требуется. После создания бота появится QR-код для сканирования с телефона в приложении WhatsApp (Раздел "Связанные устройства").
-                  </p>
+
+            {/* STEP 3: AI BEHAVIOR */}
+            {step === 3 && (
+              <div key="step3" className="anim-step">
+                <h2 style={{ fontSize: '28px', fontWeight: 'bold', color: 'var(--on-surface)', marginBottom: '24px' }}>Настройка ИИ-агента</h2>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                  <div className="anim-item" style={{ animationDelay: '0.1s', position: 'relative', zIndex: 101 }}>
+                    <label style={{ display: 'block', fontSize: '15px', fontWeight: '600', color: 'var(--on-surface)', marginBottom: '8px' }}>Формат общения ИИ-сотрудника</label>
+                    <CustomSelect 
+                      options={tones} 
+                      value={tone} 
+                      onChange={setTone} 
+                      placeholder="Выберите формат (тон)..."
+                    />
+                  </div>
+
+                  <div className="anim-item" style={{ animationDelay: '0.2s', position: 'relative', zIndex: 100 }}>
+                    <label style={{ display: 'block', fontSize: '15px', fontWeight: '600', color: 'var(--on-surface)', marginBottom: '8px' }}>Основная цель ИИ-агента</label>
+                    <CustomSelect 
+                      options={goals} 
+                      value={goal} 
+                      onChange={setGoal} 
+                      placeholder="Что должен делать бот?..."
+                    />
+                  </div>
                 </div>
               </div>
             )}
-          </div>
-        )}
 
-        {currentStep === 4 && (
-          <div className={styles.formGrid}>
-            <div className={`${styles.formGroup} ${styles.colSpan12}`}>
-              <h3 style={{ fontSize: '20px', fontWeight: '700', color: 'var(--on-surface)', marginBottom: '16px' }}>Шаг 4. Предпросмотр</h3>
-            </div>
-
-            <div className={`${styles.formGroup} ${styles.colSpan12}`}>
-              <label className={styles.label} style={{ color: 'var(--on-surface)' }}>Платформа</label>
-              <div style={{ padding: '16px', background: 'var(--surface-container)', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline-variant)', color: 'var(--on-surface)', display: 'flex', alignItems: 'center', gap: '12px', fontWeight: '600', fontSize: '16px' }}>
-                {platform === 'TELEGRAM' ? <MessageCircle size={24} color="#3b82f6" /> : platform === 'WHATSAPP' ? <Phone size={24} color="#22c55e" /> : <InstagramIcon size={24} color="#e1306c" />}
-                {platform === 'TELEGRAM' ? 'Telegram' : platform === 'WHATSAPP' ? 'WhatsApp' : 'Instagram'}
+            {/* Error Message */}
+            {errorMsg && (
+              <div style={{ marginTop: '24px', padding: '16px', background: 'var(--error-container)', color: 'var(--on-error-container)', borderRadius: '12px', fontSize: '14px', fontWeight: '500' }}>
+                ⚠️ {errorMsg}
               </div>
-            </div>
+            )}
 
-            <div className={`${styles.formGroup} ${styles.colSpan12}`}>
-              <label className={styles.label} style={{ color: 'var(--on-surface)' }}>{t.sysPromptFull}</label>
-              <pre style={{ padding: '20px', background: 'var(--surface-container-low)', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline)', color: 'var(--on-surface)', whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'break-word', fontSize: '14px', fontFamily: 'monospace', lineHeight: '1.6', maxWidth: '100%', overflow: 'hidden' }}>
-                {systemPrompt}
-              </pre>
-            </div>
-
-            <div className={`${styles.formGroup} ${styles.colSpan12}`}>
-              <label className={styles.label} style={{ color: 'var(--on-surface)' }}>{t.dataPromptFull}</label>
-              <pre style={{ padding: '20px', background: 'var(--surface-container-low)', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline)', color: 'var(--on-surface)', whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'break-word', fontSize: '14px', fontFamily: 'monospace', lineHeight: '1.6', maxWidth: '100%', overflow: 'hidden' }}>
-                {dataPrompt}
-              </pre>
-            </div>
-          </div>
-        )}
-
-        <div className={styles.actionArea} style={{ marginTop: '32px', paddingTop: '24px', borderTop: '1px solid var(--outline-variant)', display: 'flex', justifyContent: 'space-between' }}>
-          {currentStep > 1 ? (
-            <button type="button" className={styles.btnDiscard} onClick={prevStep} style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--on-surface-variant)', fontWeight: '600' }}>
-              <ArrowLeft size={18} /> Назад
-            </button>
-          ) : (
-            <div></div> 
-          )}
-          
-          {currentStep < 4 ? (
-            <button type="button" className={styles.btnPrimary} onClick={nextStep} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--primary)', color: 'var(--on-primary)', padding: '12px 24px', borderRadius: 'var(--radius-md)', fontWeight: '600', fontSize: '15px' }}>
-              Далее <ArrowRight size={18} />
-            </button>
-          ) : (
-            <button type="button" className={styles.btnPrimary} onClick={handleSubmit} disabled={isSubmitting || ((platform === 'TELEGRAM' || platform === 'INSTAGRAM') && !botToken)} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--primary)', color: 'var(--on-primary)', padding: '12px 24px', borderRadius: 'var(--radius-md)', fontWeight: '600', fontSize: '15px', border: 'none', cursor: (isSubmitting || ((platform === 'TELEGRAM' || platform === 'INSTAGRAM') && !botToken)) ? 'not-allowed' : 'pointer', opacity: (isSubmitting || ((platform === 'TELEGRAM' || platform === 'INSTAGRAM') && !botToken)) ? 0.7 : 1 }}>
-              {isSubmitting ? 'Создание...' : 'Создать бота'} <Bot size={18} />
-            </button>
-          )}
-        </div>
-      </div>
-      )}
-
-      {testChatOpen && (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
-          <div className="ai-animated" style={{ background: 'var(--surface)', width: '90%', maxWidth: '400px', height: '600px', maxHeight: '90vh', borderRadius: 'var(--radius-lg)', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.3)', border: '1px solid var(--outline-variant)' }}>
-            <div style={{ padding: '16px', background: 'var(--primary)', color: 'var(--on-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}><Bot size={20} /> Тест бота</div>
-              <button onClick={() => setTestChatOpen(false)} style={{ color: 'var(--on-primary)', cursor: 'pointer' }}><X size={20} /></button>
-            </div>
-            <div style={{ flex: 1, padding: '16px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', background: 'var(--background)' }}>
-              {testMessages.length === 0 && <div style={{ textAlign: 'center', color: 'var(--on-surface-variant)', marginTop: '40px', fontSize: '15px' }}>Напишите что-нибудь, чтобы проверить ответы бота ✨</div>}
-              {testMessages.map((msg, i) => (
-                <div key={i} style={{ alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start', background: msg.role === 'user' ? 'var(--primary-container)' : 'var(--surface-container)', color: msg.role === 'user' ? 'var(--on-primary-container)' : 'var(--on-surface)', padding: '12px 16px', borderRadius: '16px', borderBottomRightRadius: msg.role === 'user' ? '4px' : '16px', borderBottomLeftRadius: msg.role !== 'user' ? '4px' : '16px', maxWidth: '85%', fontSize: '14.5px', whiteSpace: 'pre-wrap', lineHeight: '1.4' }}>
-                  {msg.content}
-                </div>
-              ))}
-              {isTestLoading && <div style={{ alignSelf: 'flex-start', color: 'var(--on-surface-variant)', fontSize: '13px', marginLeft: '4px' }}>Бот печатает...</div>}
-            </div>
-            <div style={{ padding: '12px', background: 'var(--surface-container-low)', borderTop: '1px solid var(--outline-variant)', display: 'flex', gap: '8px' }}>
-              <input type="text" value={testInput} onChange={e => setTestInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleTestSend()} placeholder="Введите сообщение..." style={{ flex: 1, padding: '12px 16px', borderRadius: '24px', border: '1px solid var(--outline-variant)', background: 'var(--surface-container-lowest)', color: 'var(--on-surface)', outline: 'none' }} />
-              <button onClick={handleTestSend} disabled={isTestLoading} style={{ background: 'var(--primary)', color: 'var(--on-primary)', borderRadius: '50%', width: '46px', height: '46px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: isTestLoading ? 'not-allowed' : 'pointer', opacity: isTestLoading ? 0.7 : 1 }}>
-                <MessageCircle size={20} />
+            {/* Action Button */}
+            <div className="anim-item" style={{ marginTop: '32px', animationDelay: '0.3s', position: 'relative', zIndex: 1 }}>
+              <button 
+                onClick={nextStep}
+                disabled={!canProceed || isSubmitting}
+                className="primary-btn"
+                style={{ 
+                  width: '100%', 
+                  padding: '18px', 
+                  border: 'none', 
+                  borderRadius: '16px', 
+                  fontSize: '18px', 
+                  fontWeight: '600', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  gap: '12px',
+                  position: 'relative',
+                  zIndex: 1
+                }}
+              >
+                {isSubmitting ? (
+                  <>Создаем агента... ✨</>
+                ) : step === totalSteps ? (
+                  <>Запустить ИИ-агента <Sparkles size={20} /></>
+                ) : (
+                  <>Далее <ArrowRight size={20} /></>
+                )}
               </button>
             </div>
+
+          </div>
+        </div>
+      </div>
+
+      {/* RIGHT PANEL - PROGRESS & INFO */}
+      <div className="right-panel">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: 'clamp(20px, 4vh, 60px)' }}>
+          <img src="/logo.jpg" alt="Logo" style={{ width: '48px', height: '48px', borderRadius: '12px', objectFit: 'cover' }} />
+          <span style={{ fontSize: '20px', fontWeight: 'bold', letterSpacing: '1px' }}>UP-CHAT</span>
+        </div>
+
+        <div key={`title-${step}`} className="anim-item" style={{ marginBottom: 'clamp(12px, 2vh, 16px)' }}>
+          <h2 style={{ fontSize: 'clamp(22px, 3vw, 30px)', fontWeight: 'bold', lineHeight: '1.3', color: '#ffffff', margin: 0 }}>{getRightPanelTitle()}</h2>
+        </div>
+        
+        <div key={`desc-${step}`} className="anim-item" style={{ animationDelay: '0.1s', marginBottom: 'clamp(20px, 3vh, 40px)' }}>
+          <p style={{ fontSize: 'clamp(14px, 1.6vw, 17px)', lineHeight: '1.6', color: 'rgba(255,255,255,0.70)', marginBottom: 0 }}>
+            {getRightPanelDesc()}
+          </p>
+        </div>
+
+        {renderRightPanelPreview()}
+
+        {/* Progress Steps */}
+        <div className="right-panel-steps" style={{ marginTop: 'auto', paddingTop: 'clamp(16px, 3vh, 32px)', display: 'flex', flexDirection: 'column', gap: 'clamp(12px, 2vh, 24px)' }}>
+          {[
+            { num: 1, label: 'Платформа' },
+            { num: 2, label: 'Базовая информация' },
+            { num: 3, label: 'Настройка поведения' }
+          ].map((s) => {
+            const isCompleted = step > s.num;
+            const isActive = step === s.num;
+            const color = isCompleted || isActive ? 'white' : 'rgba(255,255,255,0.3)';
+            const weight = isActive ? '700' : '500';
+            
+            return (
+              <div key={s.num} style={{ display: 'flex', alignItems: 'center', gap: '16px', transition: 'all 0.3s' }}>
+                <div style={{ 
+                  width: '32px', height: '32px', borderRadius: '50%', 
+                  background: isCompleted ? 'rgba(255,255,255,0.2)' : isActive ? 'white' : 'transparent',
+                  border: `2px solid ${isCompleted || isActive ? 'white' : 'rgba(255,255,255,0.3)'}`,
+                  color: isActive ? 'var(--primary)' : color,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontWeight: 'bold', fontSize: '14px', flexShrink: 0,
+                  transition: 'all 0.3s'
+                }}>
+                  {isCompleted ? <CheckCircle2 size={18} color="white" /> : s.num}
+                </div>
+                <span style={{ color, fontWeight: weight, fontSize: '16px', transition: 'all 0.3s' }}>
+                  {s.label}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Decorative elements */}
+        <div style={{ position: 'absolute', top: '-10%', right: '-20%', width: '300px', height: '300px', background: 'radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }}></div>
+        <div style={{ position: 'absolute', bottom: '-5%', left: '-10%', width: '400px', height: '400px', background: 'radial-gradient(circle, rgba(255,255,255,0.05) 0%, transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }}></div>
+      </div>
+
+      {/* FULL-SCREEN ACTIVATION ANIMATION OVERLAY */}
+      {isSubmitting && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'radial-gradient(circle at center, #0a1f10 0%, #020704 100%)',
+          zIndex: 9999,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: 'white',
+          fontFamily: 'system-ui, -apple-system, sans-serif'
+        }}>
+          <style>{`
+            @keyframes pulseBrain {
+              0% { transform: scale(1); filter: drop-shadow(0 0 20px rgba(34, 197, 94, 0.4)); }
+              50% { transform: scale(1.05); filter: drop-shadow(0 0 40px rgba(34, 197, 94, 0.8)); }
+              100% { transform: scale(1); filter: drop-shadow(0 0 20px rgba(34, 197, 94, 0.4)); }
+            }
+            @keyframes rotateOuter {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+            .brain-glow {
+              animation: pulseBrain 2s infinite ease-in-out;
+            }
+            .ring-rotate {
+              animation: rotateOuter 8s infinite linear;
+            }
+          `}</style>
+          
+          <div style={{ position: 'relative', width: '160px', height: '160px', marginBottom: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {/* Outer rotating glowing ring */}
+            <div className="ring-rotate" style={{
+              position: 'absolute',
+              width: '140px', height: '140px',
+              border: '2px dashed rgba(34, 197, 94, 0.3)',
+              borderRadius: '50%',
+            }}></div>
+            <div className="ring-rotate" style={{
+              position: 'absolute',
+              width: '160px', height: '160px',
+              border: '2px solid transparent',
+              borderTopColor: '#22c55e',
+              borderBottomColor: '#10b981',
+              borderRadius: '50%',
+              animationDuration: '4s'
+            }}></div>
+            
+            {/* Logo/Icon inside */}
+            <div className="brain-glow" style={{
+              width: '100px', height: '100px',
+              background: 'white',
+              borderRadius: '30px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 0 40px rgba(34, 197, 94, 0.5)',
+              overflow: 'hidden'
+            }}>
+              <img src="/logo.jpg" alt="Logo" style={{ width: '80px', height: '80px', borderRadius: '20px', objectFit: 'cover' }} />
+            </div>
+          </div>
+
+          <h2 style={{ fontSize: '28px', fontWeight: 'bold', letterSpacing: '0.5px', marginBottom: '16px', backgroundImage: 'linear-gradient(to right, #22c55e, #10b981)', backgroundClip: 'text', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+            Активация вашего бот-ассистента...
+          </h2>
+          
+          {/* Progress sequence */}
+          <div style={{ fontSize: '16px', color: '#9ca3af', minHeight: '24px', transition: 'all 0.3s' }}>
+            {companyName ? `Инициализация нейросети для "${companyName}"...` : 'Инициализация нейросети...'}
+          </div>
+          
+          <div style={{ marginTop: '40px', display: 'flex', gap: '8px' }}>
+            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#22c55e', animation: 'pulseBrain 1s infinite alternate' }}></div>
+            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', animation: 'pulseBrain 1s infinite alternate', animationDelay: '0.3s' }}></div>
+            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#a7f3d0', animation: 'pulseBrain 1s infinite alternate', animationDelay: '0.6s' }}></div>
           </div>
         </div>
       )}

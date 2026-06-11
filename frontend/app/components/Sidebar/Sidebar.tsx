@@ -44,7 +44,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       />
       <nav className={`${styles.sidebar} ${isOpen ? styles.sidebarMobileOpen : styles.sidebarMobileHidden}`}>
         <div className={styles.brand}>
-          <div className={styles.logoIcon}>B</div>
+          <img src="/logo.jpg" alt="Logo" style={{ width: '36px', height: '36px', borderRadius: '8px', objectFit: 'cover' }} />
           <div>
             <div className={styles.brandText}>UP-CHAT</div>
             <div className={styles.brandSub}>Enterprise AI</div>

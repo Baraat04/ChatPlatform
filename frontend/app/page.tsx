@@ -147,7 +147,7 @@ export default function HomePage() {
 
   if (loading || (!user && !loading)) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-base)' }}>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--background)' }}>
         <div style={{ width: 40, height: 40, border: '3px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
       </div>
     );
@@ -163,7 +163,7 @@ export default function HomePage() {
   const greeting = hour < 12 ? tLocal.morning : hour < 18 ? tLocal.afternoon : tLocal.evening;
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg-base)', color: 'var(--on-surface)', padding: 'clamp(16px, 4vw, 32px) clamp(12px, 4vw, 28px)', fontFamily: 'var(--font-plus-jakarta, Inter, sans-serif)', boxSizing: 'border-box', overflowX: 'hidden' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--background)', color: 'var(--on-surface)', padding: 'clamp(16px, 4vw, 32px) clamp(12px, 4vw, 28px)', fontFamily: 'var(--font-inter), sans-serif', boxSizing: 'border-box', overflowX: 'hidden' }}>
       <div style={{ maxWidth: 1000, margin: '0 auto', width: '100%' }}>
 
         {/* Header greeting */}
@@ -205,7 +205,9 @@ export default function HomePage() {
               sub: tLocal.allTime
             },
           ].map((kpi, i) => (
-            <div key={i} style={{ background: 'var(--surface-container-low)', borderRadius: 16, padding: '20px', border: '1px solid var(--outline-variant)', display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+            <div key={i} style={{ background: 'var(--surface-container-lowest)', borderRadius: 24, padding: '24px', border: '1px solid var(--surface-variant)', boxShadow: '0 4px 20px rgba(0,0,0,0.03)', display: 'flex', alignItems: 'flex-start', gap: 14, transition: 'transform 0.2s, box-shadow 0.2s' }}
+              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 12px 24px rgba(0,0,0,0.06)'; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.03)'; }}>
               <div style={{ padding: 10, borderRadius: 12, background: `${kpi.color}18`, color: kpi.color, flexShrink: 0 }}>{kpi.icon}</div>
               <div>
                 <div style={{ fontSize: 11, color: 'var(--on-surface-variant)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4, fontWeight: 600 }}>{kpi.label}</div>
@@ -217,7 +219,7 @@ export default function HomePage() {
         </div>
 
         {/* Large Messages Balance Hero Card */}
-        <div style={{ background: 'var(--surface-container-low)', borderRadius: 20, padding: '32px', border: '1px solid var(--outline-variant)' }}>
+        <div style={{ background: 'var(--surface-container-lowest)', borderRadius: 24, padding: '32px', border: '1px solid var(--surface-variant)', boxShadow: '0 8px 30px rgba(0,0,0,0.04)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 24 }}>
             <Wallet size={20} style={{ color: 'var(--primary)' }} />
             <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>{tLocal.balanceTitle}</h2>

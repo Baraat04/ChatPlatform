@@ -231,6 +231,131 @@ router.delete('/bot/:id', requireAuth, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }) }
 })
 
+// ── CHANNELS (Multi-platform per bot) ──────────────────
+
+// GET channels for a bot
+router.get('/bot/:id/channels', requireAuth, async (req, res) => {
+    try {
+        const prisma = getPrisma()
+        const channels = await prisma.channel.findMany({
+            where: { botId: Number(req.params.id) },
+            orderBy: { createdAt: 'asc' }
+        })
+        res.json(channels)
+    } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+// POST add a channel to a bot
+router.post('/bot/:id/channels', requireAuth, async (req, res) => {
+    try {
+        const prisma = getPrisma()
+        const io = req.app.get('io')
+        const botId = Number(req.params.id)
+        const { platform, apiToken } = req.body
+
+        // Check bot belongs to user
+        const bot = await prisma.bot.findUnique({ where: { id: botId, user_id: req.session.userId } })
+        if (!bot) return res.status(404).json({ error: 'Bot not found' })
+
+        // Check no duplicate platform channel for this bot
+        const existing = await prisma.channel.findFirst({ where: { botId, platform } })
+        if (existing) return res.status(400).json({ error: `Channel for ${platform} already exists` })
+
+        const startsActive = platform === 'TELEGRAM'
+
+        const channel = await prisma.channel.create({
+            data: {
+                botId,
+                platform,
+                apiToken: apiToken || null,
+                isActive: startsActive,
+                slug: `ch-${botId}-${platform.toLowerCase()}-${Date.now()}`,
+            }
+        })
+
+        res.json(channel)
+
+        // Telegram Webhook Setup
+        if (platform === 'TELEGRAM' && apiToken) {
+            try {
+                let baseUrl = process.env.BASE_URL || process.env.APP_URL || 'https://yourdomain.com'
+                baseUrl = baseUrl.replace(/\/+$/, '')
+                const webhookUrl = `${baseUrl}/api/webhook/telegram/${channel.slug}`
+                await callTelegramAPI('setWebhook', apiToken, { url: webhookUrl })
+                console.log(`[Telegram Channel ${channel.id}] Webhook set to ${webhookUrl}`)
+            } catch (err) {
+                console.error(`[Telegram Channel ${channel.id}] Failed to set webhook:`, err.message)
+            }
+        }
+
+        // WhatsApp - start QR scan flow
+        if (platform === 'WHATSAPP') {
+            const { startWhatsAppChannel } = await import('../services/whatsapp.js')
+            startWhatsAppChannel(channel, bot, getPrisma(), io).catch(err => {
+                console.error(`[WhatsApp Channel ${channel.id}] Failed to start:`, err)
+            })
+        }
+    } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+// DELETE a channel
+router.delete('/bot/:id/channels/:channelId', requireAuth, async (req, res) => {
+    try {
+        const prisma = getPrisma()
+        const botId = Number(req.params.id)
+        const channelId = Number(req.params.channelId)
+
+        // Verify ownership via bot
+        const bot = await prisma.bot.findUnique({ where: { id: botId, user_id: req.session.userId } })
+        if (!bot) return res.status(404).json({ error: 'Bot not found' })
+
+        const channel = await prisma.channel.findUnique({ where: { id: channelId, botId } })
+        if (!channel) return res.status(404).json({ error: 'Channel not found' })
+
+        // Clean up
+        if (channel.platform === 'TELEGRAM' && channel.apiToken) {
+            try { await callTelegramAPI('deleteWebhook', channel.apiToken, {}) } catch (e) {}
+        }
+        if (channel.platform === 'WHATSAPP') {
+            try {
+                const { stopWhatsAppChannel } = await import('../services/whatsapp.js')
+                await stopWhatsAppChannel(channelId)
+            } catch (e) {}
+        }
+
+        await prisma.channel.delete({ where: { id: channelId } })
+        res.json({ success: true })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+// POST toggle channel active state
+router.post('/bot/:id/channels/:channelId/toggle', requireAuth, async (req, res) => {
+    try {
+        const prisma = getPrisma()
+        const io = req.app.get('io')
+        const botId = Number(req.params.id)
+        const channelId = Number(req.params.channelId)
+
+        const bot = await prisma.bot.findUnique({ where: { id: botId, user_id: req.session.userId } })
+        if (!bot) return res.status(404).json({ error: 'Bot not found' })
+
+        const channel = await prisma.channel.findUnique({ where: { id: channelId, botId } })
+        if (!channel) return res.status(404).json({ error: 'Channel not found' })
+
+        const updated = await prisma.channel.update({
+            where: { id: channelId },
+            data: { isActive: !channel.isActive }
+        })
+
+        if (!channel.isActive && channel.platform === 'WHATSAPP') {
+            const { startWhatsAppChannel } = await import('../services/whatsapp.js')
+            startWhatsAppChannel(channel, bot, getPrisma(), io).catch(e => {})
+        }
+
+        res.json(updated)
+    } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
 // ── BOT STATUS / PAUSE ───────────────────────────────────
 
 // POST /api/bot/:id/pause — полностью останавливает бота (isActive = false + отключает сокет)
@@ -402,31 +527,28 @@ router.get('/bot/:id/chats', async (req, res) => {
                 continue
             }
 
+            // Определяем платформу: если поле platform не заполнено (старые сообщения),
+            // то определяем по формату chatId: @ = WhatsApp, иначе Telegram
+            const platform = msg.platform 
+                ? msg.platform 
+                : (rawId.includes('@s.whatsapp.net') || rawId.includes('@lid') || rawId.includes('@g.us')) 
+                    ? 'WHATSAPP' 
+                    : 'TELEGRAM';
+
             chatMap.set(rawId, {
                 chatId: rawId,
                 lastMessage: msg.text,
                 lastAt: msg.createdAt,
                 lastSender: msg.sender,
                 name: contactMap.get(rawId) || '',
-                realJid: realJidMap.get(rawId) || null
+                realJid: realJidMap.get(rawId) || null,
+                platform,
+                channelId: msg.channelId || null
             })
         }
 
-        // Add contacts that don't have messages yet
-        for (const contact of contacts) {
-            // Игнорируем ЛЮБЫЕ пустые LID контакты, так как пустой LID чат не имеет смысла
-            if (contact.chatId.includes('@lid')) continue;
-
-            if (!chatMap.has(contact.chatId)) {
-                chatMap.set(contact.chatId, {
-                    chatId: contact.chatId,
-                    lastMessage: '(Нет сообщений)',
-                    lastAt: new Date(0),
-                    lastSender: '',
-                    name: contact.name || ''
-                })
-            }
-        }
+        // Убрали добавление пустых контактов (у которых нет сообщений), 
+        // чтобы синхронизация телефонной книги WhatsApp не засоряла список чатов пустыми беседами.
         const chats = Array.from(chatMap.values()).sort(
             (a, b) => new Date(b.lastAt).getTime() - new Date(a.lastAt).getTime()
         )
@@ -536,16 +658,34 @@ router.post('/bot/:id/send', async (req, res) => {
         const bot = await prisma.bot.findUnique({ where: { id: botId } })
         if (!bot) return res.status(404).json({ error: 'Bot not found' })
 
+        // Find last message to determine channel and platform
+        const lastMsg = await prisma.message.findFirst({
+            where: { botId, chatId: rawChatId },
+            orderBy: { createdAt: 'desc' }
+        })
+
+        const platform = lastMsg?.platform || bot.platform;
+        let channelId = lastMsg?.channelId || null;
+        let apiToken = bot.apiToken;
+
+        if (channelId) {
+            const channel = await prisma.channel.findUnique({ where: { id: channelId } });
+            if (channel) {
+                apiToken = channel.apiToken || apiToken;
+            }
+        }
+
         let chatId = rawChatId;
-        if (bot.platform === 'WHATSAPP') {
+        if (platform === 'WHATSAPP') {
             chatId = rawChatId.includes('@') ? rawChatId : `${rawChatId}@s.whatsapp.net`;
             const { getWhatsAppSession } = await import('../services/whatsapp.js');
-            const sock = getWhatsAppSession(botId);
+            const sessionId = channelId ? `ch_${channelId}` : botId;
+            const sock = getWhatsAppSession(sessionId);
             if (!sock) return res.status(503).json({ error: 'WhatsApp session not active. Start the bot first.' });
             await sock.sendMessage(chatId, { text });
-        } else if (bot.platform === 'TELEGRAM') {
-            if (!bot.apiToken) return res.status(503).json({ error: 'Telegram API token missing.' });
-            await callTelegramAPI('sendMessage', bot.apiToken, {
+        } else if (platform === 'TELEGRAM') {
+            if (!apiToken) return res.status(503).json({ error: 'Telegram API token missing.' });
+            await callTelegramAPI('sendMessage', apiToken, {
                 chat_id: chatId,
                 text: text
             });
@@ -553,10 +693,10 @@ router.post('/bot/:id/send', async (req, res) => {
 
         // Save sent message to DB
         const savedMsg = await prisma.message.create({
-            data: { botId, sender: 'bot', text, chatId }
+            data: { botId, channelId, platform, sender: 'bot', text, chatId }
         })
 
-        io.emit(`chat-${botId}`, savedMsg)
+        io.emit(`chat-${botId}`, { ...savedMsg, platform })
         res.json({ success: true, message: savedMsg })
     } catch (e) { res.status(500).json({ error: e.message }) }
 })
@@ -691,9 +831,26 @@ router.post('/webhook/telegram/:slug', async (req, res) => {
 
     try {
         const prisma = getPrisma()
-        const bot = await prisma.bot.findUnique({ where: { slug: req.params.slug } })
-        
-        if (!bot || !bot.isActive || bot.platform !== 'TELEGRAM') return
+        const slug = req.params.slug
+
+        // Support both Channel slugs (new) and legacy Bot slugs (backward compat)
+        let bot = null
+        let channel = null
+
+        // Try Channel slug first (new multi-channel system)
+        channel = await prisma.channel.findUnique({
+            where: { slug },
+            include: { bot: true }
+        })
+
+        if (channel && channel.isActive && channel.platform === 'TELEGRAM') {
+            bot = channel.bot
+        } else {
+            // Fallback: legacy Bot slug
+            bot = await prisma.bot.findUnique({ where: { slug } })
+            if (!bot || !bot.isActive || bot.platform !== 'TELEGRAM') return
+            channel = null // legacy mode
+        }
 
         const update = req.body
         const message = update.message || update.edited_message || update.callback_query?.message || update.channel_post;
@@ -704,13 +861,15 @@ router.post('/webhook/telegram/:slug', async (req, res) => {
         let telegramAudioBuffer = null;
         let mimeType = null;
 
+        const tokenToUse = channel ? channel.apiToken : bot.apiToken
+
         if (message.voice || message.audio) {
             const fileId = message.voice?.file_id || message.audio?.file_id;
             try {
-                const fileData = await fetch(`https://api.telegram.org/bot${bot.apiToken}/getFile?file_id=${fileId}`).then(r=>r.json());
+                const fileData = await fetch(`https://api.telegram.org/bot${tokenToUse}/getFile?file_id=${fileId}`).then(r=>r.json());
                 if (fileData.ok) {
                     const filePath = fileData.result.file_path;
-                    const audioRes = await fetch(`https://api.telegram.org/file/bot${bot.apiToken}/${filePath}`);
+                    const audioRes = await fetch(`https://api.telegram.org/file/bot${tokenToUse}/${filePath}`);
                     const arrayBuffer = await audioRes.arrayBuffer();
                     telegramAudioBuffer = Buffer.from(arrayBuffer);
                     mimeType = message.voice?.mime_type || message.audio?.mime_type || 'audio/ogg';
@@ -754,11 +913,18 @@ router.post('/webhook/telegram/:slug', async (req, res) => {
             io.emit(`contact-update-${bot.id}`, contact)
         }
 
-        // 2. Save user message
+        // 2. Save user message (with platform tag)
         const userMsg = await prisma.message.create({
-            data: { botId: bot.id, sender: 'user', text, chatId: telegramChatId }
+            data: { 
+                botId: bot.id, 
+                channelId: channel?.id || null,
+                platform: 'TELEGRAM',
+                sender: 'user', 
+                text, 
+                chatId: telegramChatId 
+            }
         })
-        io.emit(`chat-${bot.id}`, userMsg)
+        io.emit(`chat-${bot.id}`, { ...userMsg, platform: 'TELEGRAM' })
 
         // If bot is paused for this chat, don't reply
         if ((bot.pausedChats || []).includes(telegramChatId)) return
@@ -766,7 +932,7 @@ router.post('/webhook/telegram/:slug', async (req, res) => {
         // 3. Check if user has messages remaining
         const canProceed = await hasEnoughMessages(bot.user_id)
         if (!canProceed) {
-            await callTelegramAPI('sendMessage', bot.apiToken, {
+            await callTelegramAPI('sendMessage', tokenToUse, {
                 chat_id: telegramChatId,
                 text: 'Баланс сообщений исчерпан. Пополните баланс в панели управления.'
             })
@@ -780,7 +946,6 @@ router.post('/webhook/telegram/:slug', async (req, res) => {
             take: 20
         })
         
-        // GeminiService handles greeting logic automatically based on history presence
         const systemInstruction = `${bot.system_prompt || ''}\n\nCRITICAL: Follow the system instructions exactly. Pay extreme attention to any [Correction] or [IMPORTANT CORRECTION] tags at the end of the instructions.`;
         const ragContext = bot.data_prompt || '';
 
@@ -817,21 +982,29 @@ router.post('/webhook/telegram/:slug', async (req, res) => {
         }
 
         // 6. Send message back to Telegram
-        await callTelegramAPI('sendMessage', bot.apiToken, {
+        await callTelegramAPI('sendMessage', tokenToUse, {
             chat_id: telegramChatId,
             text: aiResponseText
         })
 
-        // 7. Save bot reply
+        // 7. Save bot reply (with platform tag)
         const botMsg = await prisma.message.create({
-            data: { botId: bot.id, sender: 'bot', text: aiResponseText, chatId: telegramChatId }
+            data: { 
+                botId: bot.id, 
+                channelId: channel?.id || null,
+                platform: 'TELEGRAM',
+                sender: 'bot', 
+                text: aiResponseText, 
+                chatId: telegramChatId 
+            }
         })
-        io.emit(`chat-${bot.id}`, botMsg)
+        io.emit(`chat-${bot.id}`, { ...botMsg, platform: 'TELEGRAM' })
 
     } catch (e) {
         console.error('Telegram webhook processing error:', e)
     }
 })
+
 
 // ── INSTAGRAM WEBHOOK (GLOBAL) ──────────────────────────────
 

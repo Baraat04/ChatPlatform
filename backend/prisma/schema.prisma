@@ -73,6 +73,7 @@ model Bot {
   user_id       Int
   user          User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
   whatsappSessions BaileysSession[]
+  channels         Channel[]
   messages         Message[]
   usage            AIUsage[]
 
@@ -93,16 +94,35 @@ model BaileysSession {
   @@unique([botId, category, key])
 }
 
-model Message {
-  id        Int      @id @default(autoincrement())
+model Channel {
+  id        Int         @id @default(autoincrement())
   botId     Int
-  bot       Bot      @relation(fields: [botId], references: [id], onDelete: Cascade)
-  sender    String   // 'user' or 'bot'
-  text      String   @db.Text
-  chatId    String   // phone number or telegram chat id
-  createdAt DateTime @default(now())
+  bot       Bot         @relation(fields: [botId], references: [id], onDelete: Cascade)
+  platform  BotPlatform
+  apiToken  String?
+  isActive  Boolean     @default(false)
+  slug      String      @unique
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  messages  Message[]
+
+  @@index([botId])
+}
+
+model Message {
+  id         Int      @id @default(autoincrement())
+  botId      Int
+  bot        Bot      @relation(fields: [botId], references: [id], onDelete: Cascade)
+  channelId  Int?
+  channel    Channel? @relation(fields: [channelId], references: [id], onDelete: SetNull)
+  platform   String?  // 'TELEGRAM' | 'WHATSAPP' — for filtering
+  sender     String   // 'user' or 'bot'
+  text       String   @db.Text
+  chatId     String   // phone number or telegram chat id
+  createdAt  DateTime @default(now())
 
   @@index([botId, chatId])
+  @@index([botId, platform])
 }
 
 model Contact {

@@ -13,15 +13,16 @@ const __dirname = path.dirname(__filename)
 
 const sessions = new Map() // botId -> socket
 
-export const startWhatsAppBot = async (bot, prisma, io) => {
-    const { id: botId, system_prompt, data_prompt } = bot
+export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
+    const botId = bot.id
+    const sessionId = channel ? `ch_${channel.id}` : botId;
 
-    if (sessions.has(botId)) {
-        console.log(`WhatsApp bot ${botId} is already running.`)
-        return sessions.get(botId)
+    if (sessions.has(sessionId)) {
+        console.log(`WhatsApp session ${sessionId} is already running.`)
+        return sessions.get(sessionId)
     }
 
-    const sessionDir = path.join(__dirname, `../../sessions/bot_${botId}`)
+    const sessionDir = path.join(__dirname, `../../sessions/session_${sessionId}`)
     if (!fs.existsSync(sessionDir)) {
         fs.mkdirSync(sessionDir, { recursive: true })
     }
@@ -40,7 +41,7 @@ export const startWhatsAppBot = async (bot, prisma, io) => {
         defaultQueryTimeoutMs: 60000
     })
 
-    sessions.set(botId, sock)
+    sessions.set(sessionId, sock)
     
     // Persistent LID to JID mapping from DB
     let lidToJid = new Map()
@@ -295,19 +296,19 @@ export const startWhatsAppBot = async (bot, prisma, io) => {
                 const statusCode = (lastDisconnect?.error instanceof Boom) ? lastDisconnect.error.output?.statusCode : undefined;
                 const shouldReconnect = statusCode !== DisconnectReason.loggedOut && statusCode !== 405;
                 
-                console.log(`[WhatsApp Bot ${botId}] connection closed due to`, lastDisconnect?.error, ', reconnecting:', shouldReconnect)
+                console.log(`[WhatsApp Session ${sessionId}] connection closed due to`, lastDisconnect?.error, ', reconnecting:', shouldReconnect)
                 
-                sessions.delete(botId)
+                sessions.delete(sessionId)
                 
                 if (shouldReconnect) {
-                    setTimeout(() => startWhatsAppBot(bot, prisma, io).catch(console.error), 2000)
+                    setTimeout(() => startWhatsAppBot(bot, prisma, io, channel).catch(console.error), 2000)
                 } else {
-                    console.log(`[WhatsApp Bot ${botId}] Session invalid/logged out (Code ${statusCode}). Deleting session data.`)
+                    console.log(`[WhatsApp Session ${sessionId}] Session invalid/logged out (Code ${statusCode}). Deleting session data.`)
                     try { fs.rmSync(sessionDir, { recursive: true, force: true }) } catch (e) {}
                     io.emit(`status-${botId}`, 'logged_out')
                 }
             } else if (connection === 'open') {
-                console.log(`[WhatsApp Bot ${botId}] Connected!`)
+                console.log(`[WhatsApp Session ${sessionId}] Connected!`)
                 io.emit(`status-${botId}`, 'connected')
             }
         } catch (err) {
@@ -487,7 +488,7 @@ export const startWhatsAppBot = async (bot, prisma, io) => {
             try {
                 const savedMsg = await prisma.message.create({
                     // Если fromMe === true, значит владелец сам ответил с телефона. Помечаем как 'bot', чтобы в UI было справа
-                    data: { botId, sender: isFromMe ? 'bot' : 'user', text: textMessage, chatId: senderNumber }
+                    data: { botId, channelId: channel ? channel.id : null, platform: 'WHATSAPP', sender: isFromMe ? 'bot' : 'user', text: textMessage, chatId: senderNumber }
                 })
                 // Отправляем сообщение + имя контакта для фронтенда
                 io.emit(`chat-${botId}`, { ...savedMsg, contactName: pushName })
@@ -560,12 +561,12 @@ export const startWhatsAppBot = async (bot, prisma, io) => {
     return sock
 }
 
-export const getWhatsAppSession = (botId) => {
-    return sessions.get(botId)
+export const getWhatsAppSession = (sessionId) => {
+    return sessions.get(sessionId)
 }
 
-export const stopWhatsAppBot = async (botId, logoutAndDestroy = false) => {
-    const sock = sessions.get(botId)
+export const stopWhatsAppBot = async (sessionId, logoutAndDestroy = false) => {
+    const sock = sessions.get(sessionId)
     if (sock) {
         try { 
             sock.ev.removeAllListeners();
@@ -575,9 +576,12 @@ export const stopWhatsAppBot = async (botId, logoutAndDestroy = false) => {
                 sock.ws.close();
             }
         } catch (e) {
-            console.error(`[WhatsApp Bot ${botId}] Error stopping bot:`, e)
+            console.error(`[WhatsApp Session ${sessionId}] Error stopping session:`, e)
         }
-        sessions.delete(botId)
-        console.log(`[WhatsApp Bot ${botId}] Stopped and socket closed. Logout: ${logoutAndDestroy}`)
+        sessions.delete(sessionId)
+        console.log(`[WhatsApp Session ${sessionId}] Stopped and socket closed. Logout: ${logoutAndDestroy}`)
     }
 }
+
+export const startWhatsAppChannel = async (channel, bot, prisma, io) => startWhatsAppBot(bot, prisma, io, channel);
+export const stopWhatsAppChannel = async (channelId, logoutAndDestroy = false) => stopWhatsAppBot(`ch_${channelId}`, logoutAndDestroy);

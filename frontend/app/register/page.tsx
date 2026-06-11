@@ -175,10 +175,21 @@ export default function Register() {
             {language === 'RU' ? 'Введите код подтверждения' : language === 'KZ' ? 'Растау кодын енгізіңіз' : 'Enter verification code'}
           </h1>
           <p style={{ color: 'var(--on-surface-variant)', fontSize: '15px', marginBottom: '8px' }}>
-            {language === 'RU' ? 'Мы отправили код на:' : 'We sent a code to:'}
+            {language === 'RU' 
+              ? 'Мы отправили код на:' 
+              : language === 'KZ' 
+                ? 'Біз кодты мына мекенжайға жібердік:' 
+                : 'We sent a code to:'}
           </p>
-          <p style={{ color: 'var(--primary)', fontWeight: '700', fontSize: '16px', marginBottom: '24px' }}>
+          <p style={{ color: 'var(--primary)', fontWeight: '700', fontSize: '16px', marginBottom: '12px' }}>
             {successEmail}
+          </p>
+          <p style={{ color: 'var(--on-surface-variant)', fontSize: '13px', fontStyle: 'italic', marginBottom: '24px' }}>
+            {language === 'RU' 
+              ? '⚠️ Если письмо не пришло в течение минуты, обязательно проверьте папку Спам.' 
+              : language === 'KZ' 
+                ? '⚠️ Егер хат бір минут ішінде келмесе, Спам қалтасын міндетті түрде тексеріңіз.' 
+                : '⚠️ If the email did not arrive within a minute, please be sure to check your Spam folder.'}
           </p>
           
           {error && (
@@ -257,15 +268,12 @@ export default function Register() {
         border: '1px solid var(--outline-variant)'
       }}>
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-          <div style={{ 
+          <img src="/logo.jpg" alt="Logo" style={{ 
             width: '48px', height: '48px', 
-            background: 'var(--primary)', 
-            color: 'var(--on-primary)', 
             borderRadius: '12px',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '24px', fontWeight: '800',
-            margin: '0 auto 16px auto'
-          }}>B</div>
+            margin: '0 auto 16px auto',
+            objectFit: 'cover'
+          }} />
           <h1 style={{ fontSize: '24px', fontWeight: '800', color: 'var(--on-surface)', marginBottom: '8px' }}>{t.createAccountTitle}</h1>
           <p style={{ color: 'var(--on-surface-variant)', fontSize: '15px' }}>{t.subtitle}</p>
         </div>

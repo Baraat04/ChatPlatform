@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Save, Trash2, Send, Bot, User, Users, UserPlus, Pause, Play, Phone, MessageSquare, Radio, Edit2, Wand2, ChevronDown, Check, Plus, Database, BrainCircuit, FileUp } from 'lucide-react';
 import Link from 'next/link';
 import { io } from 'socket.io-client';
@@ -268,6 +268,7 @@ interface Chat {
   lastSender: string;
   name?: string;
   realJid?: string | null;
+  platform?: string;
 }
 
 interface Message {
@@ -279,10 +280,21 @@ interface Message {
   createdAt: string;
 }
 
+interface Channel {
+  id: number;
+  botId: number;
+  platform: string;
+  apiToken?: string;
+  isActive: boolean;
+  slug: string;
+}
+
+
 export default function BotDetails() {
   const { t } = useLanguage();
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const botId = params.id as string;
 
   const [bot, setBot] = useState<BotType | null>(null);
@@ -295,7 +307,51 @@ export default function BotDetails() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isTogglingActive, setIsTogglingActive] = useState(false);
   const [replyText, setReplyText] = useState('');
-  const [activeTab, setActiveTab] = useState<'chats' | 'agent' | 'settings' | 'broadcast'>('chats');
+  const [activeTab, setActiveTab] = useState<'chats' | 'agent' | 'settings' | 'broadcast' | 'channels'>('chats');
+
+  // Onboarding Tour state — per-bot, only triggered when arriving from create-bot (?new=true)
+  const [tourStep, setTourStep] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !botId) return;
+    const isNewBot = searchParams?.get('new') === 'true';
+    const tourKey = `up_tour_done_${botId}`;
+    const tourDone = localStorage.getItem(tourKey);
+    if (isNewBot && !tourDone) {
+      const timer = setTimeout(() => setTourStep(1), 600);
+      return () => clearTimeout(timer);
+    }
+  }, [botId, searchParams]);
+
+  const handleNextTourStep = () => {
+    if (tourStep === 1) {
+      setActiveTab('channels');
+      setTourStep(2);
+    } else if (tourStep === 2) {
+      setActiveTab('agent');
+      setTourStep(3);
+    } else if (tourStep === 3) {
+      setActiveTab('chats');
+      setTourStep(4);
+    } else if (tourStep === 4) {
+      setActiveTab('settings');
+      setTourStep(5);
+    } else if (tourStep === 5) {
+      setTourStep(null);
+      localStorage.setItem(`up_tour_done_${botId}`, 'true');
+    }
+  };
+
+  const handleSkipTour = () => {
+    setTourStep(null);
+    localStorage.setItem(`up_tour_done_${botId}`, 'true');
+  };
+  
+  // Channels States
+  const [channels, setChannels] = useState<Channel[]>([]);
+  const [isAddingChannel, setIsAddingChannel] = useState(false);
+  const [newChannelPlatform, setNewChannelPlatform] = useState<string | null>(null);
+  const [newChannelToken, setNewChannelToken] = useState('');
   
   // Agent Chat States
   const [agentChatHistory, setAgentChatHistory] = useState<{role: string, content: string}[]>([]);
@@ -454,6 +510,7 @@ export default function BotDetails() {
   useEffect(() => {
     fetchBot();
     fetchChats();
+    fetchChannels();
 
     const socket = io(SOCKET_URL);
     socket.on(`chat-${botId}`, (newMsg: any) => {
@@ -467,6 +524,7 @@ export default function BotDetails() {
           lastSender: newMsg.sender,
           name: newMsg.contactName || existing?.name || '',
           realJid: existing?.realJid || null,
+          platform: newMsg.platform || existing?.platform
         };
         if (existing) return [updated, ...prev.filter(c => c.chatId !== newMsg.chatId)];
         return [updated, ...prev];
@@ -474,12 +532,17 @@ export default function BotDetails() {
     });
     socket.on(`qr-${botId}`, (qr: string) => setQrCode(qr));
     socket.on(`contact-update-${botId}`, (updatedContact: any) => {
-      setChats(prev => prev.map(c => {
-        if (c.chatId === updatedContact.chatId) {
-          return { ...c, name: updatedContact.name || c.name, realJid: updatedContact.realJid || c.realJid };
-        }
-        return c;
-      }));
+      // ONLY update existing chats — NEVER add new empty ones from contact sync
+      setChats(prev => {
+        const exists = prev.some(c => c.chatId === updatedContact.chatId);
+        if (!exists) return prev; // Don't add empty contact-only chats
+        return prev.map(c => {
+          if (c.chatId === updatedContact.chatId) {
+            return { ...c, name: updatedContact.name || c.name, realJid: updatedContact.realJid || c.realJid };
+          }
+          return c;
+        });
+      });
     });
 
     socket.on(`status-${botId}`, (status: string) => {
@@ -530,6 +593,11 @@ export default function BotDetails() {
   async function fetchChats() {
     const res = await fetch(`${API}/bot/${botId}/chats`, { credentials: 'include' });
     if (res.ok) setChats(await res.json());
+  }
+
+  async function fetchChannels() {
+    const res = await fetch(`${API}/bot/${botId}/channels`, { credentials: 'include' });
+    if (res.ok) setChannels(await res.json());
   }
 
   async function fetchChatMessages(chatId: string) {
@@ -1000,8 +1068,22 @@ export default function BotDetails() {
         }
 
         @media (max-width: 768px) {
-          .top-bar { display: none !important; }
-          .tab-bar { display: none !important; }
+          .top-bar {
+            padding: 0.75rem 1rem;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+          }
+          .top-bar .btn-action {
+            padding: 0.4rem 0.8rem;
+            font-size: 0.75rem;
+          }
+          .tab-bar {
+            padding: 0 1rem;
+          }
+          .tab-btn {
+            padding: 0.75rem 1rem;
+            font-size: 0.8rem;
+          }
           .contacts-sidebar { width: 100%; border-right: none; }
           .chat-view-container { 
             background: var(--background); 
@@ -1071,7 +1153,13 @@ export default function BotDetails() {
 
       {/* ─── TAB BAR ─── */}
       <div className="tab-bar">
-        {([['chats', <MessageSquare size={16} />, t.liveChats], ['agent', <BrainCircuit size={16} />, 'AI Brain'], ['settings', <Bot size={16} />, t.settings || 'Конфигурация'], ['broadcast', <Radio size={16} />, t.campaigns]] as const).map(([tab, icon, label]) => (
+        {([
+          ['chats', <MessageSquare size={16} />, 'Диалоги'],
+          ['channels', <Phone size={16} />, 'Каналы связи'],
+          ['agent', <BrainCircuit size={16} />, 'AI Brain'], 
+          ['settings', <Bot size={16} />, t.settings || 'Конфигурация'], 
+          ['broadcast', <Radio size={16} />, t.campaigns]
+        ] as const).map(([tab, icon, label]) => (
           <button key={tab} onClick={() => setActiveTab(tab as any)} className={`tab-btn ${activeTab === tab ? 'active' : ''}`}>
             {icon} {label}
           </button>
@@ -1080,6 +1168,548 @@ export default function BotDetails() {
 
       {/* ─── CONTENT ─── */}
       <div style={{ flex: 1, overflow: 'hidden', display: 'flex' }}>
+
+        {/* ══ CHANNELS TAB ══ */}
+        {activeTab === 'channels' && (
+          <div style={{ padding: '2.5rem', flex: 1, overflowY: 'auto', background: 'radial-gradient(circle at top right, var(--surface-container-low) 0%, var(--surface-container-lowest) 100%)' }}>
+            <div style={{ maxWidth: '850px', margin: '0 auto' }}>
+              
+              {/* Header section */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem', borderBottom: '1px solid var(--outline-variant)', paddingBottom: '1.5rem' }}>
+                <div>
+                  <h2 style={{ margin: 0, fontSize: '1.8rem', fontWeight: 800, color: 'var(--on-surface)', letterSpacing: '-0.5px' }}>
+                    Каналы связи
+                  </h2>
+                  <p style={{ margin: '0.4rem 0 0 0', color: 'var(--on-surface-variant)', fontSize: '0.92rem' }}>
+                    Подключайте внешние мессенджеры для автоматической работы вашего AI ассистента.
+                  </p>
+                </div>
+                {!isAddingChannel && (
+                  <button 
+                    onClick={() => setIsAddingChannel(true)} 
+                    className="btn-primary" 
+                    style={{ 
+                      padding: '0.75rem 1.5rem', 
+                      borderRadius: '14px', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '0.6rem', 
+                      fontSize: '0.92rem',
+                      boxShadow: '0 4px 15px rgba(0, 77, 57, 0.15)',
+                      transition: 'all 0.3s ease'
+                    }}
+                  >
+                    <Plus size={18} /> Подключить новый канал
+                  </button>
+                )}
+              </div>
+
+              {/* No channels view */}
+              {channels.length === 0 && !isAddingChannel && (
+                <div style={{ 
+                  textAlign: 'center', 
+                  padding: '5rem 3rem', 
+                  background: 'rgba(255, 255, 255, 0.03)', 
+                  backdropFilter: 'blur(10px)',
+                  borderRadius: '28px', 
+                  border: '2px dashed var(--outline-variant)',
+                  boxShadow: '0 10px 30px rgba(0,0,0,0.02)'
+                }}>
+                  <div style={{ 
+                    width: '80px', 
+                    height: '80px', 
+                    background: 'var(--surface-container-highest)', 
+                    borderRadius: '24px', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    margin: '0 auto 2rem auto',
+                    boxShadow: '0 8px 20px rgba(0,0,0,0.05)',
+                    transform: 'rotate(-5deg)'
+                  }}>
+                    <Phone size={36} color="var(--primary)" />
+                  </div>
+                  <h3 style={{ margin: '0 0 0.8rem 0', fontSize: '1.4rem', fontWeight: 700, color: 'var(--on-surface)' }}>У вас нет активных каналов</h3>
+                  <p style={{ color: 'var(--on-surface-variant)', marginBottom: '2rem', fontSize: '1rem', maxWidth: '460px', margin: '0 auto 2rem auto', lineHeight: '1.6' }}>
+                    Подключите Telegram Bot или WhatsApp, чтобы ваш искусственный интеллект начал мгновенно отвечать клиентам 24/7.
+                  </p>
+                  <button 
+                    onClick={() => setIsAddingChannel(true)} 
+                    className="btn-primary" 
+                    style={{ padding: '0.9rem 2rem', borderRadius: '14px', margin: '0 auto', fontSize: '1rem' }}
+                  >
+                    Подключить первый канал
+                  </button>
+                </div>
+              )}
+
+              {/* Active Channels Grid */}
+              {!isAddingChannel && channels.length > 0 && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))', gap: '1.8rem' }}>
+                  {channels.map(channel => {
+                    const isTg = channel.platform === 'TELEGRAM';
+                    return (
+                      <div 
+                        key={channel.id} 
+                        style={{ 
+                          background: 'var(--surface-container)', 
+                          borderRadius: '20px', 
+                          padding: '1.8rem', 
+                          border: `1px solid ${channel.isActive ? 'var(--primary-container)' : 'var(--outline-variant)'}`, 
+                          position: 'relative', 
+                          overflow: 'hidden',
+                          boxShadow: channel.isActive 
+                            ? '0 10px 25px rgba(0, 77, 57, 0.04), 0 1px 3px rgba(0,0,0,0.02)' 
+                            : '0 4px 12px rgba(0,0,0,0.01)',
+                          transition: 'all 0.3s ease',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'space-between',
+                          minHeight: '180px'
+                        }}
+                      >
+                        {channel.isActive && (
+                          <div style={{ 
+                            position: 'absolute', 
+                            top: 0, 
+                            left: 0, 
+                            right: 0, 
+                            height: '5px', 
+                            background: isTg 
+                              ? 'linear-gradient(90deg, #3aabea 0%, #229ed9 100%)' 
+                              : 'linear-gradient(90deg, #62d886 0%, #25d366 100%)'
+                          }} />
+                        )}
+                        
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1.2rem' }}>
+                              <div style={{ 
+                                width: '56px', 
+                                height: '56px', 
+                                borderRadius: '16px', 
+                                background: isTg 
+                                  ? 'rgba(34, 158, 217, 0.08)' 
+                                  : 'rgba(37, 211, 102, 0.08)', 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                justifyContent: 'center',
+                                border: `1px solid ${isTg ? 'rgba(34, 158, 217, 0.15)' : 'rgba(37, 211, 102, 0.15)'}`
+                              }}>
+                                {isTg ? (
+                                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#229ed9" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                                  </svg>
+                                ) : (
+                                  <svg width="30" height="30" viewBox="0 0 24 24" fill="#25d366">
+                                    <path d="M12.01 2C6.48 2 2 6.48 2 12.01C2 13.86 2.5 15.6 3.39 17.12L2.01 22.01L7.04 20.72C8.5 21.54 10.19 22.01 12 22.01C17.53 22.01 22 17.53 22 12.01C22 6.48 17.53 2 12.01 2ZM17.19 15.61C16.98 16.2 16.03 16.71 15.46 16.82C14.99 16.91 14.37 16.97 12.31 16.12C9.66 15.02 7.95 12.33 7.82 12.15C7.69 11.97 6.74 10.71 6.74 9.41C6.74 8.11 7.4 7.47 7.67 7.21C7.94 6.95 8.38 6.84 8.81 6.84C8.95 6.84 9.07 6.85 9.17 6.85C9.47 6.86 9.62 7.04 9.72 7.28L10.51 9.19C10.6 9.4 10.69 9.63 10.55 9.91C10.41 10.19 10.3 10.32 10.1 10.55L9.61 11.12C9.46 11.29 9.3 11.47 9.49 11.8C9.68 12.12 10.33 13.18 11.29 14.04C12.53 15.15 13.55 15.5 13.9 15.65C14.23 15.79 14.43 15.76 14.62 15.54C14.86 15.26 15.39 14.62 15.72 14.15C15.98 13.78 16.3 13.84 16.63 13.96L18.66 14.96C18.99 15.12 19.22 15.2 19.3 15.34C19.38 15.48 19.38 16.15 19.1 16.74C18.82 17.33 17.47 17.9 16.88 17.9C16.88 17.9 16.89 17.9 16.88 17.9C16.88 17.9 12.63 17.06 17.19 15.61Z"/>
+                                  </svg>
+                                )}
+                              </div>
+                              <div>
+                                <div style={{ fontWeight: 800, fontSize: '1.25rem', color: 'var(--on-surface)' }}>
+                                  {isTg ? 'Telegram Bot' : 'WhatsApp Client'}
+                                </div>
+                                <div style={{ fontSize: '0.82rem', color: 'var(--on-surface-variant)', fontFamily: 'monospace', background: 'var(--surface-container-high)', padding: '2px 8px', borderRadius: '6px', display: 'inline-block', marginTop: '0.2rem' }}>
+                                  ID: {channel.slug}
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {/* Live pulse dot */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <span style={{ 
+                                width: '8px', 
+                                height: '8px', 
+                                borderRadius: '50%', 
+                                background: channel.isActive ? '#25d366' : '#dc3545',
+                                boxShadow: channel.isActive ? '0 0 8px rgba(37,211,102,0.6)' : 'none'
+                              }} />
+                              <span style={{ fontSize: '0.85rem', fontWeight: 600, color: channel.isActive ? '#1e7e34' : '#9b1c1c' }}>
+                                {channel.isActive ? 'Подключен' : 'На паузе'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.5rem', paddingTop: '1.2rem', borderTop: '1px solid var(--outline-variant)' }}>
+                          <span style={{ fontSize: '0.82rem', color: 'var(--on-surface-variant)' }}>
+                            Управление приёмом сообщений
+                          </span>
+                          <div style={{ display: 'flex', gap: '0.6rem' }}>
+                            <button 
+                              onClick={async () => {
+                                await fetch(`${API}/bot/${botId}/channels/${channel.id}/toggle`, { method: 'POST', credentials: 'include' });
+                                fetchChannels();
+                              }} 
+                              className={`btn-action`}
+                              style={{ 
+                                background: channel.isActive ? 'rgba(0,0,0,0.04)' : 'var(--primary-container)', 
+                                border: 'none', 
+                                color: channel.isActive ? 'var(--on-surface)' : 'var(--on-primary-container)', 
+                                cursor: 'pointer', 
+                                padding: '0.5rem 0.8rem', 
+                                borderRadius: '10px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.4rem',
+                                fontSize: '0.82rem',
+                                fontWeight: 600,
+                                transition: 'all 0.2s'
+                              }}
+                            >
+                              {channel.isActive ? <><Pause size={14} /> Пауза</> : <><Play size={14} /> Старт</>}
+                            </button>
+                            <button 
+                              onClick={async () => {
+                                if (!confirm('Вы уверены, что хотите отключить и удалить этот канал связи?')) return;
+                                await fetch(`${API}/bot/${botId}/channels/${channel.id}`, { method: 'DELETE', credentials: 'include' });
+                                fetchChannels();
+                              }} 
+                              style={{ 
+                                background: 'rgba(220, 53, 69, 0.08)', 
+                                border: 'none', 
+                                color: '#dc3545', 
+                                cursor: 'pointer', 
+                                padding: '0.5rem', 
+                                borderRadius: '10px',
+                                transition: 'all 0.2s'
+                              }}
+                              title="Удалить канал"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Add New Channel Wizard */}
+              {isAddingChannel && (
+                <div style={{ 
+                  background: 'var(--surface-container)', 
+                  borderRadius: '24px', 
+                  padding: '2.5rem', 
+                  border: '1px solid var(--outline-variant)',
+                  boxShadow: '0 20px 40px rgba(0,0,0,0.05)'
+                }}>
+                  {/* Wizard Header */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1.2rem', marginBottom: '2.5rem' }}>
+                    <button 
+                      onClick={() => { setIsAddingChannel(false); setNewChannelPlatform(null); setNewChannelToken(''); setQrCode(null); }} 
+                      style={{ 
+                        background: 'var(--surface-container-high)', 
+                        border: 'none', 
+                        color: 'var(--on-surface)', 
+                        cursor: 'pointer',
+                        width: '40px',
+                        height: '40px',
+                        borderRadius: '50%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        transition: 'transform 0.2s',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+                      }}
+                    >
+                      <ArrowLeft size={18} />
+                    </button>
+                    <div>
+                      <h3 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 800 }}>
+                        {!newChannelPlatform ? 'Выбор платформы' : newChannelPlatform === 'TELEGRAM' ? 'Подключение Telegram' : 'Подключение WhatsApp'}
+                      </h3>
+                      <p style={{ margin: '0.2rem 0 0 0', color: 'var(--on-surface-variant)', fontSize: '0.85rem' }}>
+                        {!newChannelPlatform ? 'Выберите мессенджер для интеграции' : `Шаг подключения бота к вашему аккаунту`}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Step 1: Select Platform */}
+                  {!newChannelPlatform ? (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.8rem' }}>
+                      
+                      {/* Telegram selection card */}
+                      <div 
+                        onClick={() => setNewChannelPlatform('TELEGRAM')} 
+                        style={{ 
+                          padding: '2.5rem 2rem', 
+                          borderRadius: '24px', 
+                          border: '2px solid var(--outline-variant)', 
+                          cursor: 'pointer', 
+                          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', 
+                          textAlign: 'center',
+                          background: 'var(--surface-container-low)'
+                        }} 
+                        className="channel-select-card"
+                      >
+                        <div style={{ 
+                          width: '72px', 
+                          height: '72px', 
+                          background: 'rgba(34, 158, 217, 0.06)', 
+                          borderRadius: '50%', 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center', 
+                          margin: '0 auto 1.5rem auto',
+                          border: '1px solid rgba(34, 158, 217, 0.12)',
+                          boxShadow: '0 8px 20px rgba(34,158,217,0.05)'
+                        }}>
+                          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#229ed9" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <line x1="22" y1="2" x2="11" y2="13"></line>
+                            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                          </svg>
+                        </div>
+                        <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1.3rem', fontWeight: 700 }}>Telegram Bot</h4>
+                        <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--on-surface-variant)', lineHeight: '1.5' }}>
+                          Идеально для официальных ботов, рассылок, кнопок и каналов.
+                        </p>
+                      </div>
+
+                      {/* WhatsApp selection card */}
+                      <div 
+                        onClick={() => setNewChannelPlatform('WHATSAPP')} 
+                        style={{ 
+                          padding: '2.5rem 2rem', 
+                          borderRadius: '24px', 
+                          border: '2px solid var(--outline-variant)', 
+                          cursor: 'pointer', 
+                          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', 
+                          textAlign: 'center',
+                          background: 'var(--surface-container-low)'
+                        }} 
+                        className="channel-select-card"
+                      >
+                        <div style={{ 
+                          width: '72px', 
+                          height: '72px', 
+                          background: 'rgba(37, 211, 102, 0.06)', 
+                          borderRadius: '50%', 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center', 
+                          margin: '0 auto 1.5rem auto',
+                          border: '1px solid rgba(37, 211, 102, 0.12)',
+                          boxShadow: '0 8px 20px rgba(37,211,102,0.05)'
+                        }}>
+                          <svg width="38" height="38" viewBox="0 0 24 24" fill="#25d366">
+                            <path d="M12.01 2C6.48 2 2 6.48 2 12.01C2 13.86 2.5 15.6 3.39 17.12L2.01 22.01L7.04 20.72C8.5 21.54 10.19 22.01 12 22.01C17.53 22.01 22 17.53 22 12.01C22 6.48 17.53 2 12.01 2ZM17.19 15.61C16.98 16.2 16.03 16.71 15.46 16.82C14.99 16.91 14.37 16.97 12.31 16.12C9.66 15.02 7.95 12.33 7.82 12.15C7.69 11.97 6.74 10.71 6.74 9.41C6.74 8.11 7.4 7.47 7.67 7.21C7.94 6.95 8.38 6.84 8.81 6.84C8.95 6.84 9.07 6.85 9.17 6.85C9.47 6.86 9.62 7.04 9.72 7.28L10.51 9.19C10.6 9.4 10.69 9.63 10.55 9.91C10.41 10.19 10.3 10.32 10.1 10.55L9.61 11.12C9.46 11.29 9.3 11.47 9.49 11.8C9.68 12.12 10.33 13.18 11.29 14.04C12.53 15.15 13.55 15.5 13.9 15.65C14.23 15.79 14.43 15.76 14.62 15.54C14.86 15.26 15.39 14.62 15.72 14.15C15.98 13.78 16.3 13.84 16.63 13.96L18.66 14.96C18.99 15.12 19.22 15.2 19.3 15.34C19.38 15.48 19.38 16.15 19.1 16.74C18.82 17.33 17.47 17.9 16.88 17.9C16.88 17.9 16.89 17.9 16.88 17.9C16.88 17.9 12.63 17.06 17.19 15.61Z"/>
+                          </svg>
+                        </div>
+                        <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1.3rem', fontWeight: 700 }}>WhatsApp</h4>
+                        <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--on-surface-variant)', lineHeight: '1.5' }}>
+                          Прямая работа с личными номерами. Быстрый старт через сканирование QR.
+                        </p>
+                      </div>
+                      
+                      <style>{`
+                        .channel-select-card:hover { 
+                          border-color: var(--primary) !important; 
+                          transform: translateY(-5px); 
+                          background: var(--surface-container-high) !important;
+                          box-shadow: 0 12px 24px rgba(0,0,0,0.06);
+                        }
+                      `}</style>
+                    </div>
+                  ) : newChannelPlatform === 'TELEGRAM' ? (
+                    
+                    /* Telegram Setup Steps */
+                    <div>
+                      <div style={{ background: 'rgba(34, 158, 217, 0.05)', border: '1px solid rgba(34, 158, 217, 0.15)', padding: '1.8rem', borderRadius: '20px', marginBottom: '2rem' }}>
+                        <h4 style={{ margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.6rem', color: '#229ed9', fontWeight: 700 }}>
+                          Инструкция по подключению Telegram
+                        </h4>
+                        
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                          <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+                            <div style={{ background: '#229ed9', color: '#fff', width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 800, flexShrink: 0, marginTop: '2px' }}>1</div>
+                            <div style={{ fontSize: '0.92rem', lineHeight: '1.5' }}>
+                              Откройте Telegram и перейдите к официальному боту <a href="https://t.me/BotFather" target="_blank" rel="noopener noreferrer" style={{ color: '#229ed9', fontWeight: 700, textDecoration: 'underline' }}>@BotFather</a>
+                            </div>
+                          </div>
+                          
+                          <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+                            <div style={{ background: '#229ed9', color: '#fff', width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 800, flexShrink: 0, marginTop: '2px' }}>2</div>
+                            <div style={{ fontSize: '0.92rem', lineHeight: '1.5' }}>
+                              Отправьте ему команду <code style={{ background: 'var(--surface-container-highest)', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold' }}>/newbot</code> для создания нового бота
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+                            <div style={{ background: '#229ed9', color: '#fff', width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 800, flexShrink: 0, marginTop: '2px' }}>3</div>
+                            <div style={{ fontSize: '0.92rem', lineHeight: '1.5' }}>
+                              Задайте боту имя и уникальный юзернейм (оканчивающийся на <code style={{ fontWeight: 'bold' }}>_bot</code>)
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+                            <div style={{ background: '#229ed9', color: '#fff', width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 800, flexShrink: 0, marginTop: '2px' }}>4</div>
+                            <div style={{ fontSize: '0.92rem', lineHeight: '1.5' }}>
+                              Скопируйте полученный **API Token** и введите его в текстовое поле ниже
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div style={{ marginBottom: '1.8rem' }}>
+                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.6rem', color: 'var(--on-surface-variant)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                          Токен бота (API HTTP Token)
+                        </label>
+                        <input 
+                          type="text" 
+                          value={newChannelToken} 
+                          onChange={e => setNewChannelToken(e.target.value)} 
+                          placeholder="Пример: 123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11" 
+                          className="premium-input" 
+                          style={{ width: '100%', padding: '1rem 1.2rem', fontSize: '0.98rem' }} 
+                        />
+                      </div>
+
+                      <button 
+                        disabled={!newChannelToken.trim() || isSaving}
+                        className="btn-primary" 
+                        style={{ width: '100%', padding: '1rem', borderRadius: '14px', justifyContent: 'center', fontSize: '1rem', fontWeight: 700 }}
+                        onClick={async () => {
+                          setIsSaving(true);
+                          const res = await fetch(`${API}/bot/${botId}/channels`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ platform: 'TELEGRAM', apiToken: newChannelToken }),
+                            credentials: 'include'
+                          });
+                          setIsSaving(false);
+                          if (res.ok) {
+                            setIsAddingChannel(false);
+                            setNewChannelPlatform(null);
+                            setNewChannelToken('');
+                            fetchChannels();
+                          } else {
+                            alert((await res.json()).error || 'Неверный токен бота или ошибка подключения');
+                          }
+                        }}
+                      >
+                        {isSaving ? 'Подключение канала...' : 'Подключить Telegram Bot'}
+                      </button>
+                    </div>
+                  ) : (
+                    
+                    /* WhatsApp Setup Steps & QR Scanner */
+                    <div>
+                      {!qrCode ? (
+                        <div style={{ textAlign: 'center', padding: '3rem 1.5rem' }}>
+                          <div style={{ 
+                            width: '64px', 
+                            height: '64px', 
+                            borderRadius: '50%', 
+                            background: 'rgba(37, 211, 102, 0.05)', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center', 
+                            margin: '0 auto 1.5rem auto' 
+                          }}>
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="#25d366">
+                              <path d="M12.01 2C6.48 2 2 6.48 2 12.01C2 13.86 2.5 15.6 3.39 17.12L2.01 22.01L7.04 20.72C8.5 21.54 10.19 22.01 12 22.01C17.53 22.01 22 17.53 22 12.01C22 6.48 17.53 2 12.01 2ZM17.19 15.61C16.98 16.2 16.03 16.71 15.46 16.82C14.99 16.91 14.37 16.97 12.31 16.12C9.66 15.02 7.95 12.33 7.82 12.15C7.69 11.97 6.74 10.71 6.74 9.41C6.74 8.11 7.4 7.47 7.67 7.21C7.94 6.95 8.38 6.84 8.81 6.84C8.95 6.84 9.07 6.85 9.17 6.85C9.47 6.86 9.62 7.04 9.72 7.28L10.51 9.19C10.6 9.4 10.69 9.63 10.55 9.91C10.41 10.19 10.3 10.32 10.1 10.55L9.61 11.12C9.46 11.29 9.3 11.47 9.49 11.8C9.68 12.12 10.33 13.18 11.29 14.04C12.53 15.15 13.55 15.5 13.9 15.65C14.23 15.79 14.43 15.76 14.62 15.54C14.86 15.26 15.39 14.62 15.72 14.15C15.98 13.78 16.3 13.84 16.63 13.96L18.66 14.96C18.99 15.12 19.22 15.2 19.3 15.34C19.38 15.48 19.38 16.15 19.1 16.74C18.82 17.33 17.47 17.9 16.88 17.9C16.88 17.9 16.89 17.9 16.88 17.9C16.88 17.9 12.63 17.06 17.19 15.61Z"/>
+                            </svg>
+                          </div>
+                          <h4 style={{ fontSize: '1.2rem', fontWeight: 700, margin: '0 0 0.5rem 0' }}>Генерация QR-кода</h4>
+                          <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.95rem', marginBottom: '2rem', maxWidth: '380px', margin: '0 auto 2rem auto', lineHeight: '1.6' }}>
+                            Для подключения WhatsApp сессии мы сгенерируем защищенный веб-интерфейс QR-кода.
+                          </p>
+                          <button 
+                            className="btn-primary" 
+                            style={{ padding: '0.9rem 2.2rem', borderRadius: '14px', margin: '0 auto', display: 'flex', alignItems: 'center', gap: '0.6rem' }}
+                            onClick={async () => {
+                              const res = await fetch(`${API}/bot/${botId}/channels`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ platform: 'WHATSAPP' }),
+                                credentials: 'include'
+                              });
+                              if (res.ok) fetchChannels(); // Socket will send QR code
+                            }}
+                          >
+                            Сгенерировать QR-код
+                          </button>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '2.5rem', alignItems: 'center' }}>
+                          <div>
+                            <h4 style={{ margin: '0 0 1rem 0', color: '#25d366', fontWeight: 700 }}>
+                              Как отсканировать QR-код
+                            </h4>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+                              <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+                                <div style={{ background: '#25d366', color: '#fff', width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 800, flexShrink: 0, marginTop: '2px' }}>1</div>
+                                <div style={{ fontSize: '0.92rem', lineHeight: '1.5' }}>
+                                  Откройте **WhatsApp** на вашем телефоне
+                                </div>
+                              </div>
+                              <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+                                <div style={{ background: '#25d366', color: '#fff', width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 800, flexShrink: 0, marginTop: '2px' }}>2</div>
+                                <div style={{ fontSize: '0.92rem', lineHeight: '1.5' }}>
+                                  Перейдите в **Меню** (три точки) или **Настройки** → **Связанные устройства**
+                                </div>
+                              </div>
+                              <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+                                <div style={{ background: '#25d366', color: '#fff', width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 800, flexShrink: 0, marginTop: '2px' }}>3</div>
+                                <div style={{ fontSize: '0.92rem', lineHeight: '1.5' }}>
+                                  Нажмите кнопку **Привязка устройства** и наведите камеру телефона на экран
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <div style={{ 
+                              marginTop: '2rem', 
+                              padding: '1rem 1.2rem', 
+                              background: 'var(--surface-container-high)', 
+                              borderRadius: '12px',
+                              borderLeft: '4px solid #25d366',
+                              fontSize: '0.85rem',
+                              color: 'var(--on-surface-variant)',
+                              lineHeight: '1.5'
+                            }}>
+                              🔔 **Важно:** Не закрывайте страницу до завершения сканирования. Сессия подключится автоматически.
+                            </div>
+                          </div>
+                          
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                            <div style={{ 
+                              display: 'inline-block', 
+                              background: 'white', 
+                              padding: '1.2rem', 
+                              borderRadius: '24px', 
+                              boxShadow: '0 20px 45px rgba(37,211,102,0.15)',
+                              border: '3px solid #25d366',
+                              position: 'relative'
+                            }}>
+                              <img src={qrCode} alt="WhatsApp QR" style={{ width: '240px', height: '240px', display: 'block' }} />
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '1.5rem' }}>
+                              <span style={{ 
+                                width: '8px', 
+                                height: '8px', 
+                                borderRadius: '50%', 
+                                background: 'var(--primary)',
+                                animation: 'pulse 1.5s infinite' 
+                              }} />
+                              <span style={{ fontSize: '0.85rem', color: 'var(--on-surface-variant)', fontWeight: 600 }}>
+                                Ожидание подключения с телефона...
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
 
         {/* ══ CHATS TAB ══ */}
         {activeTab === 'chats' && (
@@ -1101,13 +1731,54 @@ export default function BotDetails() {
                 ) : chats.map(chat => (
                   <div key={chat.chatId} onClick={() => setSelectedChat(chat.chatId)} className={`chat-item ${selectedChat === chat.chatId ? 'active' : ''}`}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                      <div className="avatar">
+                      <div className="avatar" style={{ position: 'relative' }}>
                         <User size={18} color={selectedChat === chat.chatId ? 'var(--primary)' : 'var(--on-surface-variant)'} />
+                        {chat.platform === 'TELEGRAM' && (
+                          <div style={{ 
+                            position: 'absolute', 
+                            bottom: '-4px', 
+                            right: '-4px', 
+                            background: 'linear-gradient(135deg, #3aabea 0%, #229ed9 100%)', 
+                            borderRadius: '50%', 
+                            width: '18px', 
+                            height: '18px', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center', 
+                            border: '2px solid var(--surface-container-lowest)',
+                            boxShadow: '0 2px 5px rgba(34,158,217,0.4)'
+                          }}>
+                            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                              <line x1="22" y1="2" x2="11" y2="13"></line>
+                              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                            </svg>
+                          </div>
+                        )}
+                        {chat.platform === 'WHATSAPP' && (
+                          <div style={{ 
+                            position: 'absolute', 
+                            bottom: '-4px', 
+                            right: '-4px', 
+                            background: 'linear-gradient(135deg, #62d886 0%, #25d366 100%)', 
+                            borderRadius: '50%', 
+                            width: '18px', 
+                            height: '18px', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center', 
+                            border: '2px solid var(--surface-container-lowest)',
+                            boxShadow: '0 2px 5px rgba(37,211,102,0.4)'
+                          }}>
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="#fff">
+                              <path d="M12.01 2C6.48 2 2 6.48 2 12.01C2 13.86 2.5 15.6 3.39 17.12L2.01 22.01L7.04 20.72C8.5 21.54 10.19 22.01 12 22.01C17.53 22.01 22 17.53 22 12.01C22 6.48 17.53 2 12.01 2ZM17.19 15.61C16.98 16.2 16.03 16.71 15.46 16.82C14.99 16.91 14.37 16.97 12.31 16.12C9.66 15.02 7.95 12.33 7.82 12.15C7.69 11.97 6.74 10.71 6.74 9.41C6.74 8.11 7.4 7.47 7.67 7.21C7.94 6.95 8.38 6.84 8.81 6.84C8.95 6.84 9.07 6.85 9.17 6.85C9.47 6.86 9.62 7.04 9.72 7.28L10.51 9.19C10.6 9.4 10.69 9.63 10.55 9.91C10.41 10.19 10.3 10.32 10.1 10.55L9.61 11.12C9.46 11.29 9.3 11.47 9.49 11.8C9.68 12.12 10.33 13.18 11.29 14.04C12.53 15.15 13.55 15.5 13.9 15.65C14.23 15.79 14.43 15.76 14.62 15.54C14.86 15.26 15.39 14.62 15.72 14.15C15.98 13.78 16.3 13.84 16.63 13.96L18.66 14.96C18.99 15.12 19.22 15.2 19.3 15.34C19.38 15.48 19.38 16.15 19.1 16.74C18.82 17.33 17.47 17.9 16.88 17.9C16.88 17.9 16.89 17.9 16.88 17.9C16.88 17.9 12.63 17.06 17.19 15.61Z"/>
+                            </svg>
+                          </div>
+                        )}
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.2rem' }}>
                           <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--on-surface)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {bot?.platform === 'TELEGRAM' 
+                            {chat.platform === 'TELEGRAM' 
                               ? (chat.name || chat.chatId)
                               : (chat.name 
                                   ? (chat.realJid || chat.chatId).includes('@lid') ? chat.name : `+${formatChatId(chat.realJid || chat.chatId)} (${chat.name})`
@@ -1171,7 +1842,7 @@ export default function BotDetails() {
                           <div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                               <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--on-surface)' }}>
-                                {bot?.platform === 'TELEGRAM'
+                                {currentChat?.platform === 'TELEGRAM'
                                   ? (currentChat?.name || selectedChat)
                                   : (currentChat?.name 
                                       ? (currentChat.realJid || selectedChat).includes('@lid') ? currentChat.name : `+${formatChatId(currentChat.realJid || selectedChat)} (${currentChat.name})`
@@ -1691,6 +2362,87 @@ export default function BotDetails() {
           </div>
         )}
       </div>
+
+      {/* ONBOARDING TOUR MODAL */}
+      {tourStep !== null && (
+        <div style={{
+          position: 'fixed',
+          bottom: '24px',
+          right: '24px',
+          width: '360px',
+          background: 'var(--surface-container-lowest)',
+          border: '1px solid var(--outline-variant)',
+          borderRadius: '24px',
+          padding: '24px',
+          boxShadow: '0 20px 40px rgba(0, 0, 0, 0.15)',
+          zIndex: 9999,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '16px',
+          fontFamily: 'system-ui, -apple-system, sans-serif',
+          animation: 'popIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards'
+        }}>
+          <style>{`
+            @keyframes popIn {
+              0% { opacity: 0; transform: scale(0.9) translateY(20px); }
+              100% { opacity: 1; transform: scale(1) translateY(0); }
+            }
+          `}</style>
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ width: '40px', height: '40px', background: 'rgba(43, 108, 0, 0.1)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <img src="/logo.jpg" alt="Logo" style={{ width: '32px', height: '32px', borderRadius: '8px', objectFit: 'cover' }} />
+            </div>
+            <div>
+              <div style={{ fontWeight: 'bold', fontSize: '15px', color: 'var(--on-surface)' }}>Помощник UP-CHAT</div>
+              <div style={{ fontSize: '11px', color: 'var(--on-surface-variant)' }}>Шаг {tourStep} из 5</div>
+            </div>
+            <button 
+              onClick={handleSkipTour}
+              style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--on-surface-variant)', cursor: 'pointer', fontSize: '16px' }}
+            >
+              ✕
+            </button>
+          </div>
+
+          <p style={{ fontSize: '14px', lineHeight: '1.5', color: 'var(--on-surface)', margin: 0 }}>
+            {tourStep === 1 && "Ваш ИИ-ассистент успешно создан! 🎉 Теперь давайте подключим каналы связи (Telegram или WhatsApp), чтобы он мог общаться с клиентами."}
+            {tourStep === 2 && "Отлично! После подключения каналов обязательно настройте базу знаний во вкладке AI Brain. 🧠 Вы можете загрузить сюда файлы, написать описание компании и товаров, добавить полезные ссылки и FAQ. Это научит ассистента вашему продукту."}
+            {tourStep === 3 && "Вкладка Диалоги 💬 — это ваш живой пульт управления. Здесь отображаются все переписки в реальном времени. В любой момент вы можете перехватить диалог у бота и ответить клиенту лично."}
+            {tourStep === 4 && "Вкладка Конфигурация ⚙️ позволяет настраивать тон общения, цели бота, собираемые данные о лидах и тестировать ассистента в песочнице перед публикацией."}
+            {tourStep === 5 && "Вы готовы к запуску! 🚀 Теперь вы можете подключить Telegram или WhatsApp и протестировать работу вашего бота. Если возникнут вопросы — наша поддержка всегда на связи."}
+          </p>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '8px' }}>
+            {/* Dots */}
+            <div style={{ display: 'flex', gap: '6px' }}>
+              {[1, 2, 3, 4, 5].map((s) => (
+                <div key={s} style={{
+                  width: '6px', height: '6px', borderRadius: '50%',
+                  background: tourStep === s ? 'var(--primary)' : 'var(--outline)',
+                  transition: 'background 0.3s'
+                }}></div>
+              ))}
+            </div>
+
+            <button 
+              onClick={handleNextTourStep}
+              className="btn-primary"
+              style={{
+                marginLeft: 'auto',
+                padding: '8px 16px',
+                borderRadius: '10px',
+                fontSize: '13px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+            >
+              {tourStep === 5 ? "Завершить" : "Далее →"}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -118,15 +118,12 @@ export default function Login() {
         border: '1px solid var(--outline-variant)'
       }}>
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-          <div style={{ 
+          <img src="/logo.jpg" alt="Logo" style={{ 
             width: '48px', height: '48px', 
-            background: 'var(--primary)', 
-            color: 'var(--on-primary)', 
             borderRadius: '12px',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '24px', fontWeight: '800',
-            margin: '0 auto 16px auto'
-          }}>B</div>
+            margin: '0 auto 16px auto',
+            objectFit: 'cover'
+          }} />
           <h1 style={{ fontSize: '24px', fontWeight: '800', color: 'var(--on-surface)', marginBottom: '8px' }}>{t.welcomeBack}</h1>
           <p style={{ color: 'var(--on-surface-variant)', fontSize: '15px' }}>{t.subtitle}</p>
         </div>

@@ -27,7 +27,7 @@ export default function InitialsAvatar({ name, size = 36, fontSize = 14, border 
         height: size,
         minWidth: size,
         borderRadius: '50%',
-        background: '#003527',
+        background: 'var(--primary, #047857)',
         color: '#fff',
         display: 'flex',
         alignItems: 'center',

@@ -6,45 +6,44 @@
 @tailwind utilities;
 
 :root {
-  /* Colors */
-  --background: #f7f9fb;
-  --on-background: #191c1e;
-  --primary: #003527;
+  /* Light Mode Colors - Slate and Emerald Theme */
+  --background: #f8fafc;
+  --on-background: #0f172a;
+  --primary: #047857; /* Deep emerald (emerald-700) */
   --on-primary: #ffffff;
-  --primary-container: #d1fae5;
+  --primary-container: #ecfdf5;
   --on-primary-container: #064e3b;
-  --primary-fixed: #b0f0d6;
-  --primary-fixed-dim: #95d3ba;
+  --primary-fixed: #059669;
+  --primary-fixed-dim: #047857;
   
-  --secondary: #565e74;
+  --secondary: #64748b;
   --on-secondary: #ffffff;
-  --secondary-container: #dae2fd;
-  --on-secondary-container: #5c647a;
+  --secondary-container: #f1f5f9;
+  --on-secondary-container: #334155;
   
-  --tertiary: #4f1f19;
+  --tertiary: #0ea5e9;
   --on-tertiary: #ffffff;
-  --tertiary-container: #6b342d;
-  --on-tertiary-container: #ea9e93;
+  --tertiary-container: #e0f2fe;
+  --on-tertiary-container: #0369a1;
   
-  --error: #ba1a1a;
+  --error: #ef4444;
   --on-error: #ffffff;
-  --error-container: #ffdad6;
-  --on-error-container: #93000a;
+  --error-container: #fee2e2;
+  --on-error-container: #991b1b;
   
-  --surface: #f7f9fb;
-  --on-surface: #191c1e;
-  --surface-variant: #e0e3e5;
-  --on-surface-variant: #404944;
+  --surface: #ffffff;
+  --on-surface: #0f172a;
+  --surface-variant: #e2e8f0;
+  --on-surface-variant: #475569;
   
-  --outline: #707974;
-  --outline-variant: #bfc9c3;
+  --outline: #94a3b8;
+  --outline-variant: #cbd5e1;
   
   --surface-container-lowest: #ffffff;
-  --surface-container-low: #f2f4f6;
-  --surface-container: #eceef0;
-  --surface-container-high: #e6e8ea;
-  --surface-container-highest: #e0e3e5;
-
+  --surface-container-low: #f8fafc;
+  --surface-container: #f1f5f9;
+  --surface-container-high: #e2e8f0;
+  --surface-container-highest: #cbd5e1;
 
   /* Spacing */
   --spacing-xs: 4px;
@@ -56,54 +55,55 @@
   --sidebar-width: 260px;
   
   /* Shapes */
-  --radius-sm: 0.25rem;
+  --radius-sm: 0.375rem;
   --radius-DEFAULT: 0.5rem;
   --radius-md: 0.75rem;
   --radius-lg: 1rem;
   --radius-xl: 1.5rem;
   --radius-full: 9999px;
-  --header-bg: rgba(247, 249, 251, 0.8);
+  --header-bg: rgba(248, 250, 252, 0.85);
 }
 
 .dark {
-  --header-bg: rgba(15, 17, 18, 0.8);
-  --background: #0f1112;
-  --on-background: #e2e2e6;
-  --primary: #95d3ba;
-  --on-primary: #003829;
-  --primary-container: #00513c;
-  --on-primary-container: #b1f0d6;
-  --primary-fixed: #b0f0d6;
-  --primary-fixed-dim: #95d3ba;
+  --header-bg: rgba(15, 23, 42, 0.85);
+  --background: #020617;
+  --on-background: #f8fafc;
   
-  --secondary: #bfc6dc;
-  --on-secondary: #293042;
-  --secondary-container: #3f4759;
-  --on-secondary-container: #dae2f9;
+  --primary: #059669; /* Slightly darker emerald (emerald-600) */
+  --on-primary: #ffffff;
+  --primary-container: #064e3b;
+  --on-primary-container: #a7f3d0;
+  --primary-fixed: #10b981;
+  --primary-fixed-dim: #059669;
   
-  --tertiary: #ffb4ab;
-  --on-tertiary: #690005;
-  --tertiary-container: #93000a;
-  --on-tertiary-container: #ffdad6;
+  --secondary: #94a3b8;
+  --on-secondary: #0f172a;
+  --secondary-container: #1e293b;
+  --on-secondary-container: #f1f5f9;
   
-  --error: #ffb4ab;
-  --on-error: #690005;
-  --error-container: #93000a;
-  --on-error-container: #ffdad6;
+  --tertiary: #38bdf8;
+  --on-tertiary: #0c4a6e;
+  --tertiary-container: #0369a1;
+  --on-tertiary-container: #e0f2fe;
   
-  --surface: #0f1112;
-  --on-surface: #e2e2e6;
-  --surface-variant: #404944;
-  --on-surface-variant: #bfc9c3;
+  --error: #f87171;
+  --on-error: #450a0a;
+  --error-container: #7f1d1d;
+  --on-error-container: #fecaca;
   
-  --outline: #8a938e;
-  --outline-variant: #404944;
+  --surface: #020617;
+  --on-surface: #f8fafc;
+  --surface-variant: #1e293b;
+  --on-surface-variant: #94a3b8;
   
-  --surface-container-lowest: #0a0c0d;
-  --surface-container-low: #191c1e;
-  --surface-container: #1d2022;
-  --surface-container-high: #282a2d;
-  --surface-container-highest: #333538;
+  --outline: #475569;
+  --outline-variant: #334155;
+  
+  --surface-container-lowest: #020617;
+  --surface-container-low: #0f172a;
+  --surface-container: #1e293b;
+  --surface-container-high: #334155;
+  --surface-container-highest: #475569;
 }
 
 /* Reset & Base Styles */
@@ -122,7 +122,7 @@ html {
 body {
   background-color: var(--background);
   color: var(--on-background);
-  font-family: var(--font-be-vietnam), sans-serif;
+  font-family: var(--font-inter), -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
@@ -130,7 +130,7 @@ body {
 }
 
 h1, h2, h3, h4, h5, h6 {
-  font-family: var(--font-plus-jakarta), sans-serif;
+  font-family: var(--font-space-grotesk), -apple-system, sans-serif;
 }
 
 a {
