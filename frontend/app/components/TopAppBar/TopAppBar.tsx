@@ -1,13 +1,13 @@
 'use client';
 
-import { Menu, Search, Bell, Globe, Sun, Moon, ChevronDown } from 'lucide-react';
+import { Menu, Search, Bell, Globe, ChevronDown } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import styles from './TopAppBar.module.css';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { Language } from '../../locales/translations';
 import { useAuth } from '../../contexts/AuthContext';
-import { useTheme } from '../../contexts/ThemeContext';
+
 import InitialsAvatar from '../InitialsAvatar/InitialsAvatar';
 
 interface TopAppBarProps {
@@ -17,7 +17,6 @@ interface TopAppBarProps {
 export default function TopAppBar({ onMenuClick }: TopAppBarProps) {
   const { language, setLanguage, t } = useLanguage();
   const { user } = useAuth();
-  const { theme, toggleTheme } = useTheme();
   const [isLangOpen, setIsLangOpen] = useState(false);
   const langRef = useRef<HTMLDivElement>(null);
 
@@ -66,14 +65,6 @@ export default function TopAppBar({ onMenuClick }: TopAppBarProps) {
         )}
       </div>
 
-      <button 
-        onClick={toggleTheme} 
-        className={styles.actionButton}
-        title={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
-        style={{ marginRight: '8px' }}
-      >
-        {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
-      </button>
 
       <div className={styles.actions}>
         <button className={styles.actionButton}>

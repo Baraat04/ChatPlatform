@@ -64,47 +64,8 @@
   --header-bg: rgba(248, 250, 252, 0.85);
 }
 
-.dark {
-  --header-bg: rgba(15, 23, 42, 0.85);
-  --background: #020617;
-  --on-background: #f8fafc;
-  
-  --primary: #059669; /* Slightly darker emerald (emerald-600) */
-  --on-primary: #ffffff;
-  --primary-container: #064e3b;
-  --on-primary-container: #a7f3d0;
-  --primary-fixed: #10b981;
-  --primary-fixed-dim: #059669;
-  
-  --secondary: #94a3b8;
-  --on-secondary: #0f172a;
-  --secondary-container: #1e293b;
-  --on-secondary-container: #f1f5f9;
-  
-  --tertiary: #38bdf8;
-  --on-tertiary: #0c4a6e;
-  --tertiary-container: #0369a1;
-  --on-tertiary-container: #e0f2fe;
-  
-  --error: #f87171;
-  --on-error: #450a0a;
-  --error-container: #7f1d1d;
-  --on-error-container: #fecaca;
-  
-  --surface: #020617;
-  --on-surface: #f8fafc;
-  --surface-variant: #1e293b;
-  --on-surface-variant: #94a3b8;
-  
-  --outline: #475569;
-  --outline-variant: #334155;
-  
-  --surface-container-lowest: #020617;
-  --surface-container-low: #0f172a;
-  --surface-container: #1e293b;
-  --surface-container-high: #334155;
-  --surface-container-highest: #475569;
-}
+
+
 
 /* Reset & Base Styles */
 *,
