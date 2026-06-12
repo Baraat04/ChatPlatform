@@ -21,8 +21,14 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "UP-CHAT Dashboard",
-  description: "Enterprise AI Bot Management",
+  title: "UP-CHAT — AI Bot Platform",
+  description: "Платформа для создания и управления AI-ботами для Telegram и WhatsApp",
+  icons: {
+    icon: [
+      { url: '/logo.jpg', type: 'image/jpeg' },
+    ],
+    apple: '/logo.jpg',
+  },
 };
 
 export default function RootLayout({
