@@ -212,7 +212,7 @@ export default function OfferPage() {
               <p className="font-normal text-slate-800">
                 <strong>Наименование ИП/ЮЛ:</strong> ТОО &quot;SAAMA GROUP&quot;<br />
                 <strong>ИИН/БИН:</strong> 171040010072<br />
-                <strong>Расчетный счет (KZT):</strong> KZ87722S000021139717 (Kaspi Bank)<br />
+                <strong>Расчетный счет (KZT):</strong> KZ87722S000021139717 (АО &quot;Kaspi Bank&quot;, БИК: CASPKZKA)<br />
                 <strong>Расчетный счет (RUB):</strong> KZ75601A241017267491 (АО &quot;Народный Банк Казахстана&quot;, БИК: HSBKKZKX)<br />
                 <strong>Расчетный счет (USD):</strong> KZ78601A871048411341 (АО &quot;Народный Банк Казахстана&quot;, БИК: HSBKKZKX)<br />
                 <strong>Почта/телефон для обращений:</strong> geducation1017@gmail.com / +7 777 420-19-89<br />
@@ -323,7 +323,7 @@ export default function OfferPage() {
               <p className="font-normal text-slate-800">
                 <strong>Name of Entity:</strong> SAAMA GROUP LLP<br />
                 <strong>BIN:</strong> 171040010072<br />
-                <strong>Bank Account (KZT):</strong> KZ87722S000021139717 (Kaspi Bank)<br />
+                <strong>Bank Account (KZT):</strong> KZ87722S000021139717 (JSC &quot;Kaspi Bank&quot;, BIC: CASPKZKA)<br />
                 <strong>Bank Account (RUB):</strong> KZ75601A241017267491 (JSC &quot;Halyk Bank of Kazakhstan&quot;, BIC: HSBKKZKX)<br />
                 <strong>Bank Account (USD):</strong> KZ78601A871048411341 (JSC &quot;Halyk Bank of Kazakhstan&quot;, BIC: HSBKKZKX)<br />
                 <strong>Contact Email/Phone:</strong> geducation1017@gmail.com / +7 777 420-19-89<br />
@@ -433,7 +433,7 @@ export default function OfferPage() {
               <p className="font-normal text-slate-800">
                 <strong>Атауы:</strong> «SAAMA GROUP» ЖШС<br />
                 <strong>БСН (БИН):</strong> 171040010072<br />
-                <strong>Есеп айырысу шоты (KZT):</strong> KZ87722S000021139717 (Kaspi Bank)<br />
+                <strong>Есеп айырысу шоты (KZT):</strong> KZ87722S000021139717 («Kaspi Bank» АҚ, БИК: CASPKZKA)<br />
                 <strong>Есеп айырысу шоты (RUB):</strong> KZ75601A241017267491 («Қазақстан Халық Банкі» АҚ, БИК: HSBKKZKX)<br />
                 <strong>Есеп айырысу шоты (USD):</strong> KZ78601A871048411341 («Қазақстан Халық Банкі» АҚ, БИК: HSBKKZKX)<br />
                 <strong>Электрондық пошта/Телефон:</strong> geducation1017@gmail.com / +7 777 420-19-89<br />
