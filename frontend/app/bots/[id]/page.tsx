@@ -1248,6 +1248,7 @@ export default function BotDetails() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))', gap: '1.8rem' }}>
                   {channels.map(channel => {
                     const isTg = channel.platform === 'TELEGRAM';
+                    const isIg = channel.platform === 'INSTAGRAM';
                     return (
                       <div 
                         key={channel.id} 
@@ -1277,6 +1278,7 @@ export default function BotDetails() {
                             height: '5px', 
                             background: isTg 
                               ? 'linear-gradient(90deg, #3aabea 0%, #229ed9 100%)' 
+                              : isIg ? 'linear-gradient(90deg, #F58529 0%, #DD2A7B 50%, #8134AF 100%)'
                               : 'linear-gradient(90deg, #62d886 0%, #25d366 100%)'
                           }} />
                         )}
@@ -1290,16 +1292,22 @@ export default function BotDetails() {
                                 borderRadius: '16px', 
                                 background: isTg 
                                   ? 'rgba(34, 158, 217, 0.08)' 
-                                  : 'rgba(37, 211, 102, 0.08)', 
+                                  : isIg ? 'rgba(225, 48, 108, 0.08)' : 'rgba(37, 211, 102, 0.08)', 
                                 display: 'flex', 
                                 alignItems: 'center', 
                                 justifyContent: 'center',
-                                border: `1px solid ${isTg ? 'rgba(34, 158, 217, 0.15)' : 'rgba(37, 211, 102, 0.15)'}`
+                                border: `1px solid ${isTg ? 'rgba(34, 158, 217, 0.15)' : isIg ? 'rgba(225, 48, 108, 0.15)' : 'rgba(37, 211, 102, 0.15)'}`
                               }}>
                                 {isTg ? (
                                   <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#229ed9" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                                     <line x1="22" y1="2" x2="11" y2="13"></line>
                                     <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                                  </svg>
+                                ) : isIg ? (
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#E1306C" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
+                                    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+                                    <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
                                   </svg>
                                 ) : (
                                   <svg width="30" height="30" viewBox="0 0 24 24" fill="#25d366">
@@ -1309,7 +1317,7 @@ export default function BotDetails() {
                               </div>
                               <div>
                                 <div style={{ fontWeight: 800, fontSize: '1.25rem', color: 'var(--on-surface)' }}>
-                                  {isTg ? 'Telegram Bot' : 'WhatsApp Client'}
+                                  {isTg ? 'Telegram Bot' : isIg ? 'Instagram API' : 'WhatsApp Client'}
                                 </div>
                                 <div style={{ fontSize: '0.82rem', color: 'var(--on-surface-variant)', fontFamily: 'monospace', background: 'var(--surface-container-high)', padding: '2px 8px', borderRadius: '6px', display: 'inline-block', marginTop: '0.2rem' }}>
                                   ID: {channel.slug}
@@ -1504,6 +1512,45 @@ export default function BotDetails() {
                           Прямая работа с личными номерами. Быстрый старт через сканирование QR.
                         </p>
                       </div>
+
+                      {searchParams?.get('test_instagram') === 'true' && (
+                        <div 
+                          onClick={() => setNewChannelPlatform('INSTAGRAM')} 
+                          style={{ 
+                            padding: '2.5rem 2rem', 
+                            borderRadius: '24px', 
+                            border: '2px solid var(--outline-variant)', 
+                            cursor: 'pointer', 
+                            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', 
+                            textAlign: 'center',
+                            background: 'var(--surface-container-low)'
+                          }} 
+                          className="channel-select-card"
+                        >
+                          <div style={{ 
+                            width: '72px', 
+                            height: '72px', 
+                            background: 'rgba(225, 48, 108, 0.06)', 
+                            borderRadius: '50%', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center', 
+                            margin: '0 auto 1.5rem auto',
+                            border: '1px solid rgba(225, 48, 108, 0.12)',
+                            boxShadow: '0 8px 20px rgba(225,48,108,0.05)'
+                          }}>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#E1306C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
+                              <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+                              <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
+                            </svg>
+                          </div>
+                          <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1.3rem', fontWeight: 700 }}>Instagram</h4>
+                          <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--on-surface-variant)', lineHeight: '1.5' }}>
+                            Тестовое подключение Instagram канала по API Meta.
+                          </p>
+                        </div>
+                      )}
                       
                       <style>{`
                         .channel-select-card:hover { 
@@ -1592,6 +1639,57 @@ export default function BotDetails() {
                         }}
                       >
                         {isSaving ? 'Подключение канала...' : 'Подключить Telegram Bot'}
+                      </button>
+                    </div>
+                  ) : newChannelPlatform === 'INSTAGRAM' ? (
+                    <div>
+                      <div style={{ background: 'rgba(225, 48, 108, 0.05)', border: '1px solid rgba(225, 48, 108, 0.15)', padding: '1.8rem', borderRadius: '20px', marginBottom: '2rem' }}>
+                        <h4 style={{ margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.6rem', color: '#E1306C', fontWeight: 700 }}>
+                          Подключение Instagram API
+                        </h4>
+                        <p style={{ fontSize: '0.92rem', lineHeight: '1.5', color: 'var(--on-surface-variant)' }}>
+                          Введите настройки Meta API для подключения Instagram аккаунта (Page Access Token).
+                        </p>
+                      </div>
+                      
+                      <div style={{ marginBottom: '1.8rem' }}>
+                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.6rem', color: 'var(--on-surface-variant)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                          Meta Page Access Token
+                        </label>
+                        <input 
+                          type="text" 
+                          value={newChannelToken} 
+                          onChange={e => setNewChannelToken(e.target.value)} 
+                          placeholder="EAA..." 
+                          className="premium-input" 
+                          style={{ width: '100%', padding: '1rem 1.2rem', fontSize: '0.98rem' }} 
+                        />
+                      </div>
+
+                      <button 
+                        disabled={!newChannelToken.trim() || isSaving}
+                        className="btn-primary" 
+                        style={{ width: '100%', padding: '1rem', borderRadius: '14px', justifyContent: 'center', fontSize: '1rem', fontWeight: 700, background: '#E1306C', color: '#fff', border: 'none' }}
+                        onClick={async () => {
+                          setIsSaving(true);
+                          const res = await fetch(`${API}/bot/${botId}/channels`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ platform: 'INSTAGRAM', apiToken: newChannelToken }),
+                            credentials: 'include'
+                          });
+                          setIsSaving(false);
+                          if (res.ok) {
+                            setIsAddingChannel(false);
+                            setNewChannelPlatform(null);
+                            setNewChannelToken('');
+                            fetchChannels();
+                          } else {
+                            alert((await res.json()).error || 'Неверный токен или ошибка подключения');
+                          }
+                        }}
+                      >
+                        {isSaving ? 'Подключение канала...' : 'Подключить Instagram'}
                       </button>
                     </div>
                   ) : (

@@ -1008,19 +1008,49 @@ router.post('/webhook/telegram/:slug', async (req, res) => {
 
 // ── INSTAGRAM WEBHOOK (GLOBAL) ──────────────────────────────
 
-const igAccountToBotIdMap = new Map(); // instagram_business_account_id -> botId
+const igAccountToConfigMap = new Map(); // instagram_business_account_id -> { bot, channel }
 
-async function getBotByInstagramAccountId(accountId) {
+async function getChannelByInstagramAccountId(accountId) {
     const prisma = getPrisma();
     
     // 1. Check cache
-    if (igAccountToBotIdMap.has(accountId)) {
-        const botId = igAccountToBotIdMap.get(accountId);
-        const bot = await prisma.bot.findUnique({ where: { id: botId } });
-        if (bot && bot.isActive) return bot;
+    if (igAccountToConfigMap.has(accountId)) {
+        const cached = igAccountToConfigMap.get(accountId);
+        if (cached.channel) {
+            const channel = await prisma.channel.findUnique({ where: { id: cached.channel.id }, include: { bot: true } });
+            if (channel && channel.isActive && channel.bot.isActive) return { bot: channel.bot, channel };
+        } else {
+            const bot = await prisma.bot.findUnique({ where: { id: cached.bot.id } });
+            if (bot && bot.isActive) return { bot, channel: null };
+        }
     }
 
-    // 2. Fetch active Instagram bots and query Meta Graph API to resolve Instagram account IDs
+    // 2. Fetch active Instagram channels
+    const activeChannels = await prisma.channel.findMany({
+        where: { platform: 'INSTAGRAM', isActive: true },
+        include: { bot: true }
+    });
+
+    for (const channel of activeChannels) {
+        if (!channel.bot.isActive || !channel.apiToken) continue;
+        try {
+            const response = await fetch(`https://graph.facebook.com/v21.0/me?fields=instagram_business_account&access_token=${channel.apiToken}`);
+            if (response.ok) {
+                const data = await response.json();
+                const igId = data.instagram_business_account?.id;
+                if (igId) {
+                    igAccountToConfigMap.set(igId, { bot: channel.bot, channel });
+                    if (igId === accountId) {
+                        return { bot: channel.bot, channel };
+                    }
+                }
+            }
+        } catch (e) {
+            console.error(`[Instagram] Error fetching IG ID for channel ${channel.id}:`, e.message);
+        }
+    }
+
+    // 3. Fallback: Legacy active Instagram bots
     const activeBots = await prisma.bot.findMany({
         where: { platform: 'INSTAGRAM', isActive: true }
     });
@@ -1033,9 +1063,9 @@ async function getBotByInstagramAccountId(accountId) {
                 const data = await response.json();
                 const igId = data.instagram_business_account?.id;
                 if (igId) {
-                    igAccountToBotIdMap.set(igId, bot.id);
+                    igAccountToConfigMap.set(igId, { bot, channel: null });
                     if (igId === accountId) {
-                        return bot;
+                        return { bot, channel: null };
                     }
                 }
             }
@@ -1078,11 +1108,13 @@ router.post('/webhook/instagram', async (req, res) => {
             const recipientId = entry.id; // Instagram Account ID receiving the message
             if (!recipientId) continue;
 
-            const bot = await getBotByInstagramAccountId(recipientId);
-            if (!bot || !bot.isActive) {
+            const config = await getChannelByInstagramAccountId(recipientId);
+            if (!config) {
                 console.log(`[Instagram] Active bot not found for Instagram Business Account: ${recipientId}`);
                 continue;
             }
+            const { bot, channel } = config;
+            const tokenToUse = channel ? channel.apiToken : bot.apiToken;
 
             for (const messagingEvent of (entry.messaging || [])) {
                 // Skip delivery / read receipts / echo messages
@@ -1104,7 +1136,7 @@ router.post('/webhook/instagram', async (req, res) => {
 
                 // 2. Save user message
                 const userMsg = await prisma.message.create({
-                    data: { botId: bot.id, sender: 'user', text: messageText, chatId: senderId }
+                    data: { botId: bot.id, channelId: channel?.id || null, platform: 'INSTAGRAM', sender: 'user', text: messageText, chatId: senderId }
                 });
                 io.emit(`chat-${bot.id}`, userMsg);
 
@@ -1114,7 +1146,7 @@ router.post('/webhook/instagram', async (req, res) => {
                 // 3. Check balance
                 const canProceed = await hasEnoughMessages(bot.user_id);
                 if (!canProceed) {
-                    await sendInstagramMessage(bot.apiToken, senderId, 'Баланс сообщений исчерпан. Пополните баланс в панели управления.');
+                    await sendInstagramMessage(tokenToUse, senderId, 'Баланс сообщений исчерпан. Пополните баланс в панели управления.');
                     continue;
                 }
 
@@ -1151,11 +1183,11 @@ router.post('/webhook/instagram', async (req, res) => {
                 }
 
                 // 6. Send reply via Instagram Graph API
-                await sendInstagramMessage(bot.apiToken, senderId, aiResponseText);
+                await sendInstagramMessage(tokenToUse, senderId, aiResponseText);
 
                 // 7. Save bot reply
                 const botMsg = await prisma.message.create({
-                    data: { botId: bot.id, sender: 'bot', text: aiResponseText, chatId: senderId }
+                    data: { botId: bot.id, channelId: channel?.id || null, platform: 'INSTAGRAM', sender: 'bot', text: aiResponseText, chatId: senderId }
                 });
                 io.emit(`chat-${bot.id}`, botMsg);
             }
