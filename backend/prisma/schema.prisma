@@ -120,6 +120,8 @@ model Message {
   text       String   @db.Text
   chatId     String   // phone number or telegram chat id
   createdAt  DateTime @default(now())
+  mediaUrl   String?
+  mediaType  String?
 
   @@index([botId, chatId])
   @@index([botId, platform])

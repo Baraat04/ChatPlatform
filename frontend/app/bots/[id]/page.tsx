@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, Save, Trash2, Send, Bot, User, Users, UserPlus, Pause, Play, Phone, MessageSquare, Radio, Edit2, Wand2, ChevronDown, Check, Plus, Database, BrainCircuit, FileUp } from 'lucide-react';
+import { ArrowLeft, Save, Trash2, Send, Bot, User, Users, UserPlus, Pause, Play, Phone, MessageSquare, Radio, Edit2, Wand2, ChevronDown, Check, Plus, Database, BrainCircuit, FileUp, Image as LucideImage, FileAudio2, X, Mic } from 'lucide-react';
 import Link from 'next/link';
 import { io } from 'socket.io-client';
 import { useLanguage } from '../../contexts/LanguageContext';
@@ -278,6 +278,8 @@ interface Message {
   text: string;
   chatId: string;
   createdAt: string;
+  mediaUrl?: string | null;
+  mediaType?: string | null;
 }
 
 interface Channel {
@@ -307,7 +309,50 @@ export default function BotDetails() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isTogglingActive, setIsTogglingActive] = useState(false);
   const [replyText, setReplyText] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
+  const [fileType, setFileType] = useState<'image' | 'audio' | null>(null);
   const [activeTab, setActiveTab] = useState<'chats' | 'agent' | 'settings' | 'broadcast' | 'channels'>('chats');
+  
+  const [isRecording, setIsRecording] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<BlobPart[]>([]);
+
+  const toggleRecording = async () => {
+    if (isRecording) {
+      mediaRecorderRef.current?.stop();
+      setIsRecording(false);
+    } else {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const mediaRecorder = new MediaRecorder(stream);
+        mediaRecorderRef.current = mediaRecorder;
+        audioChunksRef.current = [];
+
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            audioChunksRef.current.push(event.data);
+          }
+        };
+
+        mediaRecorder.onstop = () => {
+          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+          const audioFile = new File([audioBlob], `voice_message_${Date.now()}.webm`, { type: 'audio/webm' });
+          setSelectedFile(audioFile);
+          setFileType('audio');
+          setFilePreviewUrl(null);
+          
+          stream.getTracks().forEach(track => track.stop());
+        };
+
+        mediaRecorder.start();
+        setIsRecording(true);
+      } catch (error) {
+        console.error('Error accessing microphone:', error);
+        alert('Не удалось получить доступ к микрофону. Пожалуйста, проверьте разрешения.');
+      }
+    }
+  };
 
   // Onboarding Tour state — per-bot, only triggered when arriving from create-bot (?new=true)
   const [tourStep, setTourStep] = useState<number | null>(null);
@@ -390,17 +435,37 @@ export default function BotDetails() {
   const [managerContact, setManagerContact] = useState('');
 
   const API_BASE = CONFIG_API_BASE;
-  const renderMessageContent = (text: string) => {
+  const renderMessageContent = (msg: any) => {
+    if (msg.mediaType === 'image') {
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <img src={`${API_BASE}${msg.mediaUrl}`} alt="Attached Image" style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '12px' }} />
+          {msg.text && <span style={{ whiteSpace: 'pre-wrap' }}>{msg.text}</span>}
+        </div>
+      );
+    }
+    if (msg.mediaType === 'audio') {
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxWidth: '100%' }}>
+          <audio controls style={{ height: '32px', minWidth: '180px', maxWidth: '100%', width: '240px', accentColor: 'var(--primary)' }}>
+            <source src={`${API_BASE}${msg.mediaUrl}`} />
+            {t.voiceMessage || 'Голосовое сообщение'}
+          </audio>
+          {msg.text && <span style={{ whiteSpace: 'pre-wrap' }}>{msg.text}</span>}
+        </div>
+      );
+    }
+    const text = msg.text || '';
     if (!text) return null;
     const parts = text.split(/(\[AUDIO\]\/uploads\/[^\s\n]+)/g);
-    return parts.map((part, i) => {
+    return parts.map((part: string, i: number) => {
       if (part.startsWith('[AUDIO]/uploads/')) {
         const filePath = part.replace('[AUDIO]', '');
         const audioUrl = `${API_BASE}${filePath}`;
         return (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '12px', padding: '8px 12px' }}>
-            <span style={{ fontSize: '1.2rem' }}>🎤</span>
-            <audio controls style={{ height: '32px', flex: 1, minWidth: '180px', accentColor: 'var(--primary)' }}>
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '12px', padding: '8px 12px', maxWidth: '100%' }}>
+            <span style={{ fontSize: '1.2rem', flexShrink: 0 }}>🎤</span>
+            <audio controls style={{ height: '32px', flex: 1, minWidth: '150px', maxWidth: '100%', width: '240px', accentColor: 'var(--primary)' }}>
               <source src={audioUrl} />
               {t.voiceMessage}
             </audio>
@@ -606,15 +671,25 @@ export default function BotDetails() {
   }
 
   async function handleSend() {
-    if (!replyText.trim() || !selectedChat) return;
+    if ((!replyText.trim() && !selectedFile) || !selectedChat) return;
+    
+    const formData = new FormData();
+    formData.append('chatId', selectedChat);
+    if (replyText.trim()) formData.append('text', replyText);
+    if (selectedFile) formData.append('file', selectedFile);
+
     const res = await fetch(`${API}/bot/${botId}/send`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: replyText, chatId: selectedChat }),
+      body: formData,
       credentials: 'include'
     });
-    if (res.ok) setReplyText('');
-    else alert('Не удалось отправить: ' + (await res.json().catch(() => ({}))).error);
+    
+    if (res.ok) {
+      setReplyText('');
+      setSelectedFile(null);
+      setFilePreviewUrl(null);
+      setFileType(null);
+    } else alert('Не удалось отправить: ' + (await res.json().catch(() => ({}))).error);
   }
 
   async function handleToggleActive() {
@@ -2008,7 +2083,7 @@ export default function BotDetails() {
                           minWidth: '80px',
                           position: 'relative'
                         }}>
-                          <div style={{ paddingRight: msg.sender === 'user' ? '1rem' : '0' }}>{renderMessageContent(msg.text)}</div>
+                          <div style={{ paddingRight: msg.sender === 'user' ? '1rem' : '0' }}>{renderMessageContent(msg)}</div>
                           <div style={{ 
                             fontSize: '0.6rem', 
                             opacity: 0.6, 
@@ -2067,7 +2142,67 @@ export default function BotDetails() {
                       />
                       <div style={{ fontSize: '0.7rem', color: '#565e74', fontWeight: 600, opacity: 0.5 }}>ENTER TO APPLY</div>
                     </div>
-                    <div style={{ display: 'flex', gap: '0.75rem' }}>
+                    {selectedFile && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem', background: 'var(--surface-container-low)', borderRadius: '12px', border: '1px solid var(--outline-variant)' }}>
+                        {fileType === 'image' && filePreviewUrl && (
+                          <img src={filePreviewUrl} alt="Preview" style={{ height: '100px', borderRadius: '8px', objectFit: 'cover' }} />
+                        )}
+                        {fileType === 'audio' && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem' }}>
+                            <FileAudio2 size={24} color="var(--primary)" />
+                            <span style={{ fontSize: '0.85rem', color: 'var(--on-surface)' }}>{selectedFile.name}</span>
+                          </div>
+                        )}
+                        <button 
+                          onClick={() => { setSelectedFile(null); setFilePreviewUrl(null); setFileType(null); }}
+                          style={{ background: 'none', border: 'none', color: 'var(--error)', cursor: 'pointer', marginLeft: 'auto', padding: '0.5rem' }}
+                        >
+                          <X size={20} />
+                        </button>
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                      <label style={{ cursor: 'pointer', padding: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--on-surface-variant)', transition: 'color 0.2s' }}>
+                        <LucideImage size={24} />
+                        <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => {
+                          if (e.target.files && e.target.files[0]) {
+                            const file = e.target.files[0];
+                            setSelectedFile(file);
+                            setFileType('image');
+                            setFilePreviewUrl(URL.createObjectURL(file));
+                          }
+                          e.target.value = '';
+                        }} />
+                      </label>
+                      <label style={{ cursor: 'pointer', padding: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--on-surface-variant)', transition: 'color 0.2s' }}>
+                        <FileAudio2 size={24} />
+                        <input type="file" accept="audio/*" style={{ display: 'none' }} onChange={e => {
+                          if (e.target.files && e.target.files[0]) {
+                            const file = e.target.files[0];
+                            setSelectedFile(file);
+                            setFileType('audio');
+                            setFilePreviewUrl(null);
+                          }
+                          e.target.value = '';
+                        }} />
+                      </label>
+                      <button
+                        onClick={toggleRecording}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          padding: '0.5rem',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: isRecording ? 'var(--error)' : 'var(--on-surface-variant)',
+                          transition: 'all 0.2s',
+                          animation: isRecording ? 'pulse 1.5s infinite' : 'none'
+                        }}
+                      >
+                        {isRecording ? <div style={{ width: 12, height: 12, background: 'var(--error)', borderRadius: 2 }} /> : <Mic size={24} />}
+                      </button>
                       <input
                         type="text"
                         className="premium-input"
@@ -2077,7 +2212,7 @@ export default function BotDetails() {
                         placeholder={t.takeOver}
                         style={{ flex: 1, borderRadius: '14px', padding: '0.8rem 1.2rem' }}
                       />
-                      <button onClick={handleSend} disabled={!replyText.trim()} className="btn-primary" style={{ width: '48px', height: '48px', borderRadius: '14px', padding: 0, justifyContent: 'center' }}>
+                      <button onClick={handleSend} disabled={!replyText.trim() && !selectedFile} className="btn-primary" style={{ width: '48px', height: '48px', borderRadius: '14px', padding: 0, justifyContent: 'center' }}>
                         <Send size={20} />
                       </button>
                     </div>

@@ -441,7 +441,6 @@ export default function Register() {
           <GoogleLogin
             onSuccess={handleGoogleSuccess}
             onError={() => setError('Google Registration Failed')}
-            useOneTap
           />
         </div>
         
