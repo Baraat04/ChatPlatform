@@ -1238,7 +1238,7 @@ export default function BotDetails() {
                     className="btn-primary" 
                     style={{ padding: '0.9rem 2rem', borderRadius: '14px', margin: '0 auto', fontSize: '1rem' }}
                   >
-                    Подключить первый канал
+                    Connect first channel
                   </button>
                 </div>
               )}
@@ -1335,7 +1335,7 @@ export default function BotDetails() {
                                 boxShadow: channel.isActive ? '0 0 8px rgba(37,211,102,0.6)' : 'none'
                               }} />
                               <span style={{ fontSize: '0.85rem', fontWeight: 600, color: channel.isActive ? '#1e7e34' : '#9b1c1c' }}>
-                                {channel.isActive ? 'Подключен' : 'На паузе'}
+                                {channel.isActive ? 'Connected' : 'Paused'}
                               </span>
                             </div>
                           </div>
@@ -1343,7 +1343,7 @@ export default function BotDetails() {
 
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.5rem', paddingTop: '1.2rem', borderTop: '1px solid var(--outline-variant)' }}>
                           <span style={{ fontSize: '0.82rem', color: 'var(--on-surface-variant)' }}>
-                            Управление приёмом сообщений
+                            Message Reception Control
                           </span>
                           <div style={{ display: 'flex', gap: '0.6rem' }}>
                             <button 
@@ -1367,11 +1367,11 @@ export default function BotDetails() {
                                 transition: 'all 0.2s'
                               }}
                             >
-                              {channel.isActive ? <><Pause size={14} /> Пауза</> : <><Play size={14} /> Старт</>}
+                              {channel.isActive ? <><Pause size={14} /> Pause</> : <><Play size={14} /> Start</>}
                             </button>
                             <button 
                               onClick={async () => {
-                                if (!confirm('Вы уверены, что хотите отключить и удалить этот канал связи?')) return;
+                                if (!confirm('Are you sure you want to disconnect and delete this communication channel?')) return;
                                 await fetch(`${API}/bot/${botId}/channels/${channel.id}`, { method: 'DELETE', credentials: 'include' });
                                 fetchChannels();
                               }} 
@@ -1384,7 +1384,7 @@ export default function BotDetails() {
                                 borderRadius: '10px',
                                 transition: 'all 0.2s'
                               }}
-                              title="Удалить канал"
+                              title="Delete Channel"
                             >
                               <Trash2 size={16} />
                             </button>
@@ -1428,10 +1428,10 @@ export default function BotDetails() {
                     </button>
                     <div>
                       <h3 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 800 }}>
-                        {!newChannelPlatform ? 'Выбор платформы' : newChannelPlatform === 'TELEGRAM' ? 'Подключение Telegram' : 'Подключение WhatsApp'}
+                        {!newChannelPlatform ? 'Platform Selection' : newChannelPlatform === 'TELEGRAM' ? 'Connectedие Telegram' : 'Connectedие WhatsApp'}
                       </h3>
                       <p style={{ margin: '0.2rem 0 0 0', color: 'var(--on-surface-variant)', fontSize: '0.85rem' }}>
-                        {!newChannelPlatform ? 'Выберите мессенджер для интеграции' : `Шаг подключения бота к вашему аккаунту`}
+                        {!newChannelPlatform ? 'Select messenger for integration' : `Step to connect bot to your account`}
                       </p>
                     </div>
                   </div>
@@ -1473,7 +1473,7 @@ export default function BotDetails() {
                         </div>
                         <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1.3rem', fontWeight: 700 }}>Telegram Bot</h4>
                         <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--on-surface-variant)', lineHeight: '1.5' }}>
-                          Идеально для официальных ботов, рассылок, кнопок и каналов.
+                          Ideal for official bots, broadcasts, buttons, and channels.
                         </p>
                       </div>
 
@@ -1509,7 +1509,7 @@ export default function BotDetails() {
                         </div>
                         <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1.3rem', fontWeight: 700 }}>WhatsApp</h4>
                         <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--on-surface-variant)', lineHeight: '1.5' }}>
-                          Прямая работа с личными номерами. Быстрый старт через сканирование QR.
+                          Direct work with personal numbers. Quick start via QR scanning.
                         </p>
                       </div>
 
@@ -1547,7 +1547,7 @@ export default function BotDetails() {
                           </div>
                           <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1.3rem', fontWeight: 700 }}>Instagram</h4>
                           <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--on-surface-variant)', lineHeight: '1.5' }}>
-                            Тестовое подключение Instagram канала по API Meta.
+                            Test connection of Instagram channel via Meta API.
                           </p>
                         </div>
                       )}
@@ -1567,35 +1567,35 @@ export default function BotDetails() {
                     <div>
                       <div style={{ background: 'rgba(34, 158, 217, 0.05)', border: '1px solid rgba(34, 158, 217, 0.15)', padding: '1.8rem', borderRadius: '20px', marginBottom: '2rem' }}>
                         <h4 style={{ margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.6rem', color: '#229ed9', fontWeight: 700 }}>
-                          Инструкция по подключению Telegram
+                          Instructions for connecting Telegram
                         </h4>
                         
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                           <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
                             <div style={{ background: '#229ed9', color: '#fff', width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 800, flexShrink: 0, marginTop: '2px' }}>1</div>
                             <div style={{ fontSize: '0.92rem', lineHeight: '1.5' }}>
-                              Откройте Telegram и перейдите к официальному боту <a href="https://t.me/BotFather" target="_blank" rel="noopener noreferrer" style={{ color: '#229ed9', fontWeight: 700, textDecoration: 'underline' }}>@BotFather</a>
+                              Open Telegram and go to the official bot <a href="https://t.me/BotFather" target="_blank" rel="noopener noreferrer" style={{ color: '#229ed9', fontWeight: 700, textDecoration: 'underline' }}>@BotFather</a>
                             </div>
                           </div>
                           
                           <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
                             <div style={{ background: '#229ed9', color: '#fff', width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 800, flexShrink: 0, marginTop: '2px' }}>2</div>
                             <div style={{ fontSize: '0.92rem', lineHeight: '1.5' }}>
-                              Отправьте ему команду <code style={{ background: 'var(--surface-container-highest)', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold' }}>/newbot</code> для создания нового бота
+                              Send him the command <code style={{ background: 'var(--surface-container-highest)', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold' }}>/newbot</code> to create a new bot
                             </div>
                           </div>
 
                           <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
                             <div style={{ background: '#229ed9', color: '#fff', width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 800, flexShrink: 0, marginTop: '2px' }}>3</div>
                             <div style={{ fontSize: '0.92rem', lineHeight: '1.5' }}>
-                              Задайте боту имя и уникальный юзернейм (оканчивающийся на <code style={{ fontWeight: 'bold' }}>_bot</code>)
+                              Give the bot a name and a unique username (ending in <code style={{ fontWeight: 'bold' }}>_bot</code>)
                             </div>
                           </div>
 
                           <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
                             <div style={{ background: '#229ed9', color: '#fff', width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 800, flexShrink: 0, marginTop: '2px' }}>4</div>
                             <div style={{ fontSize: '0.92rem', lineHeight: '1.5' }}>
-                              Скопируйте полученный **API Token** и введите его в текстовое поле ниже
+                              Copy the received **API Token** and enter it in the text field below
                             </div>
                           </div>
                         </div>
@@ -1603,13 +1603,13 @@ export default function BotDetails() {
                       
                       <div style={{ marginBottom: '1.8rem' }}>
                         <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.6rem', color: 'var(--on-surface-variant)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                          Токен бота (API HTTP Token)
+                          Bot Token (API HTTP Token)
                         </label>
                         <input 
                           type="text" 
                           value={newChannelToken} 
                           onChange={e => setNewChannelToken(e.target.value)} 
-                          placeholder="Пример: 123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11" 
+                          placeholder="Example: 123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11" 
                           className="premium-input" 
                           style={{ width: '100%', padding: '1rem 1.2rem', fontSize: '0.98rem' }} 
                         />
@@ -1634,21 +1634,21 @@ export default function BotDetails() {
                             setNewChannelToken('');
                             fetchChannels();
                           } else {
-                            alert((await res.json()).error || 'Неверный токен бота или ошибка подключения');
+                            alert((await res.json()).error || 'Invalid bot token or connection error');
                           }
                         }}
                       >
-                        {isSaving ? 'Подключение канала...' : 'Подключить Telegram Bot'}
+                        {isSaving ? 'Connectedие канала...' : 'Connect Telegram Bot'}
                       </button>
                     </div>
                   ) : newChannelPlatform === 'INSTAGRAM' ? (
                     <div>
                       <div style={{ background: 'rgba(225, 48, 108, 0.05)', border: '1px solid rgba(225, 48, 108, 0.15)', padding: '1.8rem', borderRadius: '20px', marginBottom: '2rem' }}>
                         <h4 style={{ margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.6rem', color: '#E1306C', fontWeight: 700 }}>
-                          Подключение Instagram API
+                          Connectedие Instagram API
                         </h4>
                         <p style={{ fontSize: '0.92rem', lineHeight: '1.5', color: 'var(--on-surface-variant)' }}>
-                          Введите настройки Meta API для подключения Instagram аккаунта (Page Access Token).
+                          Enter Meta API settings to connect Instagram account (Page Access Token).
                         </p>
                       </div>
                       
@@ -1685,11 +1685,11 @@ export default function BotDetails() {
                             setNewChannelToken('');
                             fetchChannels();
                           } else {
-                            alert((await res.json()).error || 'Неверный токен или ошибка подключения');
+                            alert((await res.json()).error || 'Invalid token or connection error');
                           }
                         }}
                       >
-                        {isSaving ? 'Подключение канала...' : 'Подключить Instagram'}
+                        {isSaving ? 'Connectedие канала...' : 'Connect Instagram'}
                       </button>
                     </div>
                   ) : (
@@ -1712,9 +1712,9 @@ export default function BotDetails() {
                               <path d="M12.01 2C6.48 2 2 6.48 2 12.01C2 13.86 2.5 15.6 3.39 17.12L2.01 22.01L7.04 20.72C8.5 21.54 10.19 22.01 12 22.01C17.53 22.01 22 17.53 22 12.01C22 6.48 17.53 2 12.01 2ZM17.19 15.61C16.98 16.2 16.03 16.71 15.46 16.82C14.99 16.91 14.37 16.97 12.31 16.12C9.66 15.02 7.95 12.33 7.82 12.15C7.69 11.97 6.74 10.71 6.74 9.41C6.74 8.11 7.4 7.47 7.67 7.21C7.94 6.95 8.38 6.84 8.81 6.84C8.95 6.84 9.07 6.85 9.17 6.85C9.47 6.86 9.62 7.04 9.72 7.28L10.51 9.19C10.6 9.4 10.69 9.63 10.55 9.91C10.41 10.19 10.3 10.32 10.1 10.55L9.61 11.12C9.46 11.29 9.3 11.47 9.49 11.8C9.68 12.12 10.33 13.18 11.29 14.04C12.53 15.15 13.55 15.5 13.9 15.65C14.23 15.79 14.43 15.76 14.62 15.54C14.86 15.26 15.39 14.62 15.72 14.15C15.98 13.78 16.3 13.84 16.63 13.96L18.66 14.96C18.99 15.12 19.22 15.2 19.3 15.34C19.38 15.48 19.38 16.15 19.1 16.74C18.82 17.33 17.47 17.9 16.88 17.9C16.88 17.9 16.89 17.9 16.88 17.9C16.88 17.9 12.63 17.06 17.19 15.61Z"/>
                             </svg>
                           </div>
-                          <h4 style={{ fontSize: '1.2rem', fontWeight: 700, margin: '0 0 0.5rem 0' }}>Генерация QR-кода</h4>
+                          <h4 style={{ fontSize: '1.2rem', fontWeight: 700, margin: '0 0 0.5rem 0' }}>QR Code Generation</h4>
                           <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.95rem', marginBottom: '2rem', maxWidth: '380px', margin: '0 auto 2rem auto', lineHeight: '1.6' }}>
-                            Для подключения WhatsApp сессии мы сгенерируем защищенный веб-интерфейс QR-кода.
+                            To connect WhatsApp session, we will generate a secure QR code web interface.
                           </p>
                           <button 
                             className="btn-primary" 
@@ -1729,32 +1729,32 @@ export default function BotDetails() {
                               if (res.ok) fetchChannels(); // Socket will send QR code
                             }}
                           >
-                            Сгенерировать QR-код
+                            Generate QR code
                           </button>
                         </div>
                       ) : (
                         <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '2.5rem', alignItems: 'center' }}>
                           <div>
                             <h4 style={{ margin: '0 0 1rem 0', color: '#25d366', fontWeight: 700 }}>
-                              Как отсканировать QR-код
+                              How to scan QR code
                             </h4>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
                               <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
                                 <div style={{ background: '#25d366', color: '#fff', width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 800, flexShrink: 0, marginTop: '2px' }}>1</div>
                                 <div style={{ fontSize: '0.92rem', lineHeight: '1.5' }}>
-                                  Откройте **WhatsApp** на вашем телефоне
+                                  Open **WhatsApp** on your phone
                                 </div>
                               </div>
                               <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
                                 <div style={{ background: '#25d366', color: '#fff', width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 800, flexShrink: 0, marginTop: '2px' }}>2</div>
                                 <div style={{ fontSize: '0.92rem', lineHeight: '1.5' }}>
-                                  Перейдите в **Меню** (три точки) или **Настройки** → **Связанные устройства**
+                                  Go to **Menu** (three dots) or **Settings** → **Linked Devices**
                                 </div>
                               </div>
                               <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
                                 <div style={{ background: '#25d366', color: '#fff', width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 800, flexShrink: 0, marginTop: '2px' }}>3</div>
                                 <div style={{ fontSize: '0.92rem', lineHeight: '1.5' }}>
-                                  Нажмите кнопку **Привязка устройства** и наведите камеру телефона на экран
+                                  Click the **Link a Device** button and point your phone camera at the screen
                                 </div>
                               </div>
                             </div>
@@ -1769,7 +1769,7 @@ export default function BotDetails() {
                               color: 'var(--on-surface-variant)',
                               lineHeight: '1.5'
                             }}>
-                              🔔 **Важно:** Не закрывайте страницу до завершения сканирования. Сессия подключится автоматически.
+                              🔔 **Important:** Do not close the page until scanning is complete. The session will connect automatically.
                             </div>
                           </div>
                           
@@ -1794,7 +1794,7 @@ export default function BotDetails() {
                                 animation: 'pulse 1.5s infinite' 
                               }} />
                               <span style={{ fontSize: '0.85rem', color: 'var(--on-surface-variant)', fontWeight: 600 }}>
-                                Ожидание подключения с телефона...
+                                Waiting for connection from phone...
                               </span>
                             </div>
                           </div>
@@ -1880,7 +1880,7 @@ export default function BotDetails() {
                               ? (chat.name || chat.chatId)
                               : (chat.name 
                                   ? (chat.realJid || chat.chatId).includes('@lid') ? chat.name : `+${formatChatId(chat.realJid || chat.chatId)} (${chat.name})`
-                                  : ((chat.realJid || chat.chatId).includes('@lid') ? 'Скрытый номер' : `+${formatChatId(chat.realJid || chat.chatId)}`))}
+                                  : ((chat.realJid || chat.chatId).includes('@lid') ? 'Hidden number' : `+${formatChatId(chat.realJid || chat.chatId)}`))}
                           </div>
                           <Edit2 size={12} color="#666" style={{ cursor: 'pointer', opacity: 0.7 }} onClick={(e) => handleEditContactName(e, chat.chatId, chat.name || '')} />
                         </div>
@@ -1944,7 +1944,7 @@ export default function BotDetails() {
                                   ? (currentChat?.name || selectedChat)
                                   : (currentChat?.name 
                                       ? (currentChat.realJid || selectedChat).includes('@lid') ? currentChat.name : `+${formatChatId(currentChat.realJid || selectedChat)} (${currentChat.name})`
-                                      : ((currentChat?.realJid || selectedChat).includes('@lid') ? 'Скрытый номер' : `+${formatChatId(currentChat?.realJid || selectedChat)}`))}
+                                      : ((currentChat?.realJid || selectedChat).includes('@lid') ? 'Hidden number' : `+${formatChatId(currentChat?.realJid || selectedChat)}`))}
                               </div>
                               <Edit2 size={12} color="#565e74" style={{ cursor: 'pointer', opacity: 0.7 }} onClick={(e) => handleEditContactName(e, selectedChat, currentChat?.name || '')} />
                             </div>
@@ -1966,7 +1966,7 @@ export default function BotDetails() {
                               border: `1px solid ${bot?.pausedChats?.includes(selectedChat) ? '#fcd34d' : '#bbf7d0'}`
                             }}
                           >
-                            {bot?.pausedChats?.includes(selectedChat) ? <><Play size={14} /> Включить ИИ</> : <><Pause size={14} /> Отключить ИИ</>}
+                            {bot?.pausedChats?.includes(selectedChat) ? <><Play size={14} /> Turn on AI</> : <><Pause size={14} /> Turn off AI</>}
                           </button>
                           <button onClick={() => handleDeleteChat()} className="btn-action" style={{ padding: '0.5rem 0.8rem', fontSize: '0.8rem', background: '#fdf2f2', color: '#9b1c1c', border: '1px solid #fbd5d5' }}>
                             <Trash2 size={14} /> {t.clearChat}
@@ -2049,7 +2049,7 @@ export default function BotDetails() {
                           boxShadow: 'none'
                         }}
                         onFocus={(e) => e.target.style.boxShadow = 'none'}
-                        placeholder="Направьте бота (например: 'Будь вежливее')"
+                        placeholder="Direct the bot (e.g. 'Be more polite')"
                         onKeyDown={async (e) => {
                           if (e.key === 'Enter' && e.currentTarget.value.trim()) {
                             const newInstruction = e.currentTarget.value.trim();
@@ -2093,10 +2093,10 @@ export default function BotDetails() {
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--background)' }}>
             <div style={{ padding: '1.5rem', background: 'var(--surface-container-lowest)', borderBottom: '1px solid var(--outline-variant)' }}>
               <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--on-surface)', display: 'flex', alignItems: 'center', gap: '0.75rem', margin: 0 }}>
-                <BrainCircuit size={28} color="var(--primary)" /> Взаимодействие с AI Мозгом
+                <BrainCircuit size={28} color="var(--primary)" /> Interaction with AI Brain
               </h2>
               <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.9rem', marginTop: '0.5rem', marginBottom: 0 }}>
-                Общайтесь с агентом напрямую для настройки его поведения и базы знаний.
+                Communicate with the agent directly to configure its behavior and knowledge base.
               </p>
             </div>
             
@@ -2104,7 +2104,7 @@ export default function BotDetails() {
               {agentChatHistory.length === 0 ? (
                 <div style={{ margin: 'auto', textAlign: 'center', color: '#565e74' }}>
                   <Bot size={48} style={{ opacity: 0.1, marginBottom: '1rem' }} />
-                  <div>Напишите, что нужно изменить в поведении бота.</div>
+                  <div>Write what needs to be changed in the bots behavior.</div>
                 </div>
               ) : agentChatHistory.map((msg, i) => (
                 <div key={i} style={{ display: 'flex', flexDirection: msg.role === 'user' ? 'row-reverse' : 'row', gap: '0.75rem', maxWidth: '85%', alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
@@ -2125,7 +2125,7 @@ export default function BotDetails() {
               ))}
               {isAgentLoading && (
                 <div style={{ alignSelf: 'flex-start', background: 'var(--surface-container-lowest)', padding: '0.8rem 1.2rem', borderRadius: '16px', borderBottomLeftRadius: '2px', color: 'var(--on-surface-variant)', fontSize: '0.9rem' }}>
-                  ИИ думает...
+                  AI is thinking...
                 </div>
               )}
             </div>
@@ -2141,12 +2141,12 @@ export default function BotDetails() {
                 value={agentInput}
                 onChange={e => setAgentInput(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleAgentSend()}
-                placeholder="Например: 'Будь более вежливым' или 'Добавь в базу, что мы не работаем по выходным'"
+                placeholder="Example: 'Be more polite' or 'Add to the database that we do not work on weekends'"
                 style={{ flex: 1 }}
                 disabled={isAgentLoading}
               />
               <button onClick={handleAgentSend} disabled={!agentInput.trim() || isAgentLoading} className="btn-primary" style={{ padding: '0 1.5rem' }}>
-                <Send size={18} /> Отправить
+                <Send size={18} /> Send
               </button>
             </div>
           </div>
@@ -2266,8 +2266,8 @@ export default function BotDetails() {
                     {faq.map((item, index) => (
                       <div key={index} style={{ display: 'flex', gap: '12px', marginBottom: '16px', alignItems: 'flex-start' }}>
                         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                          <input className="premium-input" type="text" value={item.q} onChange={e => { const newFaq = [...faq]; newFaq[index].q = e.target.value; setFaq(newFaq); }} placeholder="Вопрос" style={{ padding: '0.8rem 1rem', width: '100%' }} />
-                          <textarea className="premium-input" rows={2} style={{ padding: '0.8rem 1rem', resize: 'vertical', width: '100%' }} value={item.a} onChange={e => { const newFaq = [...faq]; newFaq[index].a = e.target.value; setFaq(newFaq); }} placeholder="Ответ" />
+                          <input className="premium-input" type="text" value={item.q} onChange={e => { const newFaq = [...faq]; newFaq[index].q = e.target.value; setFaq(newFaq); }} placeholder="Question" style={{ padding: '0.8rem 1rem', width: '100%' }} />
+                          <textarea className="premium-input" rows={2} style={{ padding: '0.8rem 1rem', resize: 'vertical', width: '100%' }} value={item.a} onChange={e => { const newFaq = [...faq]; newFaq[index].a = e.target.value; setFaq(newFaq); }} placeholder="Answer" />
                         </div>
                         <button type="button" onClick={() => { const newFaq = faq.filter((_, i) => i !== index); setFaq(newFaq.length ? newFaq : [{q:'', a:''}]); }} style={{ padding: '0.8rem', background: 'rgba(255, 77, 79, 0.1)', color: '#ff4d4f', borderRadius: '8px', border: '1px solid rgba(255, 77, 79, 0.2)', cursor: 'pointer' }}>
                           <Trash2 size={20} />
@@ -2275,7 +2275,7 @@ export default function BotDetails() {
                       </div>
                     ))}
                     <button type="button" onClick={() => setFaq([...faq, { q: '', a: '' }])} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'transparent', border: '1px dashed rgba(255,255,255,0.2)', color: '#fff', padding: '12px', borderRadius: '8px', cursor: 'pointer', width: '100%', justifyContent: 'center', fontWeight: '600' }}>
-                      <Plus size={18} /> Добавить вопрос
+                      <Plus size={18} /> Add question
                     </button>
                   </div>
 
@@ -2283,7 +2283,7 @@ export default function BotDetails() {
                     <label style={{ display: 'block', fontSize: '1rem', color: 'var(--on-surface)', marginBottom: '1rem', fontWeight: 600 }}>{t.usefulLinks}</label>
                     {links.map((item, index) => (
                       <div key={index} style={{ display: 'flex', gap: '12px', marginBottom: '12px', alignItems: 'center' }}>
-                        <input className="premium-input" type="text" value={item.title} onChange={e => { const newLinks = [...links]; newLinks[index].title = e.target.value; setLinks(newLinks); }} placeholder="Название (напр. Наш сайт)" style={{ flex: 1, padding: '0.8rem 1rem' }} />
+                        <input className="premium-input" type="text" value={item.title} onChange={e => { const newLinks = [...links]; newLinks[index].title = e.target.value; setLinks(newLinks); }} placeholder="Name (e.g. Our website)" style={{ flex: 1, padding: '0.8rem 1rem' }} />
                         <input className="premium-input" type="text" value={item.url} onChange={e => { const newLinks = [...links]; newLinks[index].url = e.target.value; setLinks(newLinks); }} placeholder="https://..." style={{ flex: 2, padding: '0.8rem 1rem' }} />
                         <button type="button" onClick={() => { const newLinks = links.filter((_, i) => i !== index); setLinks(newLinks.length ? newLinks : [{title:'', url:''}]); }} style={{ padding: '0.8rem', background: 'rgba(255, 77, 79, 0.1)', color: '#ff4d4f', borderRadius: '8px', border: '1px solid rgba(255, 77, 79, 0.2)', cursor: 'pointer' }}>
                           <Trash2 size={20} />
@@ -2291,7 +2291,7 @@ export default function BotDetails() {
                       </div>
                     ))}
                     <button type="button" onClick={() => setLinks([...links, { title: '', url: '' }])} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'transparent', border: '1px dashed rgba(255,255,255,0.2)', color: '#fff', padding: '12px', borderRadius: '8px', cursor: 'pointer', width: '100%', justifyContent: 'center', fontWeight: '600' }}>
-                      <Plus size={18} /> Добавить ссылку
+                      <Plus size={18} /> Add link
                     </button>
                   </div>
 
@@ -2299,21 +2299,21 @@ export default function BotDetails() {
                     <label style={{ display: 'block', fontSize: '1rem', color: 'var(--on-surface)', marginBottom: '0.5rem', fontWeight: 600 }}>{t.quickFact}</label>
                     <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.85rem', marginBottom: '1rem', lineHeight: '1.4' }}>{t.quickFactHint}</p>
                     <div style={{ display: 'flex', gap: '12px' }}>
-                      <input className="premium-input" type="text" id="customFactInput" placeholder="Введите информацию..." style={{ flex: 1, padding: '0.8rem 1rem' }} onKeyDown={(e) => {
+                      <input className="premium-input" type="text" id="customFactInput" placeholder="Enter information..." style={{ flex: 1, padding: '0.8rem 1rem' }} onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           e.preventDefault();
                           const val = e.currentTarget.value;
-                          if (val.trim()) { setDataPrompt(prev => prev + '\n\nДополнительный факт: ' + val.trim()); e.currentTarget.value = ''; }
+                          if (val.trim()) { setDataPrompt(prev => prev + '\n\nAdditional fact: ' + val.trim()); e.currentTarget.value = ''; }
                         }
                       }} />
                       <button type="button" className="btn-primary" onClick={() => {
                         const input = document.getElementById('customFactInput') as HTMLInputElement;
                         if (input && input.value.trim()) {
-                          setDataPrompt(prev => prev + '\n\nДополнительный факт: ' + input.value.trim());
+                          setDataPrompt(prev => prev + '\n\nAdditional fact: ' + input.value.trim());
                           input.value = '';
                         }
                       }}>
-                        <Plus size={18} /> Добавить
+                        <Plus size={18} /> Add
                       </button>
                     </div>
                   </div>
@@ -2492,8 +2492,8 @@ export default function BotDetails() {
               <img src="/logo.jpg" alt="Logo" style={{ width: '32px', height: '32px', borderRadius: '8px', objectFit: 'cover' }} />
             </div>
             <div>
-              <div style={{ fontWeight: 'bold', fontSize: '15px', color: 'var(--on-surface)' }}>Помощник UP-CHAT</div>
-              <div style={{ fontSize: '11px', color: 'var(--on-surface-variant)' }}>Шаг {tourStep} из 5</div>
+              <div style={{ fontWeight: 'bold', fontSize: '15px', color: 'var(--on-surface)' }}>UP-CHAT Assistant</div>
+              <div style={{ fontSize: '11px', color: 'var(--on-surface-variant)' }}>Step {tourStep} of 5</div>
             </div>
             <button 
               onClick={handleSkipTour}
@@ -2504,11 +2504,11 @@ export default function BotDetails() {
           </div>
 
           <p style={{ fontSize: '14px', lineHeight: '1.5', color: 'var(--on-surface)', margin: 0 }}>
-            {tourStep === 1 && "Ваш ИИ-ассистент успешно создан! 🎉 Теперь давайте подключим каналы связи (Telegram или WhatsApp), чтобы он мог общаться с клиентами."}
-            {tourStep === 2 && "Отлично! После подключения каналов обязательно настройте базу знаний во вкладке AI Brain. 🧠 Вы можете загрузить сюда файлы, написать описание компании и товаров, добавить полезные ссылки и FAQ. Это научит ассистента вашему продукту."}
-            {tourStep === 3 && "Вкладка Диалоги 💬 — это ваш живой пульт управления. Здесь отображаются все переписки в реальном времени. В любой момент вы можете перехватить диалог у бота и ответить клиенту лично."}
-            {tourStep === 4 && "Вкладка Конфигурация ⚙️ позволяет настраивать тон общения, цели бота, собираемые данные о лидах и тестировать ассистента в песочнице перед публикацией."}
-            {tourStep === 5 && "Вы готовы к запуску! 🚀 Теперь вы можете подключить Telegram или WhatsApp и протестировать работу вашего бота. Если возникнут вопросы — наша поддержка всегда на связи."}
+            {tourStep === 1 && "Your AI assistant has been successfully created! 🎉 Now lets connect communication channels (Telegram or WhatsApp) so it can chat with clients."}
+            {tourStep === 2 && "Great! After connecting channels, be sure to set up the knowledge base in the AI Brain tab. 🧠 You can upload files here, write a description of the company and products, add useful links and FAQ. This will teach the assistant about your product."}
+            {tourStep === 3 && "The Dialogues tab 💬 is your live control panel. All correspondence is displayed here in real time. At any time you can intercept the dialogue from the bot and answer the client personally."}
+            {tourStep === 4 && "The Configuration tab ⚙️ allows you to configure the tone of communication, bot goals, collected lead data, and test the assistant in the sandbox before publishing."}
+            {tourStep === 5 && "You are ready to launch! 🚀 Now you can connect Telegram or WhatsApp and test your bot. If you have any questions - our support is always in touch."}
           </p>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '8px' }}>
@@ -2536,7 +2536,7 @@ export default function BotDetails() {
                 gap: '4px'
               }}
             >
-              {tourStep === 5 ? "Завершить" : "Далее →"}
+              {tourStep === 5 ? "Finish" : "Next →"}
             </button>
           </div>
         </div>
