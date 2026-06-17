@@ -215,6 +215,7 @@ export default function OfferPage() {
                 <strong>Расчетный счет (KZT):</strong> KZ87722S000021139717 (АО &quot;Kaspi Bank&quot;, БИК: CASPKZKA)<br />
                 <strong>Почта/телефон для обращений:</strong> geducation1017@gmail.com / +7 (706) 430-71-95<br />
                 <strong>Юридический адрес:</strong> 140000, Республика Казахстан, г. Павлодар, ул. Едыге Би, 71Б
+
               </p>
             </>
           )}
