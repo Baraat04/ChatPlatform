@@ -148,8 +148,8 @@ const localT = {
     stat3Value: "up to 80%",
     businessTypes: ['E-commerce', 'Car Dealership', 'Online School', 'Services / Agency', 'Other'],
     footerCompanyName: 'LLP "SAAMA GROUP", BIN: 171040010072',
-    footerAddress: 'Legal Address: 140000, Republic of Kazakhstan, Pavlodar, Malakhova St., 11',
-    footerContacts: 'Contacts: +7 777 420-19-89 | geducation1017@gmail.com',
+    footerAddress: 'Legal Address: 140000, Republic of Kazakhstan, Pavlodar, Edyge Bi St., 71B',
+    footerContacts: 'Contacts: +7 (706) 430-71-95 | geducation1017@gmail.com',
     footerHours: 'Support hours: Mon-Fri: 09:00 - 18:00 (GMT+5)',
     faqItems: [
       { q: 'How long does it take to launch an AI agent?', a: 'Just a few minutes! In our quick wizard, you select the messenger, specify your company name, its niche, and communication tone. Immediately after that, the AI is ready for the first dialogue.' },
@@ -292,8 +292,8 @@ const localT = {
     stat3Value: "до 80%",
     businessTypes: ['E-commerce', 'Автосалон', 'Онлайн-школа', 'Услуги / Агентство', 'Другое'],
     footerCompanyName: 'ТОО "SAAMA GROUP", БИН: 171040010072',
-    footerAddress: 'Юридический адрес: 140000, Республика Казахстан, г. Павлодар, улица Малахова, дом 11',
-    footerContacts: 'Контакты: +7 777 420-19-89 | geducation1017@gmail.com',
+    footerAddress: 'Юридический адрес: 140000, Республика Казахстан, г. Павлодар, ул. Едыге Би, 71Б',
+    footerContacts: 'Контакты: +7 (706) 430-71-95 | geducation1017@gmail.com',
     footerHours: 'График работы службы поддержки: Пн-Пт: 09:00 - 18:00 (GMT+5)',
     faqItems: [
       { q: 'Сколько времени занимает запуск ИИ-агента?', a: 'Всего несколько минут! В нашем быстром мастере вы выбираете мессенджер, указываете название компании, её сферу и тональность общения. Сразу после этого ИИ готов к первичному диалогу.' },
@@ -414,8 +414,8 @@ const localT = {
     businessTypeOther: "Басқа",
     messagePlaceholder: "Сізді қандай кастомды серіктестік шешімі қызықтырады?",
     companyRegInfo: "«SAAMA GROUP» ЖШС, БСН: 171040010072",
-    companyAddressInfo: "Заңды мекенжайы: 140000, Қазақстан Республикасы, Павлодар қ., Малахов көшесі, 11-үй",
-    companyContactsInfo: "Байланыс телефондары: +7 777 420-19-89 | geducation1017@gmail.com",
+    companyAddressInfo: "Заңды мекенжайы: 140000, Қазақстан Республикасы, Павлодар қ., Едыге Би к-сі, 71Б",
+    companyContactsInfo: "Байланыс телефондары: +7 (706) 430-71-95 | geducation1017@gmail.com",
     companySupportHours: "Қолдау қызметінің жұмыс кестесі: Дс-Жм: 09:00 - 18:00 (GMT+5)",
     footerCopyright: "Барлық құқықтар қорғалған.",
     namePlaceholder: "Атыңыз",
@@ -442,8 +442,8 @@ const localT = {
     stat3Value: "80%-ға дейін",
     businessTypes: ['E-commerce', 'Автосалон', 'Онлайн-мектеп', 'Қызметтер / Агенттік', 'Басқа'],
     footerCompanyName: '«SAAMA GROUP» ЖШС, БСН: 171040010072',
-    footerAddress: 'Заңды мекенжайы: 140000, Қазақстан Республикасы, Павлодар қ., Малахов көшесі, 11-үй',
-    footerContacts: 'Байланыс: +7 777 420-19-89 | geducation1017@gmail.com',
+    footerAddress: 'Заңды мекенжайы: 140000, Қазақстан Республикасы, Павлодар қ., Едыге Би к-сі, 71Б',
+    footerContacts: 'Байланыс: +7 (706) 430-71-95 | geducation1017@gmail.com',
     footerHours: 'Қолдау қызметі: Дс-Жм: 09:00 - 18:00 (GMT+5)',
     faqItems: [
       { q: 'ЖИ-агентті іске қосу қанша уақытты алады?', a: 'Бар болғаны бірнеше минут! Біздің жылдам шеберімізде мессенджерді таңдайсыз, компания атауын, саласын және сөйлесу мәнерін көрсетесіз. Осыдан кейін ЖИ алғашқы сұрақтарға жауап беруге дайын.' },
@@ -1447,11 +1447,11 @@ export default function LandingPage() {
                 </div>
                 <div className="flex items-center gap-3">
                   <Phone className="w-4 h-4 text-emerald-600" />
-                  <span>+7 777 420-19-89</span>
+                  <span>+7 (706) 430-71-95</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <MapPin className="w-4 h-4 text-emerald-600" />
-                  <span>140000, Казахстан, г. Павлодар, ул. Малахова, д. 11</span>
+                  <span>140000, Казахстан, г. Павлодар, ул. Едыге Би, 71Б</span>
                 </div>
               </div>
             </div>

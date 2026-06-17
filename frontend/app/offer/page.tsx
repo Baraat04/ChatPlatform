@@ -213,8 +213,8 @@ export default function OfferPage() {
                 <strong>Наименование ИП/ЮЛ:</strong> ТОО &quot;SAAMA GROUP&quot;<br />
                 <strong>ИИН/БИН:</strong> 171040010072<br />
                 <strong>Расчетный счет (KZT):</strong> KZ87722S000021139717 (АО &quot;Kaspi Bank&quot;, БИК: CASPKZKA)<br />
-                <strong>Почта/телефон для обращений:</strong> geducation1017@gmail.com / +7 777 420-19-89<br />
-                <strong>Юридический адрес:</strong> 140000, Республика Казахстан, г. Павлодар, улица Малахова, дом 11
+                <strong>Почта/телефон для обращений:</strong> geducation1017@gmail.com / +7 (706) 430-71-95<br />
+                <strong>Юридический адрес:</strong> 140000, Республика Казахстан, г. Павлодар, ул. Едыге Би, 71Б
               </p>
             </>
           )}
@@ -322,8 +322,8 @@ export default function OfferPage() {
                 <strong>Name of Entity:</strong> SAAMA GROUP LLP<br />
                 <strong>BIN:</strong> 171040010072<br />
                 <strong>Bank Account (KZT):</strong> KZ87722S000021139717 (JSC &quot;Kaspi Bank&quot;, BIC: CASPKZKA)<br />
-                <strong>Contact Email/Phone:</strong> geducation1017@gmail.com / +7 777 420-19-89<br />
-                <strong>Legal Address:</strong> 140000, Republic of Kazakhstan, Pavlodar, Malakhov Street, House 11
+                <strong>Contact Email/Phone:</strong> geducation1017@gmail.com / +7 (706) 430-71-95<br />
+                <strong>Legal Address:</strong> 140000, Republic of Kazakhstan, Pavlodar, Edyge Bi St., 71B
               </p>
             </>
           )}
@@ -430,8 +430,8 @@ export default function OfferPage() {
                 <strong>Атауы:</strong> «SAAMA GROUP» ЖШС<br />
                 <strong>БСН (БИН):</strong> 171040010072<br />
                 <strong>Есеп айырысу шоты (KZT):</strong> KZ87722S000021139717 («Kaspi Bank» АҚ, БИК: CASPKZKA)<br />
-                <strong>Электрондық пошта/Телефон:</strong> geducation1017@gmail.com / +7 777 420-19-89<br />
-                <strong>Заңды мекенжайы:</strong> 140000, Қазақстан Республикасы, Павлодар қ., Малахов көшесі, 11-үй
+                <strong>Электрондық пошта/Телефон:</strong> geducation1017@gmail.com / +7 (706) 430-71-95<br />
+                <strong>Заңды мекенжайы:</strong> 140000, Қазақстан Республикасы, Павлодар қ., Едыге Би к-сі, 71Б
               </p>
             </>
           )}
