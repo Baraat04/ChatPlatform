@@ -663,8 +663,12 @@ router.post('/bot/:id/send', upload.single('file'), async (req, res) => {
         let mediaType = null;
         let filePath = null;
 
+        let originalNameUtf8 = req.file ? req.file.originalname : '';
         if (req.file) {
-            const ext = path.extname(req.file.originalname) || '';
+            try {
+                originalNameUtf8 = Buffer.from(req.file.originalname, 'latin1').toString('utf8');
+            } catch(e) {}
+            const ext = path.extname(originalNameUtf8) || '';
             const filename = `${Date.now()}-${Math.floor(Math.random() * 10000)}${ext}`;
             filePath = path.join(__dirname, '../../uploads', filename);
             fs.writeFileSync(filePath, req.file.buffer);
@@ -707,12 +711,12 @@ router.post('/bot/:id/send', upload.single('file'), async (req, res) => {
             if (req.file && mediaType === 'image') {
                 await sock.sendMessage(chatId, { image: req.file.buffer, caption: text || '' });
             } else if (req.file && mediaType === 'audio') {
-                await sock.sendMessage(chatId, { audio: req.file.buffer, mimetype: req.file.mimetype, ptt: true, ptv: false });
+                await sock.sendMessage(chatId, { audio: req.file.buffer, mimetype: 'audio/mp4', ptt: true, ptv: false });
             } else if (req.file && mediaType === 'document') {
                 await sock.sendMessage(chatId, { 
                     document: req.file.buffer, 
                     mimetype: req.file.mimetype, 
-                    fileName: req.file.originalname,
+                    fileName: originalNameUtf8,
                     caption: text || ''
                 });
             } else {
@@ -779,8 +783,10 @@ router.post('/bot/:id/send', upload.single('file'), async (req, res) => {
         }
 
         // Save sent message to DB
+        let textToSave = text || (req.file ? originalNameUtf8 : '');
+        if (mediaType === 'audio' && !text) textToSave = '';
         const savedMsg = await prisma.message.create({
-            data: { botId, channelId, platform, sender: 'bot', text: text || (req.file ? req.file.originalname : ''), chatId, mediaUrl, mediaType }
+            data: { botId, channelId, platform, sender: 'bot', text: textToSave, chatId, mediaUrl, mediaType }
         })
 
         io.emit(`chat-${botId}`, { ...savedMsg, platform })
@@ -816,8 +822,12 @@ router.post('/bot/:id/broadcast', upload.single('file'), async (req, res) => {
         let mediaType = null;
         let filePath = null;
 
+        let originalNameUtf8 = req.file ? req.file.originalname : '';
         if (req.file) {
-            const ext = path.extname(req.file.originalname) || '';
+            try {
+                originalNameUtf8 = Buffer.from(req.file.originalname, 'latin1').toString('utf8');
+            } catch(e) {}
+            const ext = path.extname(originalNameUtf8) || '';
             const filename = `${Date.now()}-${Math.floor(Math.random() * 10000)}${ext}`;
             filePath = path.join(__dirname, '../../uploads', filename);
             fs.writeFileSync(filePath, req.file.buffer);
@@ -846,20 +856,22 @@ router.post('/bot/:id/broadcast', upload.single('file'), async (req, res) => {
                     if (req.file && mediaType === 'image') {
                         await sock.sendMessage(jid, { image: req.file.buffer, caption: text || '' });
                     } else if (req.file && mediaType === 'audio') {
-                        await sock.sendMessage(jid, { audio: req.file.buffer, mimetype: req.file.mimetype, ptt: true, ptv: false });
+                        await sock.sendMessage(jid, { audio: req.file.buffer, mimetype: 'audio/mp4', ptt: true, ptv: false });
                     } else if (req.file && mediaType === 'document') {
                         await sock.sendMessage(jid, { 
                             document: req.file.buffer, 
                             mimetype: req.file.mimetype, 
-                            fileName: req.file.originalname,
+                            fileName: originalNameUtf8,
                             caption: text || ''
                         });
                     } else {
                         await sock.sendMessage(jid, { text: text || '' });
                     }
 
+                    let textToSave = text || (req.file ? originalNameUtf8 : '');
+                    if (mediaType === 'audio' && !text) textToSave = '';
                     const savedMsg = await prisma.message.create({
-                        data: { botId, sender: 'bot', text: text || '', chatId: jid, mediaUrl, mediaType }
+                        data: { botId, sender: 'bot', text: textToSave, chatId: jid, mediaUrl, mediaType }
                     })
                     io.emit(`chat-${botId}`, savedMsg)
                     results.push({ chatId: jid, success: true })

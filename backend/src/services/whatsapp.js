@@ -524,7 +524,9 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
                         where: { botId, chatId: senderNumber, sender: 'bot' },
                         orderBy: { createdAt: 'desc' }
                     });
-                    if (lastMsg && lastMsg.text === textMessage && (new Date() - new Date(lastMsg.createdAt) < 60000)) {
+                    const textMatch = lastMsg && lastMsg.text === textMessage;
+                    const mediaMatch = lastMsg && lastMsg.mediaType && mediaType && lastMsg.mediaType === mediaType;
+                    if (lastMsg && (textMatch || mediaMatch) && (new Date() - new Date(lastMsg.createdAt) < 60000)) {
                         // Это дубликат сообщения, которое ИИ только что сохранил в базу. Игнорируем.
                         return;
                     }
@@ -564,9 +566,10 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
 
         const history = recentMessages.slice(0, -1).map(msg => ({
             role: msg.sender === 'bot' ? 'model' : 'user',
-            parts: [{ text: msg.text }]
+            parts: [{ text: (msg.text || '').replace(/\[AUDIO\]\/uploads\/[^\s\n]+/g, '').trim() }]
         }));
-        const userMessage = recentMessages.length > 0 ? recentMessages[recentMessages.length - 1].text : '';
+        let userMessage = recentMessages.length > 0 ? recentMessages[recentMessages.length - 1].text : '';
+        if (userMessage) userMessage = userMessage.replace(/\[AUDIO\]\/uploads\/[^\s\n]+/g, '').trim();
 
         try {
             // Check if user has messages

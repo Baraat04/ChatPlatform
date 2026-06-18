@@ -451,7 +451,7 @@ export default function BotDetails() {
             <source src={`${API_BASE}${msg.mediaUrl}`} />
             {t.voiceMessage || 'Голосовое сообщение'}
           </audio>
-          {msg.text && <span style={{ whiteSpace: 'pre-wrap' }}>{msg.text}</span>}
+          {msg.text && !msg.text.startsWith('voice_message_') && !msg.text.startsWith('wa_audio_') && !msg.text.startsWith('tg_audio_') && <span style={{ whiteSpace: 'pre-wrap' }}>{msg.text}</span>}
         </div>
       );
     }
