@@ -29,6 +29,7 @@ const { default: botRouter } = await import('./routes/bot-routes.js')
 const { default: authRouter } = await import('./routes/auth-routes.js')
 const { default: platformAIRouter } = await import('./routes/platform-ai-routes.js')
 const { default: statisticsRouter, setStatisticsPrisma } = await import('./routes/statistics-routes.js')
+const { default: paymentRouter } = await import('./routes/payment-routes.js')
 const { setTrackerPrisma } = await import('./services/usage-tracker.js')
 
 const app = express()
@@ -115,6 +116,7 @@ app.use('/uploads', express.static(uploadDir))
 app.use('/api/auth', authRouter)
 app.use('/api/platform-ai', platformAIRouter)
 app.use('/api/statistics', statisticsRouter)
+app.use('/api/payments', paymentRouter)
 app.use('/api', botRouter)
 
 // Initialize services with the shared prisma instance

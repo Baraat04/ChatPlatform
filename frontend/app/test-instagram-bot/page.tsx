@@ -75,7 +75,7 @@ function CustomSelect({ options, value, onChange, placeholder }: any) {
     return () => document.removeEventListener('mousedown', handleOutside);
   }, [isOpen]);
 
-  const displayLabel = showCustomInput ? '✍️ Свой вариант...' : (value || placeholder);
+  const displayLabel = showCustomInput ? '✍️ Custom option...' : (value || placeholder);
 
   const dropdownContent = (
     <div className="cs-dropdown" style={dropdownStyle}>
@@ -115,7 +115,7 @@ function CustomSelect({ options, value, onChange, placeholder }: any) {
         onMouseOver={(e) => { if (!showCustomInput) e.currentTarget.style.background = '#f1f5f9'; }}
         onMouseOut={(e) => { if (!showCustomInput) e.currentTarget.style.background = '#ffffff'; }}
       >
-        ✍️ Свой вариант...
+        ✍️ Custom option...
       </div>
     </div>
   );
@@ -159,7 +159,7 @@ function CustomSelect({ options, value, onChange, placeholder }: any) {
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); (e.target as HTMLInputElement).blur(); } }}
-          placeholder="Напишите свой вариант здесь..."
+          placeholder="Write your option here..."
           className="input-field anim-item"
           autoFocus
           style={{ marginTop: '4px' }}
@@ -190,51 +190,51 @@ export default function CreateBotFast() {
   ];
 
   const industries = [
-    "Страхование",
-    "Право и бухгалтерия",
-    "Недвижимость",
-    "Ремонт",
-    "Строительство",
-    "Логистика и транспорт",
-    "Производство",
-    "IT и технологии",
-    "Маркетинг и реклама",
-    "Креатив и контент",
-    "HR и услуги для бизнеса",
-    "Сфера услуг",
-    "Торговля",
-    "Интернет-магазин",
-    "Красота",
-    "Медицина и здоровье",
-    "Стоматология",
-    "Косметология",
-    "Фитнес и спорт",
-    "Образование",
-    "Кафе и кофейни",
-    "Ресторанный бизнес",
-    "Автомобильный бизнес",
-    "Туризм",
-    "Отельный бизнес",
-    "Финансы"
+    "Insurance",
+    "Law & Accounting",
+    "Real Estate",
+    "Renovation",
+    "Construction",
+    "Logistics & Transport",
+    "Manufacturing",
+    "IT & Technology",
+    "Marketing & Advertising",
+    "Creative & Content",
+    "HR & Business Services",
+    "Industry услуг",
+    "Retail",
+    "E-commerce",
+    "Beauty",
+    "Medicine & Health",
+    "Dentistry",
+    "Cosmetology",
+    "Fitness & Sports",
+    "Education",
+    "Cafes & Coffee Shops",
+    "Restaurant Business",
+    "Automotive Business",
+    "Tourism",
+    "Hotel Business",
+    "Finance"
   ];
 
   const tones = [
-    "Дружелюбный и заботливый (как приятель)",
-    "Строгий и деловой (корпоративный стиль)",
-    "Энергичный и продающий (мотиватор)",
-    "Лаконичный помощник (только суть, без воды)",
-    "Дерзкий и молодежный (юмор, сленг)",
-    "Успокаивающий и эмпатичный",
-    "Экспертный и академичный"
+    "Friendly & Caring (like a friend)",
+    "Strict & Business (corporate style)",
+    "Energetic & Selling (motivator)",
+    "Concise Assistant (only the point, no fluff)",
+    "Cheeky & Youthful (humor, slang)",
+    "Calming & Empathetic",
+    "Expert & Academic"
   ];
 
   const goals = [
-    "Квалифицировать заявку (задать вопросы и собрать контакты)",
-    "Записать на консультацию/приём (согласовать время)",
-    "Ответить на частые вопросы (FAQ и техподдержка)",
-    "Продать товар/услугу (работа с возражениями и ценами)",
-    "Собрать отзывы после оказания услуги",
-    "Напомнить о брони или вебинаре (Follow-up)"
+    "Qualify request (ask questions and collect contacts)",
+    "Book consultation/appointment (agree on time)",
+    "Answer common questions (FAQ & Support)",
+    "Sell product/service (handle objections and prices)",
+    "Collect feedback after service",
+    "Remind about booking or webinar (Follow-up)"
   ];
 
   const totalSteps = 3;
@@ -244,10 +244,10 @@ export default function CreateBotFast() {
     setErrorMsg('');
 
     try {
-      const systemPrompt = `Ты AI-сотрудник компании "${companyName}" (Сфера: ${industry}).
-Твоя главная цель: ${goal}.
-Формат общения: ${tone}.
-Общайся с клиентами естественно, всегда придерживайся своего формата общения и стремись выполнить свою главную цель.`;
+      const systemPrompt = `You are an AI employee of the company "${companyName}" (Industry: ${industry}).
+Your main goal: ${goal}.
+Communication format: ${tone}.
+Communicate with clients naturally, always stick to your communication format and strive to achieve your main goal.`;
       
       const pId = 'INSTAGRAM';
       
@@ -257,7 +257,7 @@ export default function CreateBotFast() {
         credentials: 'include',
         body: JSON.stringify({
           system_prompt: systemPrompt,
-          data_prompt: `Название компании: ${companyName}\nСфера: ${industry}`,
+          data_prompt: `Company name: ${companyName}\nIndustry: ${industry}`,
           platform: pId,
           apiToken: '' // Without token for fast creation
         }),
@@ -269,12 +269,12 @@ export default function CreateBotFast() {
           router.push(`/bots/${data.id}?new=true`);
         }, 2500);
       } else {
-        setErrorMsg(data.error || 'Ошибка при создании бота');
+        setErrorMsg(data.error || 'Error creating bot');
         setIsSubmitting(false);
       }
     } catch (err) {
       console.error(err);
-      setErrorMsg('Сетевая ошибка при создании бота. Проверьте подключение к серверу.');
+      setErrorMsg('Network error creating bot. Check connection to server.');
       setIsSubmitting(false);
     }
   };
@@ -297,7 +297,7 @@ export default function CreateBotFast() {
 
   const renderRightPanelPreview = () => {
     if (step === 1) {
-      const selectedPlatformInfo = platforms.find(p => p.name === platform) || { name: 'Выберите платформу', icon: <Bot size={32} color="#ffffff" />, bg: 'rgba(255,255,255,0.2)' };
+      const selectedPlatformInfo = platforms.find(p => p.name === platform) || { name: 'Select platform', icon: <Bot size={32} color="#ffffff" />, bg: 'rgba(255,255,255,0.2)' };
       return (
         <div className="anim-item" style={{ animationDelay: '0.2s', margin: 'auto 0', display: 'flex', justifyContent: 'center' }}>
           <div style={{
@@ -349,8 +349,8 @@ export default function CreateBotFast() {
               border: '1px solid rgba(255,255,255,0.05)'
             }}>
               {platform 
-                ? `Привет! Я твой новый AI-ассистент в ${platform}. Жду запуска! 🚀` 
-                : 'Выберите платформу слева, чтобы привязать своего ИИ-сотрудника.'}
+                ? `Hi! I am your new AI assistant on ${platform}. Waiting to launch! 🚀` 
+                : 'Select a platform on the left to link your AI employee.'}
             </div>
           </div>
         </div>
@@ -373,24 +373,24 @@ export default function CreateBotFast() {
             color: 'white'
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '11px', fontWeight: 'bold', letterSpacing: '1px', opacity: 0.6, textTransform: 'uppercase' }}>Память ИИ-Агента</span>
-              <span style={{ fontSize: '12px', background: '#1e293b', padding: '2px 8px', borderRadius: '20px' }}>Шаг 2 из 3</span>
+              <span style={{ fontSize: '11px', fontWeight: 'bold', letterSpacing: '1px', opacity: 0.6, textTransform: 'uppercase' }}>AI Agent Memory</span>
+              <span style={{ fontSize: '12px', background: '#1e293b', padding: '2px 8px', borderRadius: '20px' }}>Step 2 of 3</span>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '8px' }}>
               <div style={{ borderLeft: '3px solid #60a5fa', paddingLeft: '12px' }}>
-                <div style={{ fontSize: '11px', opacity: 0.5 }}>Компания / Имя</div>
-                <div style={{ fontSize: '15px', fontWeight: '600' }}>{companyName || 'Укажите название...'}</div>
+                <div style={{ fontSize: '11px', opacity: 0.5 }}>Company / Name</div>
+                <div style={{ fontSize: '15px', fontWeight: '600' }}>{companyName || 'Enter name...'}</div>
               </div>
 
               <div style={{ borderLeft: '3px solid #34d399', paddingLeft: '12px' }}>
-                <div style={{ fontSize: '11px', opacity: 0.5 }}>Сфера деятельности</div>
-                <div style={{ fontSize: '15px', fontWeight: '600' }}>{industry || 'Выберите сферу...'}</div>
+                <div style={{ fontSize: '11px', opacity: 0.5 }}>Industry</div>
+                <div style={{ fontSize: '15px', fontWeight: '600' }}>{industry || 'Select industry...'}</div>
               </div>
             </div>
 
             <div style={{ fontSize: '12px', opacity: 0.8, lineHeight: '1.4', background: '#1e293b', padding: '10px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
-              🧠 На основе этих данных ИИ автоматически сгенерирует профиль компетенций вашей компании.
+              🧠 Based on this data, the AI will automatically generate your company competency profile.
             </div>
           </div>
         </div>
@@ -399,26 +399,26 @@ export default function CreateBotFast() {
 
     if (step === 3) {
       const getSampleMessage = () => {
-        let msg = "Здравствуйте! Чем я могу помочь вам сегодня?";
+        let msg = "Hello! How can I help you today?";
         if (tone.includes("Дружелюбный")) {
-          msg = "Привет! 😊 Рад тебя слышать! Как дела, чем могу помочь тебе сегодня?";
+          msg = "Привет! 😊 Glad to hear from you! How are you, how can I help you today?";
         } else if (tone.includes("Мотивирующий")) {
-          msg = "Привет! 🔥 У нас сегодня отличные новости! Готовы сделать лучший выбор прямо сейчас?";
+          msg = "Привет! 🔥 We have great news today! Ready to make the best choice right now?";
         } else if (tone.includes("Профессиональный")) {
-          msg = "Приветствую вас. Компания приветствует ваше обращение. Какая задача перед нами стоит?";
+          msg = "Greetings. The company welcomes your request. What task are we facing?";
         } else if (tone.includes("Заботливый")) {
-          msg = "Здравствуйте. Не волнуйтесь, я здесь, чтобы спокойно во всем разобраться и помочь вам.";
+          msg = "Hello. Dont worry, I am here to calmly figure everything out and help you.";
         }
         
-        let goalMsg = "Я помогу квалифицировать заявку.";
+        let goalMsg = "I will help qualify the request.";
         if (goal.includes("собрать контакты") || goal.includes("Квалифицировать")) {
-          goalMsg = "Для начала, подскажите, пожалуйста, ваш номер телефона или email?";
+          goalMsg = "First, could you please tell me your phone number or email?";
         } else if (goal.includes("Записать") || goal.includes("запись")) {
-          goalMsg = "В какое время вам было бы удобно подойти на консультацию?";
+          goalMsg = "What time would be convenient for you to come for a consultation?";
         } else if (goal.includes("Ответить") || goal.includes("вопросы")) {
-          goalMsg = "Вы можете задать любой интересующий вас вопрос по нашим тарифам и услугам!";
+          goalMsg = "You can ask any question you have about our rates and services!";
         } else if (goal.includes("Продать") || goal.includes("оформить")) {
-          goalMsg = "У нас как раз действует специальная акция. Будем оформлять заказ?";
+          goalMsg = "We currently have a special promotion. Shall we place an order?";
         }
         
         return { msg, goalMsg };
@@ -441,7 +441,7 @@ export default function CreateBotFast() {
             color: 'white'
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', opacity: 0.6, fontSize: '11px', fontWeight: 'bold' }}>
-              <span>💬 СИМУЛЯТОР ДИАЛОГА</span>
+              <span>💬 DIALOGUE SIMULATOR</span>
               <span style={{ marginLeft: 'auto', color: '#34d399' }}>Live Preview</span>
             </div>
 
@@ -472,7 +472,7 @@ export default function CreateBotFast() {
             </div>
 
             <div style={{ fontSize: '11px', opacity: 0.5, textAlign: 'center', marginTop: '4px', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '8px' }}>
-              Цель: {goal ? goal.slice(0, 35) : 'Не выбрана'}
+              Goal: {goal ? goal.slice(0, 35) : 'Not selected'}
             </div>
           </div>
         </div>
@@ -494,17 +494,17 @@ export default function CreateBotFast() {
 
   // Right Panel Content based on step
   const getRightPanelTitle = () => {
-    if (step === 1) return "Привет! 👋 Давай создадим твоего первого AI-агента для Instagram.";
-    if (step === 2) return "Отлично! Расскажи немного о своём бизнесе.";
-    if (step === 3) return "Почти готово! Как твой агент должен общаться?";
-    return "Создаем магию... ✨";
+    if (step === 1) return "Hi! 👋 Lets create your first AI agent for Instagram.";
+    if (step === 2) return "Great! Tell us a little about your business.";
+    if (step === 3) return "Almost done! How should your agent communicate?";
+    return "Creating magic... ✨";
   };
 
   const getRightPanelDesc = () => {
-    if (step === 1) return "Выбери платформу, где бот будет встречать твоих клиентов.";
-    if (step === 2) return "Эта информация поможет ИИ понять контекст вашей работы и лучше отвечать клиентам.";
-    if (step === 3) return "Тон общения и главная цель — это то, что отличает обычного бота от гениального AI-сотрудника.";
-    return "Пакуем нейросети, настраиваем серверы и готовим твой дашборд.";
+    if (step === 1) return "Choose the platform where the bot will meet your clients.";
+    if (step === 2) return "This info will help the AI understand your context and reply better to clients.";
+    if (step === 3) return "Tone of voice and main goal are what distinguishes a regular bot from a genius AI.";
+    return "Packing neural networks, setting up servers and preparing your dashboard.";
   };
 
   return (
@@ -713,7 +713,7 @@ export default function CreateBotFast() {
               onClick={prevStep} 
               style={{ background: 'var(--surface-container-high)', border: 'none', color: 'var(--on-surface)', fontSize: '14px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', transition: 'all 0.2s', padding: '8px 16px', borderRadius: '30px' }}
             >
-              <ArrowLeft size={16} /> Назад
+              <ArrowLeft size={16} /> Back
             </button>
           ) : <div />}
         </div>
@@ -753,7 +753,7 @@ export default function CreateBotFast() {
                 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                   <div className="anim-item" style={{ animationDelay: '0.1s' }}>
-                    <label style={{ display: 'block', fontSize: '15px', fontWeight: '600', color: 'var(--on-surface)', marginBottom: '8px' }}>Название компании (или ваше имя)</label>
+                    <label style={{ display: 'block', fontSize: '15px', fontWeight: '600', color: 'var(--on-surface)', marginBottom: '8px' }}>Company name (или ваше имя)</label>
                     <input 
                       type="text" 
                       className="input-field" 
@@ -769,7 +769,7 @@ export default function CreateBotFast() {
                   </div>
 
                   <div className="anim-item" style={{ animationDelay: '0.2s', position: 'relative', zIndex: 100 }}>
-                    <label style={{ display: 'block', fontSize: '15px', fontWeight: '600', color: 'var(--on-surface)', marginBottom: '8px' }}>Сфера деятельности</label>
+                    <label style={{ display: 'block', fontSize: '15px', fontWeight: '600', color: 'var(--on-surface)', marginBottom: '8px' }}>Industry</label>
                     <CustomSelect 
                       options={industries} 
                       value={industry} 
@@ -788,7 +788,7 @@ export default function CreateBotFast() {
                 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                   <div className="anim-item" style={{ animationDelay: '0.1s', position: 'relative', zIndex: 101 }}>
-                    <label style={{ display: 'block', fontSize: '15px', fontWeight: '600', color: 'var(--on-surface)', marginBottom: '8px' }}>Формат общения ИИ-сотрудника</label>
+                    <label style={{ display: 'block', fontSize: '15px', fontWeight: '600', color: 'var(--on-surface)', marginBottom: '8px' }}>Communication format ИИ-сотрудника</label>
                     <CustomSelect 
                       options={tones} 
                       value={tone} 

@@ -24,6 +24,7 @@ const profileDict = {
     logout: 'Выйти из аккаунта',
     statsTitle: 'Статистика аккаунта',
     statsSubtitle: 'Текущее использование платформы',
+    plan: 'Текущий тариф',
     balance: 'Баланс сообщений',
     sent: 'Всего отправлено',
     knowledgeBases: 'Баз знаний',
@@ -35,7 +36,8 @@ const profileDict = {
     proBonus: '15,000 сообщений + макс. скорость',
     purchaseSuccess: 'Успешно! Добавлено {amount} сообщений',
     purchaseError: 'Ошибка при покупке',
-    networkError: 'Ошибка соединения'
+    networkError: 'Ошибка соединения',
+    freeExhausted: 'Ваши 100 бесплатных сообщений закончились. Готовы начать по-настоящему? Выберите один из наших тарифов ниже!'
   },
   EN: {
     loading: 'Loading profile...',
@@ -51,6 +53,7 @@ const profileDict = {
     logout: 'Log out',
     statsTitle: 'Account Statistics',
     statsSubtitle: 'Current platform usage',
+    plan: 'Current Plan',
     balance: 'Message Balance',
     sent: 'Total Sent',
     knowledgeBases: 'Knowledge Bases',
@@ -62,7 +65,8 @@ const profileDict = {
     proBonus: '15,000 messages + max speed',
     purchaseSuccess: 'Success! Added {amount} messages',
     purchaseError: 'Purchase error',
-    networkError: 'Network error'
+    networkError: 'Network error',
+    freeExhausted: 'Your 100 free messages are over. Ready to really start? Choose one of our plans below!'
   },
   KZ: {
     loading: 'Профиль жүктелуде...',
@@ -78,6 +82,7 @@ const profileDict = {
     logout: 'Шығу',
     statsTitle: 'Тіркелгі статистикасы',
     statsSubtitle: 'Платформаны ағымдағы пайдалану',
+    plan: 'Ағымдағы тариф',
     balance: 'Хабарламалар теңгерімі',
     sent: 'Барлығы жіберілді',
     knowledgeBases: 'Білім базалары',
@@ -89,7 +94,8 @@ const profileDict = {
     proBonus: '15,000 хабарлама + макс. жылдамдық',
     purchaseSuccess: 'Сәтті! {amount} хабарлама қосылды',
     purchaseError: 'Сатып алу қатесі',
-    networkError: 'Қосылу қатесі'
+    networkError: 'Қосылу қатесі',
+    freeExhausted: 'Сіздің 100 тегін хабарламаңыз таусылды. Нағыз жұмысты бастауға дайынсыз ба? Төмендегі тарифтердің бірін таңдаңыз!'
   }
 };
 
@@ -131,16 +137,15 @@ export default function Profile() {
   const handlePurchase = async (plan: string) => {
     setPurchaseLoading(plan);
     try {
-      const res = await fetch(`${API_URL}/statistics/purchase`, {
+      const res = await fetch(`${API_URL}/payments/robokassa/pay`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan }),
+        body: JSON.stringify({ plan, userId: user?.id }),
         credentials: 'include'
       });
       const data = await res.json();
-      if (data.success) {
-        showBanner('success', t.purchaseSuccess.replace('{amount}', data.added.toString()));
-        await refreshProfile();
+      if (data.paymentUrl) {
+        window.location.href = data.paymentUrl;
       } else {
         showBanner('error', data.error || t.purchaseError);
       }
@@ -245,7 +250,14 @@ export default function Profile() {
           <h3 className={styles.statsTitle}>{t.statsTitle}</h3>
           <p className={styles.statsSubtitle}>{t.statsSubtitle}</p>
 
+          {user.subscriptionPlan === 'FREE' && user.messagesRemaining <= 0 && (
+            <div style={{ padding: '1rem', background: '#ffe4e6', color: '#e11d48', borderRadius: '12px', marginBottom: '1rem', fontWeight: 600, fontSize: '0.9rem', lineHeight: '1.5' }}>
+              {t.freeExhausted}
+            </div>
+          )}
+
           <div className={styles.statsBody}>
+            <StatRow label={t.plan} value={user.subscriptionPlan || 'FREE'} highlight={false} />
             <StatRow label={t.balance} value={user.messagesRemaining} highlight />
             <StatRow label={t.sent} value={user.totalMessagesUsed} />
             <StatRow label={t.knowledgeBases} value={0} />
@@ -257,29 +269,29 @@ export default function Profile() {
           <div className={styles.bundlesStack}>
             <h3 className={styles.statsTitle} style={{ fontSize: '16px', marginBottom: '16px' }}>{t.expand}</h3>
             
-            <div className={styles.bundle} onClick={() => handlePurchase('starter')}>
+            <div className={styles.bundle} onClick={() => handlePurchase('STARTER')}>
               <div>
                 <div className={styles.bundleName}>Starter</div>
                 <div className={styles.bundleInfo}>1,000 {t.messages}</div>
               </div>
-              <div className={styles.bundlePrice}>{purchaseLoading === 'starter' ? <Loader2 className={styles.spin} /> : '$15'}</div>
+              <div className={styles.bundlePrice}>{purchaseLoading === 'STARTER' ? <Loader2 className={styles.spin} /> : '6 990 ₸'}</div>
             </div>
 
-            <div className={`${styles.bundle} ${styles.bundlePopular}`} onClick={() => handlePurchase('growth')}>
+            <div className={`${styles.bundle} ${styles.bundlePopular}`} onClick={() => handlePurchase('GROWTH')}>
               <div className={styles.popularLabel}>{t.popular}</div>
               <div>
                 <div className={styles.bundleName}>Growth</div>
                 <div className={styles.bundleInfo}>{t.growthBonus}</div>
               </div>
-              <div className={styles.bundlePrice}>{purchaseLoading === 'growth' ? <Loader2 className={styles.spin} /> : '$35'}</div>
+              <div className={styles.bundlePrice}>{purchaseLoading === 'GROWTH' ? <Loader2 className={styles.spin} /> : '15 990 ₸'}</div>
             </div>
 
-            <div className={styles.bundle} onClick={() => handlePurchase('pro')}>
+            <div className={styles.bundle} onClick={() => handlePurchase('PRO')}>
               <div>
                 <div className={styles.bundleName}>Pro Unlimited</div>
                 <div className={styles.bundleInfo}>{t.proBonus}</div>
               </div>
-              <div className={styles.bundlePrice}>{purchaseLoading === 'pro' ? <Loader2 className={styles.spin} /> : '$75'}</div>
+              <div className={styles.bundlePrice}>{purchaseLoading === 'PRO' ? <Loader2 className={styles.spin} /> : '33 990 ₸'}</div>
             </div>
           </div>
 

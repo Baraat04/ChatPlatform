@@ -60,6 +60,52 @@ function AIChatWidget() {
   const [supportLoading, setSupportLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Dragging state
+  const [pos, setPos] = useState({ bottom: 28, right: 28 });
+  const isDragging = useRef(false);
+  const hasDragged = useRef(false);
+  const dragStart = useRef({ x: 0, y: 0, bottom: 28, right: 28 });
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    isDragging.current = true;
+    hasDragged.current = false;
+    dragStart.current = { x: e.clientX, y: e.clientY, bottom: pos.bottom, right: pos.right };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!isDragging.current) return;
+    const dx = dragStart.current.x - e.clientX;
+    const dy = dragStart.current.y - e.clientY;
+    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) hasDragged.current = true;
+    
+    // Calculate new pos bounded by window
+    let newBottom = dragStart.current.bottom + dy;
+    let newRight = dragStart.current.right + dx;
+    
+    // basic bounds (64 is icon size)
+    if (newBottom < 10) newBottom = 10;
+    if (newRight < 10) newRight = 10;
+    if (newBottom > window.innerHeight - 74) newBottom = window.innerHeight - 74;
+    if (newRight > window.innerWidth - 74) newRight = window.innerWidth - 74;
+    
+    setPos({ bottom: newBottom, right: newRight });
+  };
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    isDragging.current = false;
+    e.currentTarget.releasePointerCapture(e.pointerId);
+  };
+
+  const handleClick = (e: React.MouseEvent) => {
+    if (hasDragged.current) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+    setOpen(o => !o);
+  };
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
@@ -107,21 +153,24 @@ function AIChatWidget() {
     <>
       {/* Floating robot button */}
       <button
-        onClick={() => setOpen(o => !o)}
+        onClick={handleClick}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
         title="Помощник UP-CHAT"
         style={{
-          position: 'fixed', bottom: '28px', right: '28px', zIndex: 1000,
+          position: 'fixed', bottom: `${pos.bottom}px`, right: `${pos.right}px`, zIndex: 1000,
           width: '64px', height: '64px', borderRadius: '50%',
           background: 'white',
           border: '2px solid #d1d5db',
-          cursor: 'pointer',
+          cursor: 'grab',
+          touchAction: 'none',
           boxShadow: '0 4px 24px rgba(0,0,0,0.18)',
-          transition: 'transform 0.2s, box-shadow 0.2s',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           padding: 0,
         }}
-        onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.1)'; e.currentTarget.style.boxShadow = '0 8px 30px rgba(0,0,0,0.25)'; }}
-        onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 4px 24px rgba(0,0,0,0.18)'; }}
+        onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 8px 30px rgba(0,0,0,0.25)'; }}
+        onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 4px 24px rgba(0,0,0,0.18)'; }}
       >
         {open
           ? <X size={26} color="#64748b" />
@@ -132,7 +181,7 @@ function AIChatWidget() {
       {/* Chat popup */}
       {open && (
         <div style={{
-          position: 'fixed', bottom: '104px', right: '28px', zIndex: 999,
+          position: 'fixed', bottom: `${pos.bottom + 76}px`, right: `${Math.max(28, pos.right - 296)}px`, zIndex: 999,
           width: '360px', maxHeight: '540px',
           background: 'var(--surface-container-lowest)',
           borderRadius: '24px',

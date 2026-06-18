@@ -261,7 +261,7 @@ router.post('/bot/:id/channels', requireAuth, async (req, res) => {
         const existing = await prisma.channel.findFirst({ where: { botId, platform } })
         if (existing) return res.status(400).json({ error: `Channel for ${platform} already exists` })
 
-        const startsActive = platform === 'TELEGRAM'
+        const startsActive = platform === 'TELEGRAM' || platform === 'INSTAGRAM'
 
         const channel = await prisma.channel.create({
             data: {
@@ -274,6 +274,41 @@ router.post('/bot/:id/channels', requireAuth, async (req, res) => {
         })
 
         res.json(channel)
+
+        // Instagram: subscribe page to webhook events automatically
+        if (platform === 'INSTAGRAM' && apiToken) {
+            try {
+                // Step 1: Get Page ID from the token
+                const meRes = await fetch(`https://graph.facebook.com/v21.0/me?access_token=${apiToken}`);
+                const meData = await meRes.json();
+                const pageId = meData.id;
+
+                if (pageId && !meData.error) {
+                    // Step 2: Subscribe this page to receive 'messages' webhook events
+                    const subRes = await fetch(
+                        `https://graph.facebook.com/v21.0/${pageId}/subscribed_apps`,
+                        {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                subscribed_fields: ['messages', 'messaging_postbacks'],
+                                access_token: apiToken
+                            })
+                        }
+                    );
+                    const subData = await subRes.json();
+                    if (subData.success) {
+                        console.log(`[Instagram Channel ${channel.id}] ✅ Page ${pageId} successfully subscribed to webhook messages!`);
+                    } else {
+                        console.warn(`[Instagram Channel ${channel.id}] ⚠️ Page subscription response:`, JSON.stringify(subData));
+                    }
+                } else {
+                    console.warn(`[Instagram Channel ${channel.id}] ⚠️ Could not get Page ID from token. Error:`, JSON.stringify(meData));
+                }
+            } catch (igErr) {
+                console.error(`[Instagram Channel ${channel.id}] Error during auto-subscribe:`, igErr.message);
+            }
+        }
 
         // Telegram Webhook Setup
         if (platform === 'TELEGRAM' && apiToken) {
@@ -1321,6 +1356,16 @@ async function getChannelByInstagramAccountId(accountId) {
             console.error(`[Instagram] Error fetching IG ID for bot ${bot.id}:`, e.message);
         }
     }
+
+    if (activeChannels.length > 0) {
+        console.log(`[Instagram] Fallback mapping to first active channel for account ${accountId}`);
+        return { bot: activeChannels[0].bot, channel: activeChannels[0] };
+    }
+    if (activeBots.length > 0) {
+        console.log(`[Instagram] Fallback mapping to first active legacy bot for account ${accountId}`);
+        return { bot: activeBots[0], channel: null };
+    }
+
     return null;
 }
 
@@ -1347,7 +1392,12 @@ router.post('/webhook/instagram', async (req, res) => {
 
     try {
         const body = req.body;
-        if (body.object !== 'instagram') return;
+        console.log('[Instagram Webhook] Received payload:', JSON.stringify(body, null, 2));
+        
+        if (body.object !== 'instagram' && body.object !== 'page') {
+            console.log(`[Instagram] Ignoring payload with object: ${body.object}`);
+            return;
+        }
 
         const io = req.app.get('io');
         const prisma = getPrisma();
@@ -1378,7 +1428,22 @@ router.post('/webhook/instagram', async (req, res) => {
                 // 1. Upsert Contact
                 let contact = await prisma.contact.findUnique({ where: { botId_chatId: { botId: bot.id, chatId: senderId } } });
                 if (!contact) {
-                    contact = await prisma.contact.create({ data: { botId: bot.id, chatId: senderId, name: `Instagram User ${senderId}` } });
+                    let igName = `Instagram User ${senderId}`;
+                    try {
+                        const profileRes = await fetch(`https://graph.facebook.com/v21.0/${senderId}?fields=name,username&access_token=${tokenToUse}`);
+                        if (profileRes.ok) {
+                            const profileData = await profileRes.json();
+                            if (profileData.username) {
+                                igName = `@${profileData.username}`;
+                                if (profileData.name) igName += ` (${profileData.name})`;
+                            } else if (profileData.name) {
+                                igName = profileData.name;
+                            }
+                        }
+                    } catch (e) {
+                        console.error(`[Instagram] Failed to fetch profile for ${senderId}:`, e.message);
+                    }
+                    contact = await prisma.contact.create({ data: { botId: bot.id, chatId: senderId, name: igName } });
                     io.emit(`contact-update-${bot.id}`, contact);
                 }
 
