@@ -674,6 +674,8 @@ router.post('/bot/:id/send', upload.single('file'), async (req, res) => {
                 mediaType = 'image';
             } else if (req.file.mimetype.startsWith('audio/')) {
                 mediaType = 'audio';
+            } else {
+                mediaType = 'document';
             }
         }
 
@@ -706,6 +708,13 @@ router.post('/bot/:id/send', upload.single('file'), async (req, res) => {
                 await sock.sendMessage(chatId, { image: req.file.buffer, caption: text || '' });
             } else if (req.file && mediaType === 'audio') {
                 await sock.sendMessage(chatId, { audio: req.file.buffer, mimetype: req.file.mimetype, ptt: true, ptv: false });
+            } else if (req.file && mediaType === 'document') {
+                await sock.sendMessage(chatId, { 
+                    document: req.file.buffer, 
+                    mimetype: req.file.mimetype, 
+                    fileName: req.file.originalname,
+                    caption: text || ''
+                });
             } else {
                 await sock.sendMessage(chatId, { text: text || '' });
             }
@@ -746,6 +755,21 @@ router.post('/bot/:id/send', upload.single('file'), async (req, res) => {
                     body: formData
                 });
                 if (!response.ok) throw new Error(await response.text());
+            } else if (req.file && mediaType === 'document') {
+                const formData = new FormData();
+                formData.append('chat_id', chatId);
+                if (text) formData.append('caption', text);
+                
+                const fileData = typeof Blob !== 'undefined' 
+                    ? new Blob([fs.readFileSync(filePath)], { type: req.file.mimetype })
+                    : fs.createReadStream(filePath);
+                formData.append('document', fileData, req.file.originalname);
+                
+                const response = await fetch(`https://api.telegram.org/bot${apiToken}/sendDocument`, {
+                    method: 'POST',
+                    body: formData
+                });
+                if (!response.ok) throw new Error(await response.text());
             } else {
                 await callTelegramAPI('sendMessage', apiToken, {
                     chat_id: chatId,
@@ -756,7 +780,7 @@ router.post('/bot/:id/send', upload.single('file'), async (req, res) => {
 
         // Save sent message to DB
         const savedMsg = await prisma.message.create({
-            data: { botId, channelId, platform, sender: 'bot', text: text || '', chatId, mediaUrl, mediaType }
+            data: { botId, channelId, platform, sender: 'bot', text: text || (req.file ? req.file.originalname : ''), chatId, mediaUrl, mediaType }
         })
 
         io.emit(`chat-${botId}`, { ...savedMsg, platform })
@@ -803,6 +827,8 @@ router.post('/bot/:id/broadcast', upload.single('file'), async (req, res) => {
                 mediaType = 'image';
             } else if (req.file.mimetype.startsWith('audio/')) {
                 mediaType = 'audio';
+            } else {
+                mediaType = 'document';
             }
         }
 
@@ -821,6 +847,13 @@ router.post('/bot/:id/broadcast', upload.single('file'), async (req, res) => {
                         await sock.sendMessage(jid, { image: req.file.buffer, caption: text || '' });
                     } else if (req.file && mediaType === 'audio') {
                         await sock.sendMessage(jid, { audio: req.file.buffer, mimetype: req.file.mimetype, ptt: true, ptv: false });
+                    } else if (req.file && mediaType === 'document') {
+                        await sock.sendMessage(jid, { 
+                            document: req.file.buffer, 
+                            mimetype: req.file.mimetype, 
+                            fileName: req.file.originalname,
+                            caption: text || ''
+                        });
                     } else {
                         await sock.sendMessage(jid, { text: text || '' });
                     }
@@ -871,6 +904,21 @@ router.post('/bot/:id/broadcast', upload.single('file'), async (req, res) => {
                         formData.append(fieldName, fileData, req.file.originalname);
                         
                         const response = await fetch(`https://api.telegram.org/bot${bot.apiToken}/${method}`, {
+                            method: 'POST',
+                            body: formData
+                        });
+                        if (!response.ok) throw new Error(await response.text());
+                    } else if (req.file && mediaType === 'document') {
+                        const formData = new FormData();
+                        formData.append('chat_id', chatId);
+                        if (text) formData.append('caption', text);
+                        
+                        const fileData = typeof Blob !== 'undefined' 
+                            ? new Blob([fs.readFileSync(filePath)], { type: req.file.mimetype })
+                            : fs.createReadStream(filePath);
+                        formData.append('document', fileData, req.file.originalname);
+                        
+                        const response = await fetch(`https://api.telegram.org/bot${bot.apiToken}/sendDocument`, {
                             method: 'POST',
                             body: formData
                         });
@@ -991,9 +1039,11 @@ router.post('/webhook/telegram/:slug', async (req, res) => {
         
         if (!message) return
 
-        let text = message.text || '';
+        let text = message.text || message.caption || '';
         let telegramAudioBuffer = null;
         let mimeType = null;
+        let mediaUrl = null;
+        let mediaType = null;
 
         const tokenToUse = channel ? channel.apiToken : bot.apiToken
 
@@ -1013,13 +1063,63 @@ router.post('/webhook/telegram/:slug', async (req, res) => {
                     const localPath = path.join(__dirname, '../../uploads', filename);
                     fs.writeFileSync(localPath, telegramAudioBuffer);
                     
+                    mediaUrl = `/uploads/${filename}`;
+                    mediaType = 'audio';
                     const audioTag = `[AUDIO]/uploads/${filename}`;
                     text = text ? `${text}\n${audioTag}` : audioTag;
                 }
             } catch(e) { console.error('Telegram Audio error', e) }
+        } else if (message.photo) {
+            const photoArray = message.photo;
+            const fileId = photoArray[photoArray.length - 1].file_id;
+            try {
+                const fileData = await fetch(`https://api.telegram.org/bot${tokenToUse}/getFile?file_id=${fileId}`).then(r=>r.json());
+                if (fileData.ok) {
+                    const filePath = fileData.result.file_path;
+                    const fileRes = await fetch(`https://api.telegram.org/file/bot${tokenToUse}/${filePath}`);
+                    const arrayBuffer = await fileRes.arrayBuffer();
+                    const buffer = Buffer.from(arrayBuffer);
+                    
+                    const ext = filePath.split('.').pop() || 'jpg';
+                    const filename = `tg_image_${Date.now()}_${Math.floor(Math.random()*1000)}.${ext}`;
+                    const localPath = path.join(__dirname, '../../uploads', filename);
+                    fs.writeFileSync(localPath, buffer);
+                    
+                    mediaUrl = `/uploads/${filename}`;
+                    mediaType = 'image';
+                }
+            } catch(e) { console.error('Telegram Photo error', e) }
+        } else if (message.document) {
+            const fileId = message.document.file_id;
+            const originalName = message.document.file_name || 'document';
+            try {
+                const fileData = await fetch(`https://api.telegram.org/bot${tokenToUse}/getFile?file_id=${fileId}`).then(r=>r.json());
+                if (fileData.ok) {
+                    const filePath = fileData.result.file_path;
+                    const fileRes = await fetch(`https://api.telegram.org/file/bot${tokenToUse}/${filePath}`);
+                    const arrayBuffer = await fileRes.arrayBuffer();
+                    const buffer = Buffer.from(arrayBuffer);
+                    
+                    let ext = path.extname(originalName) || '';
+                    if (!ext) {
+                        ext = filePath.split('.').pop() || '';
+                        if (ext) ext = '.' + ext;
+                    }
+                    const cleanBaseName = path.basename(originalName, ext).replace(/[^a-zA-Z0-9_-]/g, '_');
+                    const filename = `tg_doc_${Date.now()}_${cleanBaseName}${ext}`;
+                    const localPath = path.join(__dirname, '../../uploads', filename);
+                    fs.writeFileSync(localPath, buffer);
+                    
+                    mediaUrl = `/uploads/${filename}`;
+                    mediaType = 'document';
+                    if (!text) {
+                        text = originalName;
+                    }
+                }
+            } catch(e) { console.error('Telegram Document error', e) }
         }
 
-        if (!text && !telegramAudioBuffer) return
+        if (!text && !telegramAudioBuffer && !mediaUrl) return
 
         const telegramChatId = message.chat.id.toString()
         let senderName = 'Telegram User'
@@ -1055,7 +1155,9 @@ router.post('/webhook/telegram/:slug', async (req, res) => {
                 platform: 'TELEGRAM',
                 sender: 'user', 
                 text, 
-                chatId: telegramChatId 
+                chatId: telegramChatId,
+                mediaUrl,
+                mediaType
             }
         })
         io.emit(`chat-${bot.id}`, { ...userMsg, platform: 'TELEGRAM' })

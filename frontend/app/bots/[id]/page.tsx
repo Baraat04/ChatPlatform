@@ -311,7 +311,7 @@ export default function BotDetails() {
   const [replyText, setReplyText] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
-  const [fileType, setFileType] = useState<'image' | 'audio' | null>(null);
+  const [fileType, setFileType] = useState<'image' | 'audio' | 'document' | null>(null);
   const [activeTab, setActiveTab] = useState<'chats' | 'agent' | 'settings' | 'broadcast' | 'channels'>('chats');
   
   const [isRecording, setIsRecording] = useState(false);
@@ -452,6 +452,55 @@ export default function BotDetails() {
             {t.voiceMessage || 'Голосовое сообщение'}
           </audio>
           {msg.text && <span style={{ whiteSpace: 'pre-wrap' }}>{msg.text}</span>}
+        </div>
+      );
+    }
+    if (msg.mediaType === 'document') {
+      const filename = msg.mediaUrl ? msg.mediaUrl.split('/').pop() : 'document';
+      let displayName = filename;
+      if (filename.startsWith('wa_doc_') || filename.startsWith('tg_doc_')) {
+        const match = filename.match(/^(?:wa_doc|tg_doc)_\d+_(.+)$/);
+        if (match) displayName = match[1];
+      } else {
+        const match = filename.match(/^\d+-\d+(.+)$/);
+        if (match) displayName = match[1];
+      }
+      
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <a 
+            href={`${API_BASE}${msg.mediaUrl}`} 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '12px', 
+              padding: '12px 16px', 
+              background: 'rgba(0, 0, 0, 0.05)', 
+              borderRadius: '12px', 
+              color: 'inherit',
+              textDecoration: 'none',
+              fontWeight: 600,
+              fontSize: '0.9rem',
+              border: '1px solid rgba(0, 0, 0, 0.1)',
+              transition: 'background 0.2s',
+              cursor: 'pointer'
+            }}
+            onMouseOver={(e) => e.currentTarget.style.background = 'rgba(0, 0, 0, 0.1)'}
+            onMouseOut={(e) => e.currentTarget.style.background = 'rgba(0, 0, 0, 0.05)'}
+          >
+            <span style={{ fontSize: '1.5rem', flexShrink: 0 }}>📄</span>
+            <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
+              <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                {displayName}
+              </span>
+              <span style={{ fontSize: '0.75rem', opacity: 0.7, fontWeight: 400 }}>
+                Открыть / Скачать
+              </span>
+            </div>
+          </a>
+          {msg.text && msg.text !== filename && <span style={{ whiteSpace: 'pre-wrap' }}>{msg.text}</span>}
         </div>
       );
     }
@@ -2153,6 +2202,12 @@ export default function BotDetails() {
                             <span style={{ fontSize: '0.85rem', color: 'var(--on-surface)' }}>{selectedFile.name}</span>
                           </div>
                         )}
+                        {fileType === 'document' && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem' }}>
+                            <FileUp size={24} color="var(--primary)" />
+                            <span style={{ fontSize: '0.85rem', color: 'var(--on-surface)' }}>{selectedFile.name}</span>
+                          </div>
+                        )}
                         <button 
                           onClick={() => { setSelectedFile(null); setFilePreviewUrl(null); setFileType(null); }}
                           style={{ background: 'none', border: 'none', color: 'var(--error)', cursor: 'pointer', marginLeft: 'auto', padding: '0.5rem' }}
@@ -2181,6 +2236,18 @@ export default function BotDetails() {
                             const file = e.target.files[0];
                             setSelectedFile(file);
                             setFileType('audio');
+                            setFilePreviewUrl(null);
+                          }
+                          e.target.value = '';
+                        }} />
+                      </label>
+                      <label style={{ cursor: 'pointer', padding: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--on-surface-variant)', transition: 'color 0.2s' }}>
+                        <FileUp size={24} />
+                        <input type="file" accept=".pdf,.docx,.txt,.doc,.xls,.xlsx,.ppt,.pptx" style={{ display: 'none' }} onChange={e => {
+                          if (e.target.files && e.target.files[0]) {
+                            const file = e.target.files[0];
+                            setSelectedFile(file);
+                            setFileType('document');
                             setFilePreviewUrl(null);
                           }
                           e.target.value = '';
