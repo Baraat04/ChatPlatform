@@ -11,6 +11,7 @@ interface User {
   email: string;
   messagesRemaining: number;
   totalMessagesUsed: number;
+  subscriptionPlan?: string;
 }
 
 interface AuthContextType {

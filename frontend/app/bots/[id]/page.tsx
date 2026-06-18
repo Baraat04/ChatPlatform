@@ -8,6 +8,7 @@ import { io } from 'socket.io-client';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { translations } from '../../locales/translations';
 import { API_URL, API_BASE as CONFIG_API_BASE, SOCKET_URL } from '../../config';
+import { useAuth } from '../../contexts/AuthContext';
 
 const API = API_URL;
 
@@ -50,7 +51,7 @@ const DATA_FIELDS = [
 ];
 
 function CustomSelect({ options, displayOptions, value, onChange, placeholder }: any) {
-  const { t } = useLanguage();
+  const t = translations.EN;
   const [isOpen, setIsOpen] = useState(false);
   const [customInput, setCustomInput] = useState('');
   const [isAddingCustom, setIsAddingCustom] = useState(false);
@@ -139,7 +140,7 @@ function CustomSelect({ options, displayOptions, value, onChange, placeholder }:
 }
 
 function CustomMultiSelect({ options, displayOptions, value, onChange, placeholder }: any) {
-  const { t } = useLanguage();
+  const t = translations.EN;
   const [isOpen, setIsOpen] = useState(false);
   const [customInput, setCustomInput] = useState('');
   const [isAddingCustom, setIsAddingCustom] = useState(false);
@@ -291,7 +292,8 @@ interface Channel {
 
 
 export default function BotDetails() {
-  const { t } = useLanguage();
+  const t = translations.EN;
+  const { user } = useAuth();
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -550,6 +552,8 @@ export default function BotDetails() {
         setQrCode(null); 
         fetchBot(); 
         fetchChats(); 
+        fetchChannels();
+        setIsAddingChannel(false);
       }
     });
 
@@ -1159,7 +1163,9 @@ export default function BotDetails() {
           ['agent', <BrainCircuit size={16} />, 'AI Brain'], 
           ['settings', <Bot size={16} />, t.settings || 'Конфигурация'], 
           ['broadcast', <Radio size={16} />, t.campaigns]
-        ] as const).map(([tab, icon, label]) => (
+        ] as const)
+        .filter(([tab]) => tab !== 'broadcast' || (user?.subscriptionPlan === 'GROWTH' || user?.subscriptionPlan === 'PRO'))
+        .map(([tab, icon, label]) => (
           <button key={tab} onClick={() => setActiveTab(tab as any)} className={`tab-btn ${activeTab === tab ? 'active' : ''}`}>
             {icon} {label}
           </button>
@@ -1428,7 +1434,7 @@ export default function BotDetails() {
                     </button>
                     <div>
                       <h3 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 800 }}>
-                        {!newChannelPlatform ? 'Platform Selection' : newChannelPlatform === 'TELEGRAM' ? 'Connectedие Telegram' : 'Connectedие WhatsApp'}
+                        {!newChannelPlatform ? 'Platform Selection' : newChannelPlatform === 'TELEGRAM' ? 'Connect Telegram' : 'Connect WhatsApp'}
                       </h3>
                       <p style={{ margin: '0.2rem 0 0 0', color: 'var(--on-surface-variant)', fontSize: '0.85rem' }}>
                         {!newChannelPlatform ? 'Select messenger for integration' : `Step to connect bot to your account`}
@@ -2135,14 +2141,14 @@ export default function BotDetails() {
                 <FileUp size={20} />
                 <input type="file" accept="application/pdf" style={{ display: 'none' }} onChange={handlePdfUpload} disabled={isUploadingPdf} />
               </label>
-              <input
-                type="text"
+              <textarea
                 className="premium-input"
+                rows={3}
                 value={agentInput}
                 onChange={e => setAgentInput(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleAgentSend()}
+                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAgentSend(); } }}
                 placeholder="Example: 'Be more polite' or 'Add to the database that we do not work on weekends'"
-                style={{ flex: 1 }}
+                style={{ flex: 1, resize: 'vertical' }}
                 disabled={isAgentLoading}
               />
               <button onClick={handleAgentSend} disabled={!agentInput.trim() || isAgentLoading} className="btn-primary" style={{ padding: '0 1.5rem' }}>
@@ -2157,15 +2163,6 @@ export default function BotDetails() {
           <div style={{ flex: 1, overflowY: 'auto', padding: '3rem 2rem' }}>
             <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
               
-              {qrCode && bot.platform === 'WHATSAPP' && (
-                <div className="glass-panel" style={{ padding: '3rem', textAlign: 'center', marginBottom: '3rem', display: 'flex', flexDirection: 'column', alignItems: 'center', background: '#e6f4ea', borderColor: '#c3e6cb' }}>
-                  <h3 style={{ margin: '0 0 1rem', color: '#003527', fontSize: '1.5rem' }}>{t.linkWhatsapp}</h3>
-                  <p style={{ color: '#565e74', marginBottom: '2rem' }}>{t.scanQr}</p>
-                  <div style={{ background: '#fff', padding: '1rem', borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,53,39,0.1)' }}>
-                    <img src={qrCode} alt="QR Code" style={{ width: '100%', maxWidth: '260px', height: 'auto', display: 'block' }} />
-                  </div>
-                </div>
-              )}
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
                 <h2 style={{ fontSize: '1.8rem', fontWeight: '800', color: 'var(--on-surface)', display: 'flex', alignItems: 'center', gap: '12px' }}>
