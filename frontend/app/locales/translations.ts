@@ -92,6 +92,8 @@ export const translations = {
     aiBrain: "AI Brain",
     campaigns: "Campaigns",
     settings: "Settings",
+    chats: "Dialogs",
+    channels: "Channels",
     
     // Chats
     conversations: "Conversations",
@@ -372,6 +374,8 @@ export const translations = {
     aiBrain: "Мозг ИИ",
     campaigns: "Рассылки",
     settings: "Настройки",
+    chats: "Диалоги",
+    channels: "Каналы",
     
     // Chats
     conversations: "Беседы",
@@ -652,6 +656,8 @@ export const translations = {
     aiBrain: "ЖИ миы",
     campaigns: "Таратылымдар",
     settings: "Баптаулар",
+    chats: "Диалогтар",
+    channels: "Арналар",
     
     // Chats
     conversations: "Әңгімелер",

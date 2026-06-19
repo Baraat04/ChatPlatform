@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -8,6 +8,7 @@ import InitialsAvatar from '../components/InitialsAvatar/InitialsAvatar';
 import styles from './page.module.css';
 import { Mail, Shield, Clock, MessageCircle, TrendingUp, LogOut, ArrowLeft, Loader2 } from 'lucide-react';
 import { API_URL } from '../config';
+import { useSearchParams } from 'next/navigation';
 
 const profileDict = {
   RU: {
@@ -125,9 +126,25 @@ export default function Profile() {
   const { user, loading, logout, refreshProfile } = useAuth();
   const { language } = useLanguage();
   const t = profileDict[language] || profileDict.RU;
+  const searchParams = useSearchParams();
 
   const [purchaseLoading, setPurchaseLoading] = useState<string | null>(null);
   const [banner, setBanner] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+
+  // Auto-refresh profile after successful payment redirect
+  useEffect(() => {
+    const paymentStatus = searchParams?.get('payment');
+    if (paymentStatus === 'success') {
+      // Poll a few times to wait for Robokassa webhook to update the DB
+      let attempts = 0;
+      const poll = setInterval(async () => {
+        attempts++;
+        await refreshProfile();
+        if (attempts >= 5) clearInterval(poll);
+      }, 2000);
+      return () => clearInterval(poll);
+    }
+  }, [searchParams]);
 
   const showBanner = (type: 'success' | 'error', msg: string) => {
     setBanner({ type, msg });

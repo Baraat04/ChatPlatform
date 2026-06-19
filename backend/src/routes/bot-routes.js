@@ -38,6 +38,17 @@ async function callTelegramAPI(method, botToken, payload) {
   return response.json();
 }
 
+// Strip Gemini markdown formatting for clean Telegram display
+function cleanTelegramText(text) {
+  if (!text) return text;
+  // Remove **bold**, *italic*, __underline__, _italic_ markers
+  return text
+    .replace(/\*\*(.+?)\*\*/gs, '$1')
+    .replace(/\*(.+?)\*/gs, '$1')
+    .replace(/__(.+?)__/gs, '$1')
+    .replace(/_(.+?)_/gs, '$1');
+}
+
 // Lazy Prisma init so DATABASE_URL is already loaded from .env
 let _prisma = null
 function getPrisma() {
@@ -713,10 +724,34 @@ router.post('/bot/:id/send', async (req, res) => {
         let chatId = rawChatId;
         if (platform === 'WHATSAPP') {
             chatId = rawChatId.includes('@') ? rawChatId : `${rawChatId}@s.whatsapp.net`;
-            const { getWhatsAppSession } = await import('../services/whatsapp.js');
+            const { getWhatsAppSession, startWhatsAppBot, startWhatsAppChannel } = await import('../services/whatsapp.js');
             const sessionId = channelId ? `ch_${channelId}` : botId;
-            const sock = getWhatsAppSession(sessionId);
-            if (!sock) return res.status(503).json({ error: 'WhatsApp session not active. Start the bot first.' });
+            let sock = getWhatsAppSession(sessionId);
+            
+            if (!sock) {
+                // Auto-reconnect: try to restart the session
+                console.log(`[Send] Session ${sessionId} not found, attempting auto-reconnect...`);
+                try {
+                    if (channelId) {
+                        const channel = await prisma.channel.findUnique({ where: { id: channelId } });
+                        if (channel) {
+                            startWhatsAppChannel(channel, bot, getPrisma(), io).catch(() => {});
+                        }
+                    } else {
+                        startWhatsAppBot(bot, getPrisma(), io).catch(() => {});
+                    }
+                    // Wait up to 8s for connection to establish
+                    for (let i = 0; i < 8; i++) {
+                        await new Promise(r => setTimeout(r, 1000));
+                        sock = getWhatsAppSession(sessionId);
+                        if (sock) break;
+                    }
+                } catch (reconnectErr) {
+                    console.error(`[Send] Auto-reconnect failed:`, reconnectErr.message);
+                }
+            }
+            
+            if (!sock) return res.status(503).json({ error: 'WhatsApp session not active. Please start the bot first and wait for it to connect.' });
             await sock.sendMessage(chatId, { text });
         } else if (platform === 'TELEGRAM') {
             if (!apiToken) return res.status(503).json({ error: 'Telegram API token missing.' });
@@ -1019,7 +1054,7 @@ router.post('/webhook/telegram/:slug', async (req, res) => {
         // 6. Send message back to Telegram
         await callTelegramAPI('sendMessage', tokenToUse, {
             chat_id: telegramChatId,
-            text: aiResponseText
+            text: cleanTelegramText(aiResponseText)
         })
 
         // 7. Save bot reply (with platform tag)

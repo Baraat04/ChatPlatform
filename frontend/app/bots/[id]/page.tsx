@@ -399,11 +399,26 @@ export default function BotDetails() {
       if (part.startsWith('[AUDIO]/uploads/')) {
         const filePath = part.replace('[AUDIO]', '');
         const audioUrl = `${API_BASE}${filePath}`;
+        const audioExt = audioUrl.split('.').pop()?.toLowerCase() || 'ogg';
+        const audioMimeMap: Record<string, string> = {
+          ogg: 'audio/ogg',
+          mp4: 'audio/mp4',
+          m4a: 'audio/mp4',
+          mp3: 'audio/mpeg',
+          wav: 'audio/wav',
+          oga: 'audio/ogg',
+        };
+        const audioMime = audioMimeMap[audioExt] || 'audio/ogg';
         return (
           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '12px', padding: '8px 12px' }}>
             <span style={{ fontSize: '1.2rem' }}>🎤</span>
-            <audio controls style={{ height: '32px', flex: 1, minWidth: '180px', accentColor: 'var(--primary)' }}>
-              <source src={audioUrl} />
+            <audio
+              controls
+              preload="metadata"
+              playsInline
+              style={{ height: '32px', flex: 1, minWidth: '180px', accentColor: 'var(--primary)', maxWidth: '100%' }}
+            >
+              <source src={audioUrl} type={audioMime} />
               {t.voiceMessage}
             </audio>
           </div>
@@ -1158,10 +1173,10 @@ export default function BotDetails() {
       {/* ─── TAB BAR ─── */}
       <div className="tab-bar">
         {([
-          ['chats', <MessageSquare size={16} />, 'Диалоги'],
-          ['channels', <Phone size={16} />, 'Каналы связи'],
+          ['chats', <MessageSquare size={16} />, t.chats || 'Dialogs'],
+          ['channels', <Phone size={16} />, t.channels || 'Channels'],
           ['agent', <BrainCircuit size={16} />, 'AI Brain'], 
-          ['settings', <Bot size={16} />, t.settings || 'Конфигурация'], 
+          ['settings', <Bot size={16} />, t.settings || 'Configuration'], 
           ['broadcast', <Radio size={16} />, t.campaigns]
         ] as const)
         .filter(([tab]) => tab !== 'broadcast' || (user?.subscriptionPlan === 'GROWTH' || user?.subscriptionPlan === 'PRO'))

@@ -191,6 +191,25 @@ httpServer.listen(PORT, async () => {
             startWhatsAppBot(bot, prisma, io)
         }
 
+        // Also restore active WhatsApp CHANNELS (multi-channel system)
+        try {
+            const { startWhatsAppChannel } = await import('./services/whatsapp.js')
+            const activeWaChannels = await prisma.channel.findMany({
+                where: { platform: 'WHATSAPP', isActive: true },
+                include: { bot: true }
+            })
+            for (const channel of activeWaChannels) {
+                if (channel.bot && channel.bot.isActive) {
+                    console.log(`[Boot] Restoring WhatsApp Channel ${channel.id} for Bot ${channel.botId}...`)
+                    startWhatsAppChannel(channel, channel.bot, prisma, io).catch(err => {
+                        console.error(`[Boot] Failed to restore WhatsApp Channel ${channel.id}:`, err.message)
+                    })
+                }
+            }
+        } catch (chanErr) {
+            console.error('[Boot] Error restoring WhatsApp channels:', chanErr)
+        }
+
         // AUTO-REREGISTER: Re-set Telegram webhooks to the current BASE_URL on every boot
         // This fixes the issue where bots were created with ngrok/old URL and prod URL changed
         try {

@@ -73,6 +73,7 @@ router.post('/robokassa/webhook', async (req, res) => {
             data: {
                 subscriptionPlan: shp_plan,
                 messageLimit,
+                messagesRemaining: messageLimit,  // Reset to full plan quota
                 subscriptionExpiresAt: expiresAt
             }
         });
