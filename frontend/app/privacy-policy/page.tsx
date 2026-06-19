@@ -195,7 +195,7 @@ export default function PrivacyPolicyPage() {
                 5.5. Пользователь обязуется самостоятельно следить за изменениями Политики конфиденциальности путем ознакомления с актуальной редакцией.
               </p>
               <p>
-                5.6. Все предложения или вопросы по настоящей Политике конфиденциальности следует сообщать по электронной почте <strong>geducation1017@gmail.com</strong> или по телефонам: <strong>+7 777 420-19-89</strong>
+                5.6. Все предложения или вопросы по настоящей Политике конфиденциальности следует сообщать по электронной почте <strong>geducation1017@gmail.com</strong> или по телефонам: <strong>+7 (706) 430-71-95</strong>
               </p>
             </>
           )}
@@ -319,7 +319,7 @@ export default function PrivacyPolicyPage() {
                 5.4. The Operator has the right to change the Privacy Policy at any time unilaterally.
               </p>
               <p>
-                5.5. Suggestions or questions regarding this Privacy Policy should be reported by email to <strong>geducation1017@gmail.com</strong> or by phone: <strong>+7 777 420-19-89</strong>.
+                5.5. Suggestions or questions regarding this Privacy Policy should be reported by email to <strong>geducation1017@gmail.com</strong> or by phone: <strong>+7 (706) 430-71-95</strong>.
               </p>
             </>
           )}
@@ -431,7 +431,7 @@ export default function PrivacyPolicyPage() {
                 5.3. Егер Құпиялылық саясатының қандай да бір ережесі жарамсыз деп танылса, бұл оның қалған ережелерінің заңды күшіне әсер етпейді.
               </p>
               <p>
-                5.4. Барлық ұсыныстар немесе сұрақтар бойынша мына электрондық поштаға хабарласу керек: <strong>geducation1017@gmail.com</strong> немесе телефон нөмірі: <strong>+7 777 420-19-89</strong>.
+                5.4. Барлық ұсыныстар немесе сұрақтар бойынша мына электрондық поштаға хабарласу керек: <strong>geducation1017@gmail.com</strong> немесе телефон нөмірі: <strong>+7 (706) 430-71-95</strong>.
               </p>
             </>
           )}

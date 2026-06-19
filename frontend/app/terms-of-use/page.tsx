@@ -76,7 +76,7 @@ export default function TermsOfUsePage() {
               
               <h4 className="font-semibold text-slate-900 mt-4">Введение</h4>
               <p>
-                <strong>ТОО &quot;SAAMA GROUP&quot;</strong> (&quot;Компания&quot;, &quot;мы&quot;, &quot;наш&quot;, &quot;нас&quot;), расположенное по адресу Республика Казахстан, г. Павлодар, улица Малахова, дом 11, БИН: 171040010072, обязуется защищать ваши персональные данные. Для обработки ваших данных нам требуется ваше явное согласие в соответствии со статьями Закона Республики Казахстан &quot;О персональных данных и их защите&quot; (далее - &quot;Закон&quot;).
+                <strong>ТОО &quot;SAAMA GROUP&quot;</strong> (&quot;Компания&quot;, &quot;мы&quot;, &quot;наш&quot;, &quot;нас&quot;), расположенное по адресу Республика Казахстан, г. Павлодар, ул. Едыге Би, 71Б, БИН: 171040010072, обязуется защищать ваши персональные данные. Для обработки ваших данных нам требуется ваше явное согласие в соответствии со статьями Закона Республики Казахстан &quot;О персональных данных и их защите&quot; (далее - &quot;Закон&quot;).
               </p>
 
               <h4 className="font-semibold text-slate-900 mt-4">1. Цель обработки данных</h4>
@@ -117,7 +117,7 @@ export default function TermsOfUsePage() {
               <h4 className="font-semibold text-slate-900 mt-4">8. Контактная информация</h4>
               <p>
                 Электронная почта: <strong>geducation1017@gmail.com</strong><br />
-                Почтовый адрес: 140000, Республика Казахстан, г. Павлодар, улица Малахова, дом 11
+                Почтовый адрес: 140000, Республика Казахстан, г. Павлодар, ул. Едыге Би, 71Б
               </p>
             </>
           )}
@@ -128,7 +128,7 @@ export default function TermsOfUsePage() {
               
               <h4 className="font-semibold text-slate-900 mt-4">Introduction</h4>
               <p>
-                <strong>SAAMA GROUP LLP</strong> (&quot;Company&quot;, &quot;we&quot;, &quot;our&quot;, &quot;us&quot;), located at 11 Malakhov Street, Pavlodar, Republic of Kazakhstan, BIN: 171040010072, is committed to protecting your personal data. To process your data, we require your explicit consent in accordance with the articles of the Law of the Republic of Kazakhstan &quot;On Personal Data and Their Protection&quot; (hereinafter referred to as the &quot;Law&quot;).
+                <strong>SAAMA GROUP LLP</strong> (&quot;Company&quot;, &quot;we&quot;, &quot;our&quot;, &quot;us&quot;), located at Edyge Bi St., 71B, Pavlodar, Republic of Kazakhstan, BIN: 171040010072, is committed to protecting your personal data. To process your data, we require your explicit consent in accordance with the articles of the Law of the Republic of Kazakhstan &quot;On Personal Data and Their Protection&quot; (hereinafter referred to as the &quot;Law&quot;).
               </p>
 
               <h4 className="font-semibold text-slate-900 mt-4">1. Purpose of Data Processing</h4>
@@ -169,7 +169,7 @@ export default function TermsOfUsePage() {
               <h4 className="font-semibold text-slate-900 mt-4">8. Contact Information</h4>
               <p>
                 Email: <strong>geducation1017@gmail.com</strong><br />
-                Mailing Address: 140000, Republic of Kazakhstan, Pavlodar, Malakhov Street, House 11
+                Mailing Address: 140000, Republic of Kazakhstan, Pavlodar, Edyge Bi St., 71B
               </p>
             </>
           )}
@@ -180,7 +180,7 @@ export default function TermsOfUsePage() {
               
               <h4 className="font-semibold text-slate-900 mt-4">Кіріспе</h4>
               <p>
-                <strong>«SAAMA GROUP» ЖШС</strong> (&quot;Серіктестік&quot;, &quot;біз&quot;, &quot;біздің&quot;), Қазақстан Республикасы, Павлодар қ., Малахов көшесі, 11-үй мекенжайында орналасқан, БСН: 171040010072, сіздің жеке деректеріңізді қорғауға міндеттенеді. Деректеріңізді өңдеу үшін Қазақстан Республикасының «Дербес деректер және оларды қорғау туралы» Заңының (бұдан әрі — «Заң») баптарына сәйкес сіздің айқын келісіміңіз қажет.
+                <strong>«SAAMA GROUP» ЖШС</strong> (&quot;Серіктестік&quot;, &quot;біз&quot;, &quot;біздің&quot;), Қазақстан Республикасы, Павлодар қ., Едыге Би к-сі, 71Б мекенжайында орналасқан, БСН: 171040010072, сіздің жеке деректеріңізді қорғауға міндеттенеді. Деректеріңізді өңдеу үшін Қазақстан Республикасының «Дербес деректер және оларды қорғау туралы» Заңының (бұдан әрі — «Заң») баптарына сәйкес сіздің айқын келісіміңіз қажет.
               </p>
 
               <h4 className="font-semibold text-slate-900 mt-4">1. Деректерді өңдеу мақсаты</h4>
@@ -221,7 +221,7 @@ export default function TermsOfUsePage() {
               <h4 className="font-semibold text-slate-900 mt-4">8. Байланыс ақпараты</h4>
               <p>
                 Электрондық пошта: <strong>geducation1017@gmail.com</strong><br />
-                Пошталық мекенжайы: 140000, Қазақстан Республикасы, Павлодар қ., Малахов көшесі, 11-үй
+                Пошталық мекенжайы: 140000, Қазақстан Республикасы, Павлодар қ., Едыге Би к-сі, 71Б
               </p>
             </>
           )}
