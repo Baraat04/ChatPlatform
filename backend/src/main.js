@@ -29,6 +29,7 @@ const { default: botRouter } = await import('./routes/bot-routes.js')
 const { default: authRouter } = await import('./routes/auth-routes.js')
 const { default: platformAIRouter } = await import('./routes/platform-ai-routes.js')
 const { default: statisticsRouter, setStatisticsPrisma } = await import('./routes/statistics-routes.js')
+const { default: paymentRouter } = await import('./routes/payment-routes.js')
 const { setTrackerPrisma } = await import('./services/usage-tracker.js')
 
 const app = express()
@@ -106,7 +107,7 @@ app.use(
 
 import fs from 'fs'
 
-const uploadDir = path.join(__dirname, '../../uploads')
+const uploadDir = path.join(__dirname, '../uploads')
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true })
 }
@@ -115,6 +116,7 @@ app.use('/uploads', express.static(uploadDir))
 app.use('/api/auth', authRouter)
 app.use('/api/platform-ai', platformAIRouter)
 app.use('/api/statistics', statisticsRouter)
+app.use('/api/payments', paymentRouter)
 app.use('/api', botRouter)
 
 // Initialize services with the shared prisma instance
@@ -187,6 +189,25 @@ httpServer.listen(PORT, async () => {
         for (const bot of activeBots) {
             console.log(`[Boot] Restoring WhatsApp Bot ${bot.id}...`)
             startWhatsAppBot(bot, prisma, io)
+        }
+
+        // Also restore active WhatsApp CHANNELS (multi-channel system)
+        try {
+            const { startWhatsAppChannel } = await import('./services/whatsapp.js')
+            const activeWaChannels = await prisma.channel.findMany({
+                where: { platform: 'WHATSAPP', isActive: true },
+                include: { bot: true }
+            })
+            for (const channel of activeWaChannels) {
+                if (channel.bot && channel.bot.isActive) {
+                    console.log(`[Boot] Restoring WhatsApp Channel ${channel.id} for Bot ${channel.botId}...`)
+                    startWhatsAppChannel(channel, channel.bot, prisma, io).catch(err => {
+                        console.error(`[Boot] Failed to restore WhatsApp Channel ${channel.id}:`, err.message)
+                    })
+                }
+            }
+        } catch (chanErr) {
+            console.error('[Boot] Error restoring WhatsApp channels:', chanErr)
         }
 
         // AUTO-REREGISTER: Re-set Telegram webhooks to the current BASE_URL on every boot

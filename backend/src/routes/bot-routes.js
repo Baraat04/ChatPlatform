@@ -38,6 +38,17 @@ async function callTelegramAPI(method, botToken, payload) {
   return response.json();
 }
 
+// Strip Gemini markdown formatting for clean Telegram display
+function cleanTelegramText(text) {
+  if (!text) return text;
+  // Remove **bold**, *italic*, __underline__, _italic_ markers
+  return text
+    .replace(/\*\*(.+?)\*\*/gs, '$1')
+    .replace(/\*(.+?)\*/gs, '$1')
+    .replace(/__(.+?)__/gs, '$1')
+    .replace(/_(.+?)_/gs, '$1');
+}
+
 // Lazy Prisma init so DATABASE_URL is already loaded from .env
 let _prisma = null
 function getPrisma() {
@@ -261,7 +272,7 @@ router.post('/bot/:id/channels', requireAuth, async (req, res) => {
         const existing = await prisma.channel.findFirst({ where: { botId, platform } })
         if (existing) return res.status(400).json({ error: `Channel for ${platform} already exists` })
 
-        const startsActive = platform === 'TELEGRAM'
+        const startsActive = platform === 'TELEGRAM' || platform === 'INSTAGRAM'
 
         const channel = await prisma.channel.create({
             data: {
@@ -274,6 +285,41 @@ router.post('/bot/:id/channels', requireAuth, async (req, res) => {
         })
 
         res.json(channel)
+
+        // Instagram: subscribe page to webhook events automatically
+        if (platform === 'INSTAGRAM' && apiToken) {
+            try {
+                // Step 1: Get Page ID from the token
+                const meRes = await fetch(`https://graph.facebook.com/v21.0/me?access_token=${apiToken}`);
+                const meData = await meRes.json();
+                const pageId = meData.id;
+
+                if (pageId && !meData.error) {
+                    // Step 2: Subscribe this page to receive 'messages' webhook events
+                    const subRes = await fetch(
+                        `https://graph.facebook.com/v21.0/${pageId}/subscribed_apps`,
+                        {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                subscribed_fields: ['messages', 'messaging_postbacks'],
+                                access_token: apiToken
+                            })
+                        }
+                    );
+                    const subData = await subRes.json();
+                    if (subData.success) {
+                        console.log(`[Instagram Channel ${channel.id}] ✅ Page ${pageId} successfully subscribed to webhook messages!`);
+                    } else {
+                        console.warn(`[Instagram Channel ${channel.id}] ⚠️ Page subscription response:`, JSON.stringify(subData));
+                    }
+                } else {
+                    console.warn(`[Instagram Channel ${channel.id}] ⚠️ Could not get Page ID from token. Error:`, JSON.stringify(meData));
+                }
+            } catch (igErr) {
+                console.error(`[Instagram Channel ${channel.id}] Error during auto-subscribe:`, igErr.message);
+            }
+        }
 
         // Telegram Webhook Setup
         if (platform === 'TELEGRAM' && apiToken) {
@@ -646,17 +692,42 @@ router.post('/bot/:id/chat/delete', async (req, res) => {
 
 // POST send message to a specific chat
 // Body: { text, chatId }
-router.post('/bot/:id/send', async (req, res) => {
+router.post('/bot/:id/send', upload.single('file'), async (req, res) => {
     try {
         const prisma = getPrisma()
         const botId = Number(req.params.id)
         const io = req.app.get('io')
         const { text, chatId: rawChatId } = req.body
 
-        if (!text || !rawChatId) return res.status(400).json({ error: 'text and chatId are required' })
+        if (!text && !req.file) return res.status(400).json({ error: 'text or file is required' })
+        if (!rawChatId) return res.status(400).json({ error: 'chatId is required' })
 
         const bot = await prisma.bot.findUnique({ where: { id: botId } })
         if (!bot) return res.status(404).json({ error: 'Bot not found' })
+
+        let mediaUrl = null;
+        let mediaType = null;
+        let filePath = null;
+
+        let originalNameUtf8 = req.file ? req.file.originalname : '';
+        if (req.file) {
+            try {
+                originalNameUtf8 = Buffer.from(req.file.originalname, 'latin1').toString('utf8');
+            } catch(e) {}
+            const ext = path.extname(originalNameUtf8) || '';
+            const filename = `${Date.now()}-${Math.floor(Math.random() * 10000)}${ext}`;
+            filePath = path.join(__dirname, '../../uploads', filename);
+            fs.writeFileSync(filePath, req.file.buffer);
+            
+            mediaUrl = `/uploads/${filename}`;
+            if (req.file.mimetype.startsWith('image/')) {
+                mediaType = 'image';
+            } else if (req.file.mimetype.startsWith('audio/')) {
+                mediaType = 'audio';
+            } else {
+                mediaType = 'document';
+            }
+        }
 
         // Find last message to determine channel and platform
         const lastMsg = await prisma.message.findFirst({
@@ -678,22 +749,114 @@ router.post('/bot/:id/send', async (req, res) => {
         let chatId = rawChatId;
         if (platform === 'WHATSAPP') {
             chatId = rawChatId.includes('@') ? rawChatId : `${rawChatId}@s.whatsapp.net`;
-            const { getWhatsAppSession } = await import('../services/whatsapp.js');
+            const { getWhatsAppSession, startWhatsAppBot, startWhatsAppChannel } = await import('../services/whatsapp.js');
             const sessionId = channelId ? `ch_${channelId}` : botId;
-            const sock = getWhatsAppSession(sessionId);
-            if (!sock) return res.status(503).json({ error: 'WhatsApp session not active. Start the bot first.' });
-            await sock.sendMessage(chatId, { text });
+            let sock = getWhatsAppSession(sessionId);
+            
+            if (!sock) {
+                // Auto-reconnect: try to restart the session
+                console.log(`[Send] Session ${sessionId} not found, attempting auto-reconnect...`);
+                try {
+                    if (channelId) {
+                        const channel = await prisma.channel.findUnique({ where: { id: channelId } });
+                        if (channel) {
+                            startWhatsAppChannel(channel, bot, getPrisma(), io).catch(() => {});
+                        }
+                    } else {
+                        startWhatsAppBot(bot, getPrisma(), io).catch(() => {});
+                    }
+                    // Wait up to 8s for connection to establish
+                    for (let i = 0; i < 8; i++) {
+                        await new Promise(r => setTimeout(r, 1000));
+                        sock = getWhatsAppSession(sessionId);
+                        if (sock) break;
+                    }
+                } catch (reconnectErr) {
+                    console.error(`[Send] Auto-reconnect failed:`, reconnectErr.message);
+                }
+            }
+            
+            if (!sock) return res.status(503).json({ error: 'WhatsApp session not active. Please start the bot first and wait for it to connect.' });
+            
+            if (req.file && mediaType === 'image') {
+                await sock.sendMessage(chatId, { image: req.file.buffer, caption: text || '' });
+            } else if (req.file && mediaType === 'audio') {
+                await sock.sendMessage(chatId, { audio: req.file.buffer, mimetype: 'audio/mp4', ptt: true, ptv: false });
+            } else if (req.file && mediaType === 'document') {
+                await sock.sendMessage(chatId, { 
+                    document: req.file.buffer, 
+                    mimetype: req.file.mimetype, 
+                    fileName: originalNameUtf8,
+                    caption: text || ''
+                });
+            } else {
+                await sock.sendMessage(chatId, { text: text || '' });
+            }
         } else if (platform === 'TELEGRAM') {
             if (!apiToken) return res.status(503).json({ error: 'Telegram API token missing.' });
-            await callTelegramAPI('sendMessage', apiToken, {
-                chat_id: chatId,
-                text: text
-            });
+            
+            if (req.file && mediaType === 'image') {
+                const formData = new FormData();
+                formData.append('chat_id', chatId);
+                if (text) formData.append('caption', text);
+                
+                const fileData = typeof Blob !== 'undefined' 
+                    ? new Blob([fs.readFileSync(filePath)], { type: req.file.mimetype })
+                    : fs.createReadStream(filePath);
+                formData.append('photo', fileData, req.file.originalname);
+                
+                const response = await fetch(`https://api.telegram.org/bot${apiToken}/sendPhoto`, {
+                    method: 'POST',
+                    body: formData
+                });
+                if (!response.ok) throw new Error(await response.text());
+            } else if (req.file && mediaType === 'audio') {
+                const formData = new FormData();
+                formData.append('chat_id', chatId);
+                if (text) formData.append('caption', text);
+                
+                const isOgg = req.file.mimetype.includes('ogg');
+                const fieldName = isOgg ? 'voice' : 'audio';
+                const method = isOgg ? 'sendVoice' : 'sendAudio';
+                
+                const fileData = typeof Blob !== 'undefined' 
+                    ? new Blob([fs.readFileSync(filePath)], { type: req.file.mimetype })
+                    : fs.createReadStream(filePath);
+                formData.append(fieldName, fileData, req.file.originalname);
+                
+                const response = await fetch(`https://api.telegram.org/bot${apiToken}/${method}`, {
+                    method: 'POST',
+                    body: formData
+                });
+                if (!response.ok) throw new Error(await response.text());
+            } else if (req.file && mediaType === 'document') {
+                const formData = new FormData();
+                formData.append('chat_id', chatId);
+                if (text) formData.append('caption', text);
+                
+                const fileData = typeof Blob !== 'undefined' 
+                    ? new Blob([fs.readFileSync(filePath)], { type: req.file.mimetype })
+                    : fs.createReadStream(filePath);
+                formData.append('document', fileData, req.file.originalname);
+                
+                const response = await fetch(`https://api.telegram.org/bot${apiToken}/sendDocument`, {
+                    method: 'POST',
+                    body: formData
+                });
+                if (!response.ok) throw new Error(await response.text());
+            } else {
+                await callTelegramAPI('sendMessage', apiToken, {
+                    chat_id: chatId,
+                    text: text || ''
+                });
+            }
         }
 
         // Save sent message to DB
+        let textToSave = text || (req.file ? originalNameUtf8 : '');
+        if (mediaType === 'audio' && !text) textToSave = '';
         const savedMsg = await prisma.message.create({
-            data: { botId, channelId, platform, sender: 'bot', text, chatId }
+            data: { botId, channelId, platform, sender: 'bot', text: textToSave, chatId, mediaUrl, mediaType }
         })
 
         io.emit(`chat-${botId}`, { ...savedMsg, platform })
@@ -703,17 +866,51 @@ router.post('/bot/:id/send', async (req, res) => {
 
 // POST broadcast to multiple numbers
 // Body: { text, chatIds: string[] }
-router.post('/bot/:id/broadcast', async (req, res) => {
+router.post('/bot/:id/broadcast', upload.single('file'), async (req, res) => {
     try {
         const botId = Number(req.params.id)
         const prisma = getPrisma()
         const io = req.app.get('io')
         const { text, chatIds } = req.body
 
-        if (!text || !chatIds?.length) return res.status(400).json({ error: 'text and chatIds are required' })
+        let parsedChatIds = chatIds;
+        if (typeof chatIds === 'string') {
+            try {
+                parsedChatIds = JSON.parse(chatIds);
+            } catch (e) {
+                parsedChatIds = chatIds.split(',').map(id => id.trim());
+            }
+        }
+
+        if (!text && !req.file) return res.status(400).json({ error: 'text or file is required' })
+        if (!parsedChatIds?.length) return res.status(400).json({ error: 'chatIds are required' })
 
         const bot = await prisma.bot.findUnique({ where: { id: botId } })
         if (!bot) return res.status(404).json({ error: 'Bot not found' })
+
+        let mediaUrl = null;
+        let mediaType = null;
+        let filePath = null;
+
+        let originalNameUtf8 = req.file ? req.file.originalname : '';
+        if (req.file) {
+            try {
+                originalNameUtf8 = Buffer.from(req.file.originalname, 'latin1').toString('utf8');
+            } catch(e) {}
+            const ext = path.extname(originalNameUtf8) || '';
+            const filename = `${Date.now()}-${Math.floor(Math.random() * 10000)}${ext}`;
+            filePath = path.join(__dirname, '../../uploads', filename);
+            fs.writeFileSync(filePath, req.file.buffer);
+            
+            mediaUrl = `/uploads/${filename}`;
+            if (req.file.mimetype.startsWith('image/')) {
+                mediaType = 'image';
+            } else if (req.file.mimetype.startsWith('audio/')) {
+                mediaType = 'audio';
+            } else {
+                mediaType = 'document';
+            }
+        }
 
         const results = []
 
@@ -722,13 +919,29 @@ router.post('/bot/:id/broadcast', async (req, res) => {
             const sock = getWhatsAppSession(botId)
             if (!sock) return res.status(503).json({ error: 'WhatsApp session not active' })
 
-            for (const rawId of chatIds) {
+            for (const rawId of parsedChatIds) {
                 try {
                     const jid = rawId.includes('@') ? rawId : `${rawId}@s.whatsapp.net`
-                    await sock.sendMessage(jid, { text })
+                    
+                    if (req.file && mediaType === 'image') {
+                        await sock.sendMessage(jid, { image: req.file.buffer, caption: text || '' });
+                    } else if (req.file && mediaType === 'audio') {
+                        await sock.sendMessage(jid, { audio: req.file.buffer, mimetype: 'audio/mp4', ptt: true, ptv: false });
+                    } else if (req.file && mediaType === 'document') {
+                        await sock.sendMessage(jid, { 
+                            document: req.file.buffer, 
+                            mimetype: req.file.mimetype, 
+                            fileName: originalNameUtf8,
+                            caption: text || ''
+                        });
+                    } else {
+                        await sock.sendMessage(jid, { text: text || '' });
+                    }
 
+                    let textToSave = text || (req.file ? originalNameUtf8 : '');
+                    if (mediaType === 'audio' && !text) textToSave = '';
                     const savedMsg = await prisma.message.create({
-                        data: { botId, sender: 'bot', text, chatId: jid }
+                        data: { botId, sender: 'bot', text: textToSave, chatId: jid, mediaUrl, mediaType }
                     })
                     io.emit(`chat-${botId}`, savedMsg)
                     results.push({ chatId: jid, success: true })
@@ -741,20 +954,71 @@ router.post('/bot/:id/broadcast', async (req, res) => {
         } else if (bot.platform === 'TELEGRAM') {
             if (!bot.apiToken) return res.status(503).json({ error: 'Telegram API token missing.' })
             
-            for (const chatId of chatIds) {
+            for (const chatId of parsedChatIds) {
                 try {
-                    await callTelegramAPI('sendMessage', bot.apiToken, {
-                        chat_id: chatId,
-                        text: text
-                    })
+                    if (req.file && mediaType === 'image') {
+                        const formData = new FormData();
+                        formData.append('chat_id', chatId);
+                        if (text) formData.append('caption', text);
+                        
+                        const fileData = typeof Blob !== 'undefined' 
+                            ? new Blob([fs.readFileSync(filePath)], { type: req.file.mimetype })
+                            : fs.createReadStream(filePath);
+                        formData.append('photo', fileData, req.file.originalname);
+                        
+                        const response = await fetch(`https://api.telegram.org/bot${bot.apiToken}/sendPhoto`, {
+                            method: 'POST',
+                            body: formData
+                        });
+                        if (!response.ok) throw new Error(await response.text());
+                    } else if (req.file && mediaType === 'audio') {
+                        const formData = new FormData();
+                        formData.append('chat_id', chatId);
+                        if (text) formData.append('caption', text);
+                        
+                        const isOgg = req.file.mimetype.includes('ogg');
+                        const fieldName = isOgg ? 'voice' : 'audio';
+                        const method = isOgg ? 'sendVoice' : 'sendAudio';
+                        
+                        const fileData = typeof Blob !== 'undefined' 
+                            ? new Blob([fs.readFileSync(filePath)], { type: req.file.mimetype })
+                            : fs.createReadStream(filePath);
+                        formData.append(fieldName, fileData, req.file.originalname);
+                        
+                        const response = await fetch(`https://api.telegram.org/bot${bot.apiToken}/${method}`, {
+                            method: 'POST',
+                            body: formData
+                        });
+                        if (!response.ok) throw new Error(await response.text());
+                    } else if (req.file && mediaType === 'document') {
+                        const formData = new FormData();
+                        formData.append('chat_id', chatId);
+                        if (text) formData.append('caption', text);
+                        
+                        const fileData = typeof Blob !== 'undefined' 
+                            ? new Blob([fs.readFileSync(filePath)], { type: req.file.mimetype })
+                            : fs.createReadStream(filePath);
+                        formData.append('document', fileData, req.file.originalname);
+                        
+                        const response = await fetch(`https://api.telegram.org/bot${bot.apiToken}/sendDocument`, {
+                            method: 'POST',
+                            body: formData
+                        });
+                        if (!response.ok) throw new Error(await response.text());
+                    } else {
+                        await callTelegramAPI('sendMessage', bot.apiToken, {
+                            chat_id: chatId,
+                            text: text || ''
+                        });
+                    }
 
                     const savedMsg = await prisma.message.create({
-                        data: { botId, sender: 'bot', text, chatId: chatId }
+                        data: { botId, sender: 'bot', text: text || '', chatId: chatId, mediaUrl, mediaType }
                     })
                     io.emit(`chat-${botId}`, savedMsg)
                     results.push({ chatId, success: true })
 
-                    await new Promise(r => setTimeout(r, 500)) // Rate limit for Telegram (approx 30 msgs/sec limit, but 0.5s is safe)
+                    await new Promise(r => setTimeout(r, 500)) // Rate limit for Telegram
                 } catch (err) {
                     results.push({ chatId, success: false, error: err.message })
                 }
@@ -857,9 +1121,11 @@ router.post('/webhook/telegram/:slug', async (req, res) => {
         
         if (!message) return
 
-        let text = message.text || '';
+        let text = message.text || message.caption || '';
         let telegramAudioBuffer = null;
         let mimeType = null;
+        let mediaUrl = null;
+        let mediaType = null;
 
         const tokenToUse = channel ? channel.apiToken : bot.apiToken
 
@@ -879,13 +1145,63 @@ router.post('/webhook/telegram/:slug', async (req, res) => {
                     const localPath = path.join(__dirname, '../../uploads', filename);
                     fs.writeFileSync(localPath, telegramAudioBuffer);
                     
+                    mediaUrl = `/uploads/${filename}`;
+                    mediaType = 'audio';
                     const audioTag = `[AUDIO]/uploads/${filename}`;
                     text = text ? `${text}\n${audioTag}` : audioTag;
                 }
             } catch(e) { console.error('Telegram Audio error', e) }
+        } else if (message.photo) {
+            const photoArray = message.photo;
+            const fileId = photoArray[photoArray.length - 1].file_id;
+            try {
+                const fileData = await fetch(`https://api.telegram.org/bot${tokenToUse}/getFile?file_id=${fileId}`).then(r=>r.json());
+                if (fileData.ok) {
+                    const filePath = fileData.result.file_path;
+                    const fileRes = await fetch(`https://api.telegram.org/file/bot${tokenToUse}/${filePath}`);
+                    const arrayBuffer = await fileRes.arrayBuffer();
+                    const buffer = Buffer.from(arrayBuffer);
+                    
+                    const ext = filePath.split('.').pop() || 'jpg';
+                    const filename = `tg_image_${Date.now()}_${Math.floor(Math.random()*1000)}.${ext}`;
+                    const localPath = path.join(__dirname, '../../uploads', filename);
+                    fs.writeFileSync(localPath, buffer);
+                    
+                    mediaUrl = `/uploads/${filename}`;
+                    mediaType = 'image';
+                }
+            } catch(e) { console.error('Telegram Photo error', e) }
+        } else if (message.document) {
+            const fileId = message.document.file_id;
+            const originalName = message.document.file_name || 'document';
+            try {
+                const fileData = await fetch(`https://api.telegram.org/bot${tokenToUse}/getFile?file_id=${fileId}`).then(r=>r.json());
+                if (fileData.ok) {
+                    const filePath = fileData.result.file_path;
+                    const fileRes = await fetch(`https://api.telegram.org/file/bot${tokenToUse}/${filePath}`);
+                    const arrayBuffer = await fileRes.arrayBuffer();
+                    const buffer = Buffer.from(arrayBuffer);
+                    
+                    let ext = path.extname(originalName) || '';
+                    if (!ext) {
+                        ext = filePath.split('.').pop() || '';
+                        if (ext) ext = '.' + ext;
+                    }
+                    const cleanBaseName = path.basename(originalName, ext).replace(/[^a-zA-Z0-9_-]/g, '_');
+                    const filename = `tg_doc_${Date.now()}_${cleanBaseName}${ext}`;
+                    const localPath = path.join(__dirname, '../../uploads', filename);
+                    fs.writeFileSync(localPath, buffer);
+                    
+                    mediaUrl = `/uploads/${filename}`;
+                    mediaType = 'document';
+                    if (!text) {
+                        text = originalName;
+                    }
+                }
+            } catch(e) { console.error('Telegram Document error', e) }
         }
 
-        if (!text && !telegramAudioBuffer) return
+        if (!text && !telegramAudioBuffer && !mediaUrl) return
 
         const telegramChatId = message.chat.id.toString()
         let senderName = 'Telegram User'
@@ -921,7 +1237,9 @@ router.post('/webhook/telegram/:slug', async (req, res) => {
                 platform: 'TELEGRAM',
                 sender: 'user', 
                 text, 
-                chatId: telegramChatId 
+                chatId: telegramChatId,
+                mediaUrl,
+                mediaType
             }
         })
         io.emit(`chat-${bot.id}`, { ...userMsg, platform: 'TELEGRAM' })
@@ -984,7 +1302,7 @@ router.post('/webhook/telegram/:slug', async (req, res) => {
         // 6. Send message back to Telegram
         await callTelegramAPI('sendMessage', tokenToUse, {
             chat_id: telegramChatId,
-            text: aiResponseText
+            text: cleanTelegramText(aiResponseText)
         })
 
         // 7. Save bot reply (with platform tag)
@@ -1073,6 +1391,16 @@ async function getChannelByInstagramAccountId(accountId) {
             console.error(`[Instagram] Error fetching IG ID for bot ${bot.id}:`, e.message);
         }
     }
+
+    if (activeChannels.length > 0) {
+        console.log(`[Instagram] Fallback mapping to first active channel for account ${accountId}`);
+        return { bot: activeChannels[0].bot, channel: activeChannels[0] };
+    }
+    if (activeBots.length > 0) {
+        console.log(`[Instagram] Fallback mapping to first active legacy bot for account ${accountId}`);
+        return { bot: activeBots[0], channel: null };
+    }
+
     return null;
 }
 
@@ -1099,7 +1427,12 @@ router.post('/webhook/instagram', async (req, res) => {
 
     try {
         const body = req.body;
-        if (body.object !== 'instagram') return;
+        console.log('[Instagram Webhook] Received payload:', JSON.stringify(body, null, 2));
+        
+        if (body.object !== 'instagram' && body.object !== 'page') {
+            console.log(`[Instagram] Ignoring payload with object: ${body.object}`);
+            return;
+        }
 
         const io = req.app.get('io');
         const prisma = getPrisma();
@@ -1130,7 +1463,22 @@ router.post('/webhook/instagram', async (req, res) => {
                 // 1. Upsert Contact
                 let contact = await prisma.contact.findUnique({ where: { botId_chatId: { botId: bot.id, chatId: senderId } } });
                 if (!contact) {
-                    contact = await prisma.contact.create({ data: { botId: bot.id, chatId: senderId, name: `Instagram User ${senderId}` } });
+                    let igName = `Instagram User ${senderId}`;
+                    try {
+                        const profileRes = await fetch(`https://graph.facebook.com/v21.0/${senderId}?fields=name,username&access_token=${tokenToUse}`);
+                        if (profileRes.ok) {
+                            const profileData = await profileRes.json();
+                            if (profileData.username) {
+                                igName = `@${profileData.username}`;
+                                if (profileData.name) igName += ` (${profileData.name})`;
+                            } else if (profileData.name) {
+                                igName = profileData.name;
+                            }
+                        }
+                    } catch (e) {
+                        console.error(`[Instagram] Failed to fetch profile for ${senderId}:`, e.message);
+                    }
+                    contact = await prisma.contact.create({ data: { botId: bot.id, chatId: senderId, name: igName } });
                     io.emit(`contact-update-${bot.id}`, contact);
                 }
 

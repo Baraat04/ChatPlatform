@@ -5,9 +5,10 @@ import { usePathname, useRouter } from 'next/navigation';
 import Sidebar from '../Sidebar/Sidebar';
 import TopAppBar from '../TopAppBar/TopAppBar';
 import styles from './LayoutWrapper.module.css';
-import { LanguageProvider } from '../../contexts/LanguageContext';
+import { LanguageProvider, useLanguage } from '../../contexts/LanguageContext';
 import { ThemeProvider } from '../../contexts/ThemeContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { translations } from '../../locales/translations';
 import { X, Send, Headphones, Loader2 } from 'lucide-react';
 import { API_URL } from '../../config';
 
@@ -45,12 +46,15 @@ function RobotIcon({ size = 40 }: { size?: number }) {
 }
 
 function AIChatWidget() {
+  const { language } = useLanguage();
+  const t = (translations as any)[language] || translations.RU;
+
   const [open, setOpen] = useState(false);
   const [showSupportForm, setShowSupportForm] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: 'assistant',
-      content: 'Привет! 👋 Я ИИ-помощник платформы UP-CHAT. Задайте любой вопрос о работе с платформой — подключение ботов, настройка, тарифы, и многое другое.',
+      content: t.assistantGreeting || 'Привет! 👋 Я ИИ-помощник платформы UP-CHAT.',
     },
   ]);
   const [input, setInput] = useState('');
@@ -60,9 +64,97 @@ function AIChatWidget() {
   const [supportLoading, setSupportLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Dragging state
+  const [pos, setPos] = useState({ bottom: 28, right: 28 });
+  const isDragging = useRef(false);
+  const hasDragged = useRef(false);
+  const dragStart = useRef({ x: 0, y: 0, bottom: 28, right: 28 });
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    isDragging.current = true;
+    hasDragged.current = false;
+    dragStart.current = { x: e.clientX, y: e.clientY, bottom: pos.bottom, right: pos.right };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!isDragging.current) return;
+    const dx = dragStart.current.x - e.clientX;
+    const dy = dragStart.current.y - e.clientY;
+    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) hasDragged.current = true;
+    
+    // Calculate new pos bounded by window
+    let newBottom = dragStart.current.bottom + dy;
+    let newRight = dragStart.current.right + dx;
+    
+    // basic bounds (64 is icon size)
+    if (newBottom < 10) newBottom = 10;
+    if (newRight < 10) newRight = 10;
+    if (newBottom > window.innerHeight - 74) newBottom = window.innerHeight - 74;
+    if (newRight > window.innerWidth - 74) newRight = window.innerWidth - 74;
+    
+    const newPos = { bottom: newBottom, right: newRight };
+    setPos(newPos);
+    window.dispatchEvent(new CustomEvent('widget_moved', { detail: newPos }));
+  };
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    isDragging.current = false;
+    e.currentTarget.releasePointerCapture(e.pointerId);
+  };
+
+  const handleClick = (e: React.MouseEvent) => {
+    if (hasDragged.current) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+    setOpen(o => !o);
+  };
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
+
+  useEffect(() => {
+    setMessages(prev => {
+      const newMsgs = [...prev];
+      if (newMsgs[0] && newMsgs[0].role === 'assistant') {
+        newMsgs[0].content = t.assistantGreeting || 'Привет! 👋 Я ИИ-помощник платформы UP-CHAT.';
+      }
+      return newMsgs;
+    });
+  }, [language, t.assistantGreeting]);
+
+  useEffect(() => {
+    const handleTourStarted = () => {
+      const newPos = { bottom: 28, right: window.innerWidth - 92 };
+      setPos(newPos);
+      window.dispatchEvent(new CustomEvent('widget_moved', { detail: newPos }));
+    };
+    const handleTourFinished = () => {
+      const newPos = { bottom: 28, right: 28 };
+      setPos(newPos);
+      window.dispatchEvent(new CustomEvent('widget_moved', { detail: newPos }));
+    };
+    
+    if (typeof window !== 'undefined') {
+      const isNewBot = window.location.search.includes('new=true');
+      const botMatch = window.location.pathname.match(/\/bots\/([^\/]+)/);
+      if (isNewBot && botMatch && !localStorage.getItem(`up_tour_done_${botMatch[1]}`)) {
+        handleTourStarted();
+      } else {
+        // Dispatch initial pos so tour window knows where it is
+        window.dispatchEvent(new CustomEvent('widget_moved', { detail: { bottom: 28, right: 28 } }));
+      }
+      window.addEventListener('tour_started', handleTourStarted);
+      window.addEventListener('tour_finished', handleTourFinished);
+      return () => {
+        window.removeEventListener('tour_started', handleTourStarted);
+        window.removeEventListener('tour_finished', handleTourFinished);
+      };
+    }
+  }, []);
 
   const sendMessage = async () => {
     const text = input.trim();
@@ -107,21 +199,24 @@ function AIChatWidget() {
     <>
       {/* Floating robot button */}
       <button
-        onClick={() => setOpen(o => !o)}
-        title="Помощник UP-CHAT"
+        onClick={handleClick}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        title={t.assistantTitle || "Помощник UP-CHAT"}
         style={{
-          position: 'fixed', bottom: '28px', right: '28px', zIndex: 1000,
+          position: 'fixed', bottom: `${pos.bottom}px`, right: `${pos.right}px`, zIndex: 1000,
           width: '64px', height: '64px', borderRadius: '50%',
           background: 'white',
           border: '2px solid #d1d5db',
-          cursor: 'pointer',
+          cursor: 'grab',
+          touchAction: 'none',
           boxShadow: '0 4px 24px rgba(0,0,0,0.18)',
-          transition: 'transform 0.2s, box-shadow 0.2s',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           padding: 0,
         }}
-        onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.1)'; e.currentTarget.style.boxShadow = '0 8px 30px rgba(0,0,0,0.25)'; }}
-        onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 4px 24px rgba(0,0,0,0.18)'; }}
+        onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 8px 30px rgba(0,0,0,0.25)'; }}
+        onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 4px 24px rgba(0,0,0,0.18)'; }}
       >
         {open
           ? <X size={26} color="#64748b" />
@@ -132,7 +227,7 @@ function AIChatWidget() {
       {/* Chat popup */}
       {open && (
         <div style={{
-          position: 'fixed', bottom: '104px', right: '28px', zIndex: 999,
+          position: 'fixed', bottom: `${pos.bottom + 76}px`, right: `${Math.max(28, pos.right - 296)}px`, zIndex: 999,
           width: '360px', maxHeight: '540px',
           background: 'var(--surface-container-lowest)',
           borderRadius: '24px',
@@ -156,13 +251,13 @@ function AIChatWidget() {
           }}>
               <RobotIcon size={32} />
             <div>
-              <div style={{ fontWeight: 700, color: 'var(--on-primary)', fontSize: '0.95rem' }}>Помощник UP-CHAT</div>
-              <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.8)' }}>Возникли вопросы по платформе? Спросите ИИ</div>
+              <div style={{ fontWeight: 700, color: 'var(--on-primary)', fontSize: '0.95rem' }}>{t.assistantTitle || 'Помощник UP-CHAT'}</div>
+              <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.8)' }}>{t.assistantSubtitle || 'Возникли вопросы по платформе? Спросите ИИ'}</div>
             </div>
             {!showSupportForm && (
               <button
                 onClick={() => { setShowSupportForm(true); setSupportSent(false); }}
-                title="Техподдержка"
+                title={t.supportTooltip || "Техподдержка"}
                 style={{ marginLeft: 'auto', background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '8px', padding: '6px 8px', cursor: 'pointer', color: 'white', display: 'flex', alignItems: 'center' }}
               >
                 <Headphones size={16} />
@@ -224,7 +319,7 @@ function AIChatWidget() {
                   onClick={() => { setShowSupportForm(true); setSupportSent(false); }}
                   style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--on-surface-variant)', fontSize: '0.75rem', textAlign: 'center', padding: '4px 0' }}
                 >
-                  Не можете получить ответ? <span style={{ color: 'var(--primary)', fontWeight: 600 }}>Напишите в поддержку</span> — с вами свяжутся
+                  {t.supportHint || 'Не можете получить ответ?'} <span style={{ color: 'var(--primary)', fontWeight: 600 }}>{t.supportLink || 'Напишите в поддержку'}</span> {t.supportPostfix || '— с вами свяжутся'}
                 </button>
               </div>
 
@@ -234,7 +329,7 @@ function AIChatWidget() {
                   value={input}
                   onChange={e => setInput(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-                  placeholder="Задайте вопрос по платформе..."
+                  placeholder={t.assistantPlaceholder || "Задайте вопрос по платформе..."}
                   style={{
                     flex: 1, padding: '10px 14px', borderRadius: '12px', fontSize: '0.85rem',
                     border: '1px solid var(--outline-variant)', background: 'var(--surface-container-low)',
@@ -263,19 +358,19 @@ function AIChatWidget() {
               {supportSent ? (
                 <div style={{ textAlign: 'center', padding: '2rem 0' }}>
                   <div style={{ fontSize: '2.5rem', marginBottom: '10px' }}>✅</div>
-                  <div style={{ fontWeight: 700, color: 'var(--on-surface)', marginBottom: '6px', fontSize: '1rem' }}>Заявка отправлена!</div>
-                  <div style={{ fontSize: '0.83rem', color: 'var(--on-surface-variant)', lineHeight: 1.5 }}>Наша команда свяжется с вами в ближайшее время.</div>
-                  <button onClick={() => { setShowSupportForm(false); setSupportSent(false); }} style={{ marginTop: '16px', background: 'var(--primary)', color: 'var(--on-primary)', border: 'none', borderRadius: '10px', padding: '10px 20px', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }}>Вернуться к чату</button>
+                  <div style={{ fontWeight: 700, color: 'var(--on-surface)', marginBottom: '6px', fontSize: '1rem' }}>{t.supportSentTitle || 'Заявка отправлена!'}</div>
+                  <div style={{ fontSize: '0.83rem', color: 'var(--on-surface-variant)', lineHeight: 1.5 }}>{t.supportSentSubtitle || 'Наша команда свяжется с вами в ближайшее время.'}</div>
+                  <button onClick={() => { setShowSupportForm(false); setSupportSent(false); }} style={{ marginTop: '16px', background: 'var(--primary)', color: 'var(--on-primary)', border: 'none', borderRadius: '10px', padding: '10px 20px', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }}>{t.supportBackToChat || 'Вернуться к чату'}</button>
                 </div>
               ) : (
                 <form onSubmit={handleSupportSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--on-surface)', marginBottom: '4px' }}>Написать в техподдержку</div>
-                  <div style={{ fontSize: '0.78rem', color: 'var(--on-surface-variant)', lineHeight: 1.4 }}>Не смогли найти ответ? Опишите проблему — мы поможем.</div>
+                  <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--on-surface)', marginBottom: '4px' }}>{t.supportFormTitle || 'Написать в техподдержку'}</div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--on-surface-variant)', lineHeight: 1.4 }}>{t.supportFormSubtitle || 'Не смогли найти ответ? Опишите проблему — мы поможем.'}</div>
                   {['name', 'email'].map(field => (
                     <input
                       key={field} required
                       type={field === 'email' ? 'email' : 'text'}
-                      placeholder={field === 'name' ? 'Ваше имя' : 'Email для ответа'}
+                      placeholder={field === 'name' ? (t.supportFormName || 'Ваше имя') : (t.supportFormEmail || 'Email для ответа')}
                       value={(supportForm as any)[field]}
                       onChange={e => setSupportForm(f => ({ ...f, [field]: e.target.value }))}
                       style={{ padding: '10px 14px', borderRadius: '10px', fontSize: '0.85rem', border: '1px solid var(--outline-variant)', background: 'var(--surface-container-low)', color: 'var(--on-surface)', outline: 'none', fontFamily: 'inherit', width: '100%' }}
@@ -283,13 +378,13 @@ function AIChatWidget() {
                   ))}
                   <textarea
                     required rows={4}
-                    placeholder="Опишите ваш вопрос или проблему..."
+                    placeholder={t.supportFormMessage || "Опишите ваш вопрос или проблему..."}
                     value={supportForm.message}
                     onChange={e => setSupportForm(f => ({ ...f, message: e.target.value }))}
                     style={{ padding: '10px 14px', borderRadius: '10px', fontSize: '0.85rem', border: '1px solid var(--outline-variant)', background: 'var(--surface-container-low)', color: 'var(--on-surface)', outline: 'none', fontFamily: 'inherit', resize: 'vertical', width: '100%' }}
                   />
                   <button type="submit" disabled={supportLoading} style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center', padding: '11px', borderRadius: '10px', background: 'var(--primary)', color: 'var(--on-primary)', fontWeight: 700, fontSize: '0.88rem', border: 'none', cursor: supportLoading ? 'not-allowed' : 'pointer', opacity: supportLoading ? 0.7 : 1 }}>
-                    <Send size={15} /> {supportLoading ? 'Отправка...' : 'Отправить заявку'}
+                    <Send size={15} /> {supportLoading ? (t.supportFormSending || 'Отправка...') : (t.supportFormSubmit || 'Отправить заявку')}
                   </button>
                 </form>
               )}

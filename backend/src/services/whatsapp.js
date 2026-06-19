@@ -446,6 +446,8 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
             let textMessage = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
             let audioBuffer = null;
             let audioMimeType = null;
+            let mediaUrl = null;
+            let mediaType = null;
 
             if (msg.message.audioMessage || msg.message.ptvMessage) {
                 const mediaMsg = msg.message.audioMessage || msg.message.ptvMessage;
@@ -458,15 +460,60 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
                     const filepath = path.join(__dirname, '../../uploads', filename);
                     fs.writeFileSync(filepath, audioBuffer);
                     
+                    mediaUrl = `/uploads/${filename}`;
+                    mediaType = 'audio';
                     const audioTag = `[AUDIO]/uploads/${filename}`;
                     textMessage = textMessage ? `${textMessage}\n${audioTag}` : audioTag;
                     console.log(`[WhatsApp Bot ${botId}] Downloaded audio to ${filename}`);
                 } catch (e) {
                     console.error(`[WhatsApp Bot ${botId}] Error downloading audio:`, e);
                 }
+            } else if (msg.message.imageMessage) {
+                const mediaMsg = msg.message.imageMessage;
+                try {
+                    const { downloadMediaMessage } = await import('@whiskeysockets/baileys');
+                    const buffer = await downloadMediaMessage(msg, 'buffer', {}, { logger: pino({ level: 'silent' }) });
+                    const mimetype = mediaMsg.mimetype || 'image/jpeg';
+                    const ext = mimetype.split('/')[1] || 'jpg';
+                    const filename = `wa_image_${Date.now()}_${Math.floor(Math.random()*1000)}.${ext}`;
+                    const filepath = path.join(__dirname, '../../uploads', filename);
+                    fs.writeFileSync(filepath, buffer);
+                    
+                    mediaUrl = `/uploads/${filename}`;
+                    mediaType = 'image';
+                    textMessage = mediaMsg.caption || textMessage || '';
+                    console.log(`[WhatsApp Bot ${botId}] Downloaded image to ${filename}`);
+                } catch (e) {
+                    console.error(`[WhatsApp Bot ${botId}] Error downloading image:`, e);
+                }
+            } else if (msg.message.documentMessage) {
+                const mediaMsg = msg.message.documentMessage;
+                try {
+                    const { downloadMediaMessage } = await import('@whiskeysockets/baileys');
+                    const buffer = await downloadMediaMessage(msg, 'buffer', {}, { logger: pino({ level: 'silent' }) });
+                    const mimetype = mediaMsg.mimetype || 'application/octet-stream';
+                    
+                    let originalName = mediaMsg.fileName || 'document';
+                    let ext = path.extname(originalName) || '';
+                    if (!ext) {
+                        ext = mimetype.split('/')[1] || '';
+                        if (ext) ext = '.' + ext;
+                    }
+                    const cleanBaseName = path.basename(originalName, ext).replace(/[^a-zA-Z0-9_-]/g, '_');
+                    const filename = `wa_doc_${Date.now()}_${cleanBaseName}${ext}`;
+                    const filepath = path.join(__dirname, '../../uploads', filename);
+                    fs.writeFileSync(filepath, buffer);
+                    
+                    mediaUrl = `/uploads/${filename}`;
+                    mediaType = 'document';
+                    textMessage = mediaMsg.caption || originalName;
+                    console.log(`[WhatsApp Bot ${botId}] Downloaded document to ${filename}`);
+                } catch (e) {
+                    console.error(`[WhatsApp Bot ${botId}] Error downloading document:`, e);
+                }
             }
             
-            if (!textMessage && !audioBuffer) return
+            if (!textMessage && !audioBuffer && !mediaUrl) return
 
             console.log(`[WhatsApp Bot ${botId}] ${isFromMe ? 'Sent to' : 'Received from'} ${senderNumber}: ${textMessage}`)
 
@@ -477,7 +524,9 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
                         where: { botId, chatId: senderNumber, sender: 'bot' },
                         orderBy: { createdAt: 'desc' }
                     });
-                    if (lastMsg && lastMsg.text === textMessage && (new Date() - new Date(lastMsg.createdAt) < 60000)) {
+                    const textMatch = lastMsg && lastMsg.text === textMessage;
+                    const mediaMatch = lastMsg && lastMsg.mediaType && mediaType && lastMsg.mediaType === mediaType;
+                    if (lastMsg && (textMatch || mediaMatch) && (new Date() - new Date(lastMsg.createdAt) < 60000)) {
                         // Это дубликат сообщения, которое ИИ только что сохранил в базу. Игнорируем.
                         return;
                     }
@@ -488,7 +537,7 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
             try {
                 const savedMsg = await prisma.message.create({
                     // Если fromMe === true, значит владелец сам ответил с телефона. Помечаем как 'bot', чтобы в UI было справа
-                    data: { botId, channelId: channel ? channel.id : null, platform: 'WHATSAPP', sender: isFromMe ? 'bot' : 'user', text: textMessage, chatId: senderNumber }
+                    data: { botId, channelId: channel ? channel.id : null, platform: 'WHATSAPP', sender: isFromMe ? 'bot' : 'user', text: textMessage, chatId: senderNumber, mediaUrl, mediaType }
                 })
                 // Отправляем сообщение + имя контакта для фронтенда
                 io.emit(`chat-${botId}`, { ...savedMsg, contactName: pushName })
@@ -517,9 +566,10 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
 
         const history = recentMessages.slice(0, -1).map(msg => ({
             role: msg.sender === 'bot' ? 'model' : 'user',
-            parts: [{ text: msg.text }]
+            parts: [{ text: (msg.text || '').replace(/\[AUDIO\]\/uploads\/[^\s\n]+/g, '').trim() }]
         }));
-        const userMessage = recentMessages.length > 0 ? recentMessages[recentMessages.length - 1].text : '';
+        let userMessage = recentMessages.length > 0 ? recentMessages[recentMessages.length - 1].text : '';
+        if (userMessage) userMessage = userMessage.replace(/\[AUDIO\]\/uploads\/[^\s\n]+/g, '').trim();
 
         try {
             // Check if user has messages

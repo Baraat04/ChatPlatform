@@ -76,7 +76,7 @@ const localT = {
     featuresSectionSub: "Opportunities for growth and communication automation across all key channels.",
     feature1Title: "WhatsApp & Telegram Channels",
     feature1Desc: "AI agent works in all popular messengers, conducting a full dialogue with clients from the first contact.",
-    feature2Title: "Knowledge base PDF / TXT",
+    feature2Title: "Knowledge base PDF / TXT / DOCS",
     feature2Desc: "Easily train the agent on company regulations, instructions, and scripts. Information is absorbed in a couple of seconds.",
     feature3Title: "Live chat with operator",
     feature3Desc: "The convenient 'Conversations' section allows you to control the quality of responses and take over dialogue with a customer manually.",
@@ -106,7 +106,7 @@ const localT = {
     featFree1: "100 AI-messages",
     featFree2: "1 channel (WhatsApp or Telegram)",
     featFree3: "AI-processing 24/7",
-    featFree4: "Knowledge base PDF / TXT",
+    featFree4: "Knowledge base PDF / TXT / DOCS",
     featStarter1: "1,000 AI-messages",
     featGrowth1: "6,000 AI-messages",
     featGrowth2: "Up to 3 channels",
@@ -133,23 +133,23 @@ const localT = {
     planPopular: "Popular",
     planFreeSubtitle: "Try for free",
     planFreeBtn: "Start Free",
-    planFreeFeatures: ['100 AI-messages', '1 channel (WhatsApp or Telegram)', 'AI-processing 24/7', 'Knowledge base PDF / TXT'],
+    planFreeFeatures: ['100 AI-messages', '1 channel (WhatsApp or Telegram)', 'AI-processing 24/7', 'Knowledge base PDF / TXT / DOCS'],
     planStarterSubtitle: "For small projects",
     planStarterBtn: "Select Starter",
-    planStarterFeatures: ['1,000 AI-messages', '1 channel (WhatsApp or Telegram)', 'AI-processing 24/7', 'Knowledge base PDF / TXT'],
+    planStarterFeatures: ['1,000 AI-messages', '2 channels (WhatsApp or Telegram)', 'AI-processing 24/7', 'Knowledge base PDF / TXT / DOCS'],
     planUpgradeNote: "If you run out of limits, you can upgrade at any time. The message balance is updated monthly.",
     planGrowthSubtitle: "For teams with active traffic and growing sales",
     planGrowthBtn: "Select Growth",
-    planGrowthFeatures: ['6,000 AI-messages', 'Up to 3 channels', 'AI-processing 24/7', 'Knowledge base PDF / TXT', '"Conversations" section (Live chat)'],
+    planGrowthFeatures: ['6,000 AI-messages', 'Up to 3 channels', 'AI-processing 24/7', 'Knowledge base PDF / TXT / DOCS', 'Broadcasts'],
     planProSubtitle: "For large projects, integrators, and agencies",
     planProBtn: "Select Pro",
-    planProFeatures: ['15,000 AI-messages', 'Unlimited channels', 'AI-processing 24/7', 'Knowledge base PDF / TXT', '"Conversations" section (Live chat)'],
+    planProFeatures: ['15,000 AI-messages', 'Unlimited channels', 'AI-processing 24/7', 'Knowledge base PDF / TXT / DOCS', 'Broadcasts'],
     stat2Value: "8 sec",
     stat3Value: "up to 80%",
     businessTypes: ['E-commerce', 'Car Dealership', 'Online School', 'Services / Agency', 'Other'],
     footerCompanyName: 'LLP "SAAMA GROUP", BIN: 171040010072',
-    footerAddress: 'Legal Address: 140000, Republic of Kazakhstan, Pavlodar, Malakhova St., 11',
-    footerContacts: 'Contacts: +7 777 420-19-89 | geducation1017@gmail.com',
+    footerAddress: 'Legal Address: 140000, Republic of Kazakhstan, Pavlodar, Edyge Bi St., 71B',
+    footerContacts: 'Contacts: +7 (706) 430-71-95 | geducation1017@gmail.com',
     footerHours: 'Support hours: Mon-Fri: 09:00 - 18:00 (GMT+5)',
     faqItems: [
       { q: 'How long does it take to launch an AI agent?', a: 'Just a few minutes! In our quick wizard, you select the messenger, specify your company name, its niche, and communication tone. Immediately after that, the AI is ready for the first dialogue.' },
@@ -220,7 +220,7 @@ const localT = {
     featuresSectionSub: "Возможности для роста и автоматизации общения во всех ключевых каналах.",
     feature1Title: "Каналы WhatsApp & Telegram",
     feature1Desc: "AI-агент работает во всех популярных мессенджерах, ведя полноценный диалог с клиентами от первого контакта.",
-    feature2Title: "База знаний PDF / TXT",
+    feature2Title: "База знаний PDF / TXT / DOCS",
     feature2Desc: "Легко обучайте агента на регламентах компании, инструкциях и скриптах. Информация усваивается за пару секунд.",
     feature3Title: "Живой чат с оператором",
     feature3Desc: "Удобный раздел «Диалоги» позволяет контролировать качество ответов и перехватывать диалог с клиентом вручную.",
@@ -250,7 +250,7 @@ const localT = {
     featFree1: "100 ИИ-сообщений",
     featFree2: "1 канал (WhatsApp и Telegram)",
     featFree3: "ИИ-обработка 24/7",
-    featFree4: "База знаний PDF / TXT",
+    featFree4: "База знаний PDF / TXT / DOCS",
     featStarter1: "1 000 ИИ-сообщений",
     featGrowth1: "6 000 ИИ-сообщений",
     featGrowth2: "До 3 каналов связи",
@@ -277,23 +277,23 @@ const localT = {
     planPopular: "Популярно",
     planFreeSubtitle: "Попробуйте без оплаты",
     planFreeBtn: "Начать бесплатно",
-    planFreeFeatures: ['100 ИИ-сообщений', '1 канал (WhatsApp и Telegram)', 'ИИ-обработка 24/7', 'База знаний PDF / TXT'],
+    planFreeFeatures: ['100 ИИ-сообщений', '1 канал (WhatsApp и Telegram)', 'ИИ-обработка 24/7', 'База знаний PDF / TXT / DOCS'],
     planStarterSubtitle: "Для небольших проектов",
     planStarterBtn: "Выбрать Starter",
-    planStarterFeatures: ['1 000 ИИ-сообщений', '1 канал (WhatsApp и Telegram)', 'ИИ-обработка 24/7', 'База знаний PDF / TXT'],
+    planStarterFeatures: ['1 000 ИИ-сообщений', '2 канала (WhatsApp и Telegram)', 'ИИ-обработка 24/7', 'База знаний PDF / TXT / DOCS'],
     planUpgradeNote: "При нехватке лимита вы можете в любой момент перейти на тариф выше. Баланс сообщений обновляется ежемесячно.",
     planGrowthSubtitle: "Для команд с активным трафиком и растущих продаж",
     planGrowthBtn: "Выбрать Growth",
-    planGrowthFeatures: ['6 000 ИИ-сообщений', 'До 3 каналов связи', 'ИИ-обработка 24/7', 'База знаний PDF / TXT', 'Раздел "Диалоги" (Live-чат)'],
+    planGrowthFeatures: ['6 000 ИИ-сообщений', 'До 3 каналов связи', 'ИИ-обработка 24/7', 'База знаний PDF / TXT / DOCS', 'Массовые рассылки'],
     planProSubtitle: "Для крупных проектов, интеграторов и агентств",
     planProBtn: "Выбрать Pro",
-    planProFeatures: ['15 000 ИИ-сообщений', 'Неограниченные каналы', 'ИИ-обработка 24/7', 'База знаний PDF / TXT', 'Раздел "Диалоги" (Live-чат)'],
+    planProFeatures: ['15 000 ИИ-сообщений', 'Неограниченные каналы', 'ИИ-обработка 24/7', 'База знаний PDF / TXT / DOCS', 'Массовые рассылки'],
     stat2Value: "8 сек",
     stat3Value: "до 80%",
     businessTypes: ['E-commerce', 'Автосалон', 'Онлайн-школа', 'Услуги / Агентство', 'Другое'],
     footerCompanyName: 'ТОО "SAAMA GROUP", БИН: 171040010072',
-    footerAddress: 'Юридический адрес: 140000, Республика Казахстан, г. Павлодар, улица Малахова, дом 11',
-    footerContacts: 'Контакты: +7 777 420-19-89 | geducation1017@gmail.com',
+    footerAddress: 'Юридический адрес: 140000, Республика Казахстан, г. Павлодар, ул. Едыге Би, 71Б',
+    footerContacts: 'Контакты: +7 (706) 430-71-95 | geducation1017@gmail.com',
     footerHours: 'График работы службы поддержки: Пн-Пт: 09:00 - 18:00 (GMT+5)',
     faqItems: [
       { q: 'Сколько времени занимает запуск ИИ-агента?', a: 'Всего несколько минут! В нашем быстром мастере вы выбираете мессенджер, указываете название компании, её сферу и тональность общения. Сразу после этого ИИ готов к первичному диалогу.' },
@@ -364,7 +364,7 @@ const localT = {
     featuresSectionSub: "Барлық негізгі арналардағы қарым-қатынасты дамыту және автоматтандыру мүмкіндіктері.",
     feature1Title: "WhatsApp & Telegram арналары",
     feature1Desc: "ЖИ-агент барлық танымал мессенджерлерде жұмыс істейді және бірінші контактіден бастап клиенттермен толыққанды диалог жүргізеді.",
-    feature2Title: "PDF / TXT білім базасы",
+    feature2Title: "PDF / TXT / DOCS білім базасы",
     feature2Desc: "Агентті компания регламенттеріне, нұсқаулықтарға және скрипттерге оңай үйретіңіз. Ақпарат бірнеше секундта игеріледі.",
     feature3Title: "Оператормен тікелей чат",
     feature3Desc: "Ыңғайлы «Диалогтар» бөлімі жауаптардың сапасын бақылауға және клиентпен диалогты қолмен ауыстыруға мүмкіндік береді.",
@@ -394,7 +394,7 @@ const localT = {
     featFree1: "100 ЖИ-хабарламасы",
     featFree2: "1 арна (WhatsApp және Telegram)",
     featFree3: "ЖИ-өңдеу 24/7",
-    featFree4: "PDF / TXT білім базасы",
+    featFree4: "PDF / TXT / DOCS білім базасы",
     featStarter1: "1 000 ЖИ-хабарламасы",
     featGrowth1: "6 000 ЖИ-хабарламасы",
     featGrowth2: "3 арнаға дейін",
@@ -414,8 +414,8 @@ const localT = {
     businessTypeOther: "Басқа",
     messagePlaceholder: "Сізді қандай кастомды серіктестік шешімі қызықтырады?",
     companyRegInfo: "«SAAMA GROUP» ЖШС, БСН: 171040010072",
-    companyAddressInfo: "Заңды мекенжайы: 140000, Қазақстан Республикасы, Павлодар қ., Малахов көшесі, 11-үй",
-    companyContactsInfo: "Байланыс телефондары: +7 777 420-19-89 | geducation1017@gmail.com",
+    companyAddressInfo: "Заңды мекенжайы: 140000, Қазақстан Республикасы, Павлодар қ., Едыге Би к-сі, 71Б",
+    companyContactsInfo: "Байланыс телефондары: +7 (706) 430-71-95 | geducation1017@gmail.com",
     companySupportHours: "Қолдау қызметінің жұмыс кестесі: Дс-Жм: 09:00 - 18:00 (GMT+5)",
     footerCopyright: "Барлық құқықтар қорғалған.",
     namePlaceholder: "Атыңыз",
@@ -427,23 +427,23 @@ const localT = {
     planPopular: "Танымал",
     planFreeSubtitle: "Тегін байқап көріңіз",
     planFreeBtn: "Тегін бастау",
-    planFreeFeatures: ['100 ЖИ-хабарламасы', '1 арна (WhatsApp және Telegram)', 'ЖИ-өңдеу 24/7', 'PDF / TXT білім базасы'],
+    planFreeFeatures: ['100 ЖИ-хабарламасы', '1 арна (WhatsApp және Telegram)', 'ЖИ-өңдеу 24/7', 'PDF / TXT / DOCS білім базасы'],
     planStarterSubtitle: "Шағын жобалар үшін",
     planStarterBtn: "Starter таңдау",
-    planStarterFeatures: ['1 000 ЖИ-хабарламасы', '1 арна (WhatsApp және Telegram)', 'ЖИ-өңдеу 24/7', 'PDF / TXT білім базасы'],
+    planStarterFeatures: ['1 000 ЖИ-хабарламасы', '2 арна (WhatsApp және Telegram)', 'ЖИ-өңдеу 24/7', 'PDF / TXT / DOCS білім базасы'],
     planUpgradeNote: "Лимит жеткіліксіз болса, кез келген уақытта жоғары тарифке өте аласыз. Хабарламалар балансы ай сайын жаңартылады.",
     planGrowthSubtitle: "Белсенді трафигі мен сатылымы өсіп жатқан командалар үшін",
     planGrowthBtn: "Growth таңдау",
-    planGrowthFeatures: ['6 000 ЖИ-хабарламасы', '3 арнаға дейін', 'ЖИ-өңдеу 24/7', 'PDF / TXT білім базасы', '«Диалогтар» бөлімі (Тікелей чат)'],
+    planGrowthFeatures: ['6 000 ЖИ-хабарламасы', '3 арнаға дейін', 'ЖИ-өңдеу 24/7', 'PDF / TXT / DOCS білім базасы', 'Жаппай хабарлама жіберу (Рассылка)'],
     planProSubtitle: "Ірі жобалар, агенттіктер мен интеграторлар үшін",
     planProBtn: "Pro таңдау",
-    planProFeatures: ['15 000 ЖИ-хабарламасы', 'Шектеусіз арналар', 'ЖИ-өңдеу 24/7', 'PDF / TXT білім базасы', '«Диалогтар» бөлімі (Тікелей чат)'],
+    planProFeatures: ['15 000 ЖИ-хабарламасы', 'Шектеусіз арналар', 'ЖИ-өңдеу 24/7', 'PDF / TXT / DOCS білім базасы', 'Жаппай хабарлама жіберу (Рассылка)'],
     stat2Value: "8 сек",
     stat3Value: "80%-ға дейін",
     businessTypes: ['E-commerce', 'Автосалон', 'Онлайн-мектеп', 'Қызметтер / Агенттік', 'Басқа'],
     footerCompanyName: '«SAAMA GROUP» ЖШС, БСН: 171040010072',
-    footerAddress: 'Заңды мекенжайы: 140000, Қазақстан Республикасы, Павлодар қ., Малахов көшесі, 11-үй',
-    footerContacts: 'Байланыс: +7 777 420-19-89 | geducation1017@gmail.com',
+    footerAddress: 'Заңды мекенжайы: 140000, Қазақстан Республикасы, Павлодар қ., Едыге Би к-сі, 71Б',
+    footerContacts: 'Байланыс: +7 (706) 430-71-95 | geducation1017@gmail.com',
     footerHours: 'Қолдау қызметі: Дс-Жм: 09:00 - 18:00 (GMT+5)',
     faqItems: [
       { q: 'ЖИ-агентті іске қосу қанша уақытты алады?', a: 'Бар болғаны бірнеше минут! Біздің жылдам шеберімізде мессенджерді таңдайсыз, компания атауын, саласын және сөйлесу мәнерін көрсетесіз. Осыдан кейін ЖИ алғашқы сұрақтарға жауап беруге дайын.' },
@@ -468,6 +468,33 @@ export default function LandingPage() {
     businessType: 'E-commerce',
     message: ''
   });
+  const [purchaseLoading, setPurchaseLoading] = useState<string | null>(null);
+
+  const handlePurchase = async (plan: string) => {
+    if (!user) {
+      router.push(`/register?plan=${plan}`);
+      return;
+    }
+    setPurchaseLoading(plan);
+    try {
+      const res = await fetch(`${API_URL}/payments/robokassa/pay`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan, userId: user?.id }),
+        credentials: 'include'
+      });
+      const data = await res.json();
+      if (data.paymentUrl) {
+        window.location.href = data.paymentUrl;
+      } else {
+        alert(data.error || 'Ошибка при покупке');
+      }
+    } catch (e) {
+      alert('Ошибка соединения');
+    } finally {
+      setPurchaseLoading(null);
+    }
+  };
 
   // Scenario state
   const [activeScenarioId, setActiveScenarioId] = useState('beauty');
@@ -1344,9 +1371,9 @@ export default function LandingPage() {
                 </div>
               </div>
               <div className="pt-7">
-                <Link href="/register" className="block text-center bg-slate-50 hover:bg-slate-100 text-slate-800 py-2.5 rounded-lg text-xs font-medium transition-all">
-                  {t.planStarterBtn}
-                </Link>
+                <button onClick={() => handlePurchase('STARTER')} disabled={purchaseLoading === 'STARTER'} className="w-full block text-center bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-lg text-xs font-medium transition-all shadow-sm shadow-emerald-600/10 cursor-pointer">
+                  {purchaseLoading === 'STARTER' ? '...' : t.planStarterBtn}
+                </button>
               </div>
             </div>
 
@@ -1373,9 +1400,9 @@ export default function LandingPage() {
                 </ul>
               </div>
               <div className="pt-7">
-                <Link href="/register" className="block text-center bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-lg text-xs font-medium transition-all shadow-sm shadow-emerald-600/10">
-                  {t.planGrowthBtn}
-                </Link>
+                <button onClick={() => handlePurchase('GROWTH')} disabled={purchaseLoading === 'GROWTH'} className="w-full block text-center bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-lg text-xs font-medium transition-all shadow-sm shadow-emerald-600/10 cursor-pointer">
+                  {purchaseLoading === 'GROWTH' ? '...' : t.planGrowthBtn}
+                </button>
               </div>
             </div>
 
@@ -1399,9 +1426,9 @@ export default function LandingPage() {
                 </ul>
               </div>
               <div className="pt-7">
-                <Link href="/register" className="block text-center bg-slate-900 hover:bg-slate-800 text-white py-2.5 rounded-lg text-xs font-medium transition-all">
-                  {t.planProBtn}
-                </Link>
+                <button onClick={() => handlePurchase('PRO')} disabled={purchaseLoading === 'PRO'} className="w-full block text-center bg-slate-900 hover:bg-slate-800 text-white py-2.5 rounded-lg text-xs font-medium transition-all cursor-pointer">
+                  {purchaseLoading === 'PRO' ? '...' : t.planProBtn}
+                </button>
               </div>
             </div>
           </div>
@@ -1447,11 +1474,11 @@ export default function LandingPage() {
                 </div>
                 <div className="flex items-center gap-3">
                   <Phone className="w-4 h-4 text-emerald-600" />
-                  <span>+7 777 420-19-89</span>
+                  <span>+7 (706) 430-71-95</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <MapPin className="w-4 h-4 text-emerald-600" />
-                  <span>140000, Казахстан, г. Павлодар, ул. Малахова, д. 11</span>
+                  <span>140000, Казахстан, г. Павлодар, ул. Едыге Би, 71Б</span>
                 </div>
               </div>
             </div>

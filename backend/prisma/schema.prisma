@@ -28,6 +28,9 @@ model User {
   isVerified        Boolean  @default(false)
   messagesRemaining Int      @default(0)
   totalMessagesUsed Int      @default(0)
+  subscriptionPlan  String   @default("FREE")
+  subscriptionExpiresAt DateTime?
+
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   
@@ -120,6 +123,8 @@ model Message {
   text       String   @db.Text
   chatId     String   // phone number or telegram chat id
   createdAt  DateTime @default(now())
+  mediaUrl   String?
+  mediaType  String?
 
   @@index([botId, chatId])
   @@index([botId, platform])

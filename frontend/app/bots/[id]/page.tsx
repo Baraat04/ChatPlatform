@@ -2,12 +2,13 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, Save, Trash2, Send, Bot, User, Users, UserPlus, Pause, Play, Phone, MessageSquare, Radio, Edit2, Wand2, ChevronDown, Check, Plus, Database, BrainCircuit, FileUp } from 'lucide-react';
+import { ArrowLeft, Save, Trash2, Send, Bot, User, Users, UserPlus, Pause, Play, Phone, MessageSquare, Radio, Edit2, Wand2, ChevronDown, Check, Plus, Database, BrainCircuit, FileUp, Image as LucideImage, FileAudio2, X, Mic } from 'lucide-react';
 import Link from 'next/link';
 import { io } from 'socket.io-client';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { translations } from '../../locales/translations';
 import { API_URL, API_BASE as CONFIG_API_BASE, SOCKET_URL } from '../../config';
+import { useAuth } from '../../contexts/AuthContext';
 
 const API = API_URL;
 
@@ -50,7 +51,8 @@ const DATA_FIELDS = [
 ];
 
 function CustomSelect({ options, displayOptions, value, onChange, placeholder }: any) {
-  const { t } = useLanguage();
+  const { language } = useLanguage();
+  const t = (translations as any)[language] || translations.RU;
   const [isOpen, setIsOpen] = useState(false);
   const [customInput, setCustomInput] = useState('');
   const [isAddingCustom, setIsAddingCustom] = useState(false);
@@ -139,7 +141,8 @@ function CustomSelect({ options, displayOptions, value, onChange, placeholder }:
 }
 
 function CustomMultiSelect({ options, displayOptions, value, onChange, placeholder }: any) {
-  const { t } = useLanguage();
+  const { language } = useLanguage();
+  const t = (translations as any)[language] || translations.RU;
   const [isOpen, setIsOpen] = useState(false);
   const [customInput, setCustomInput] = useState('');
   const [isAddingCustom, setIsAddingCustom] = useState(false);
@@ -278,6 +281,8 @@ interface Message {
   text: string;
   chatId: string;
   createdAt: string;
+  mediaUrl?: string | null;
+  mediaType?: string | null;
 }
 
 interface Channel {
@@ -291,7 +296,9 @@ interface Channel {
 
 
 export default function BotDetails() {
-  const { t } = useLanguage();
+  const { language } = useLanguage();
+  const t = (translations as any)[language] || translations.RU;
+  const { user } = useAuth();
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -307,7 +314,50 @@ export default function BotDetails() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isTogglingActive, setIsTogglingActive] = useState(false);
   const [replyText, setReplyText] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
+  const [fileType, setFileType] = useState<'image' | 'audio' | 'document' | null>(null);
   const [activeTab, setActiveTab] = useState<'chats' | 'agent' | 'settings' | 'broadcast' | 'channels'>('chats');
+  
+  const [isRecording, setIsRecording] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<BlobPart[]>([]);
+
+  const toggleRecording = async () => {
+    if (isRecording) {
+      mediaRecorderRef.current?.stop();
+      setIsRecording(false);
+    } else {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const mediaRecorder = new MediaRecorder(stream);
+        mediaRecorderRef.current = mediaRecorder;
+        audioChunksRef.current = [];
+
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            audioChunksRef.current.push(event.data);
+          }
+        };
+
+        mediaRecorder.onstop = () => {
+          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+          const audioFile = new File([audioBlob], `voice_message_${Date.now()}.webm`, { type: 'audio/webm' });
+          setSelectedFile(audioFile);
+          setFileType('audio');
+          setFilePreviewUrl(null);
+          
+          stream.getTracks().forEach(track => track.stop());
+        };
+
+        mediaRecorder.start();
+        setIsRecording(true);
+      } catch (error) {
+        console.error('Error accessing microphone:', error);
+        alert(t.micError || 'Не удалось получить доступ к микрофону. Пожалуйста, проверьте разрешения.');
+      }
+    }
+  };
 
   // Onboarding Tour state — per-bot, only triggered when arriving from create-bot (?new=true)
   const [tourStep, setTourStep] = useState<number | null>(null);
@@ -318,7 +368,12 @@ export default function BotDetails() {
     const tourKey = `up_tour_done_${botId}`;
     const tourDone = localStorage.getItem(tourKey);
     if (isNewBot && !tourDone) {
-      const timer = setTimeout(() => setTourStep(1), 600);
+      // Mark immediately so it never shows again, even if user closes mid-tour
+      localStorage.setItem(tourKey, 'true');
+      const timer = setTimeout(() => {
+        setTourStep(1);
+        window.dispatchEvent(new Event('tour_started'));
+      }, 600);
       return () => clearTimeout(timer);
     }
   }, [botId, searchParams]);
@@ -339,13 +394,30 @@ export default function BotDetails() {
     } else if (tourStep === 5) {
       setTourStep(null);
       localStorage.setItem(`up_tour_done_${botId}`, 'true');
+      window.dispatchEvent(new Event('tour_finished'));
     }
   };
 
   const handleSkipTour = () => {
     setTourStep(null);
     localStorage.setItem(`up_tour_done_${botId}`, 'true');
+    window.dispatchEvent(new Event('tour_finished'));
   };
+
+  const [tourPos, setTourPos] = useState({ bottom: 104, right: 24 });
+  
+  useEffect(() => {
+    const handleWidgetMoved = (e: any) => {
+      if (e.detail) {
+        setTourPos({ 
+          bottom: e.detail.bottom + 76,
+          right: Math.max(24, e.detail.right - 296)
+        });
+      }
+    };
+    window.addEventListener('widget_moved', handleWidgetMoved);
+    return () => window.removeEventListener('widget_moved', handleWidgetMoved);
+  }, []);
   
   // Channels States
   const [channels, setChannels] = useState<Channel[]>([]);
@@ -390,18 +462,102 @@ export default function BotDetails() {
   const [managerContact, setManagerContact] = useState('');
 
   const API_BASE = CONFIG_API_BASE;
-  const renderMessageContent = (text: string) => {
+  const renderMessageContent = (msg: any) => {
+    if (msg.mediaType === 'image') {
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <img src={`${API_BASE}${msg.mediaUrl}`} alt="Attached Image" style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '12px' }} />
+          {msg.text && <span style={{ whiteSpace: 'pre-wrap' }}>{msg.text}</span>}
+        </div>
+      );
+    }
+    if (msg.mediaType === 'audio') {
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxWidth: '100%' }}>
+          <audio controls style={{ height: '32px', minWidth: '180px', maxWidth: '100%', width: '240px', accentColor: 'var(--primary)' }}>
+            <source src={`${API_BASE}${msg.mediaUrl}`} />
+            {t.voiceMessage || 'Голосовое сообщение'}
+          </audio>
+          {msg.text && !msg.text.startsWith('voice_message_') && !msg.text.startsWith('wa_audio_') && !msg.text.startsWith('tg_audio_') && <span style={{ whiteSpace: 'pre-wrap' }}>{msg.text}</span>}
+        </div>
+      );
+    }
+    if (msg.mediaType === 'document') {
+      const filename = msg.mediaUrl ? msg.mediaUrl.split('/').pop() : 'document';
+      let displayName = filename;
+      if (filename.startsWith('wa_doc_') || filename.startsWith('tg_doc_')) {
+        const match = filename.match(/^(?:wa_doc|tg_doc)_\d+_(.+)$/);
+        if (match) displayName = match[1];
+      } else {
+        const match = filename.match(/^\d+-\d+(.+)$/);
+        if (match) displayName = match[1];
+      }
+      
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <a 
+            href={`${API_BASE}${msg.mediaUrl}`} 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '12px', 
+              padding: '12px 16px', 
+              background: 'rgba(0, 0, 0, 0.05)', 
+              borderRadius: '12px', 
+              color: 'inherit',
+              textDecoration: 'none',
+              fontWeight: 600,
+              fontSize: '0.9rem',
+              border: '1px solid rgba(0, 0, 0, 0.1)',
+              transition: 'background 0.2s',
+              cursor: 'pointer'
+            }}
+            onMouseOver={(e) => e.currentTarget.style.background = 'rgba(0, 0, 0, 0.1)'}
+            onMouseOut={(e) => e.currentTarget.style.background = 'rgba(0, 0, 0, 0.05)'}
+          >
+            <span style={{ fontSize: '1.5rem', flexShrink: 0 }}>📄</span>
+            <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
+              <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                {displayName}
+              </span>
+              <span style={{ fontSize: '0.75rem', opacity: 0.7, fontWeight: 400 }}>
+                Открыть / Скачать
+              </span>
+            </div>
+          </a>
+          {msg.text && msg.text !== filename && <span style={{ whiteSpace: 'pre-wrap' }}>{msg.text}</span>}
+        </div>
+      );
+    }
+    const text = msg.text || '';
     if (!text) return null;
     const parts = text.split(/(\[AUDIO\]\/uploads\/[^\s\n]+)/g);
-    return parts.map((part, i) => {
+    return parts.map((part: string, i: number) => {
       if (part.startsWith('[AUDIO]/uploads/')) {
         const filePath = part.replace('[AUDIO]', '');
         const audioUrl = `${API_BASE}${filePath}`;
+        const audioExt = audioUrl.split('.').pop()?.toLowerCase() || 'ogg';
+        const audioMimeMap: Record<string, string> = {
+          ogg: 'audio/ogg',
+          mp4: 'audio/mp4',
+          m4a: 'audio/mp4',
+          mp3: 'audio/mpeg',
+          wav: 'audio/wav',
+          oga: 'audio/ogg',
+        };
+        const audioMime = audioMimeMap[audioExt] || 'audio/ogg';
         return (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '12px', padding: '8px 12px' }}>
-            <span style={{ fontSize: '1.2rem' }}>🎤</span>
-            <audio controls style={{ height: '32px', flex: 1, minWidth: '180px', accentColor: 'var(--primary)' }}>
-              <source src={audioUrl} />
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '12px', padding: '8px 12px', maxWidth: '100%' }}>
+            <span style={{ fontSize: '1.2rem', flexShrink: 0 }}>🎤</span>
+            <audio
+              controls
+              preload="metadata"
+              playsInline
+              style={{ height: '32px', flex: 1, minWidth: '150px', maxWidth: '100%', width: '240px', accentColor: 'var(--primary)' }}
+            >
+              <source src={audioUrl} type={audioMime} />
               {t.voiceMessage}
             </audio>
           </div>
@@ -550,6 +706,8 @@ export default function BotDetails() {
         setQrCode(null); 
         fetchBot(); 
         fetchChats(); 
+        fetchChannels();
+        setIsAddingChannel(false);
       }
     });
 
@@ -606,15 +764,25 @@ export default function BotDetails() {
   }
 
   async function handleSend() {
-    if (!replyText.trim() || !selectedChat) return;
+    if ((!replyText.trim() && !selectedFile) || !selectedChat) return;
+    
+    const formData = new FormData();
+    formData.append('chatId', selectedChat);
+    if (replyText.trim()) formData.append('text', replyText);
+    if (selectedFile) formData.append('file', selectedFile);
+
     const res = await fetch(`${API}/bot/${botId}/send`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: replyText, chatId: selectedChat }),
+      body: formData,
       credentials: 'include'
     });
-    if (res.ok) setReplyText('');
-    else alert('Не удалось отправить: ' + (await res.json().catch(() => ({}))).error);
+    
+    if (res.ok) {
+      setReplyText('');
+      setSelectedFile(null);
+      setFilePreviewUrl(null);
+      setFileType(null);
+    } else alert((t.sendError || 'Failed to send: ') + (await res.json().catch(() => ({}))).error);
   }
 
   async function handleToggleActive() {
@@ -623,7 +791,7 @@ export default function BotDetails() {
     const endpoint = bot.isActive ? 'pause' : 'start';
     const res = await fetch(`${API}/bot/${botId}/${endpoint}`, { method: 'POST', credentials: 'include' });
     if (res.ok) await fetchBot();
-    else alert('Ошибка при изменении статуса бота');
+    else alert(t.statusChangeError || 'Error changing bot status');
     setIsTogglingActive(false);
   }
 
@@ -1154,12 +1322,14 @@ export default function BotDetails() {
       {/* ─── TAB BAR ─── */}
       <div className="tab-bar">
         {([
-          ['chats', <MessageSquare size={16} />, 'Диалоги'],
-          ['channels', <Phone size={16} />, 'Каналы связи'],
-          ['agent', <BrainCircuit size={16} />, 'AI Brain'], 
-          ['settings', <Bot size={16} />, t.settings || 'Конфигурация'], 
+          ['chats', <MessageSquare size={16} />, t.chats || 'Dialogs'],
+          ['channels', <Phone size={16} />, t.channels || 'Channels'],
+          ['agent', <BrainCircuit size={16} />, t.aiBrain || 'AI Brain'], 
+          ['settings', <Bot size={16} />, t.settings || 'Configuration'], 
           ['broadcast', <Radio size={16} />, t.campaigns]
-        ] as const).map(([tab, icon, label]) => (
+        ] as const)
+        .filter(([tab]) => tab !== 'broadcast' || (user?.subscriptionPlan === 'GROWTH' || user?.subscriptionPlan === 'PRO'))
+        .map(([tab, icon, label]) => (
           <button key={tab} onClick={() => setActiveTab(tab as any)} className={`tab-btn ${activeTab === tab ? 'active' : ''}`}>
             {icon} {label}
           </button>
@@ -1178,10 +1348,10 @@ export default function BotDetails() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem', borderBottom: '1px solid var(--outline-variant)', paddingBottom: '1.5rem' }}>
                 <div>
                   <h2 style={{ margin: 0, fontSize: '1.8rem', fontWeight: 800, color: 'var(--on-surface)', letterSpacing: '-0.5px' }}>
-                    Каналы связи
+                    {t.channelsTitle || 'Communication Channels'}
                   </h2>
                   <p style={{ margin: '0.4rem 0 0 0', color: 'var(--on-surface-variant)', fontSize: '0.92rem' }}>
-                    Подключайте внешние мессенджеры для автоматической работы вашего AI ассистента.
+                    {t.channelsSub || 'Connect external messengers for automated AI responses.'}
                   </p>
                 </div>
                 {!isAddingChannel && (
@@ -1199,7 +1369,7 @@ export default function BotDetails() {
                       transition: 'all 0.3s ease'
                     }}
                   >
-                    <Plus size={18} /> Подключить новый канал
+                    <Plus size={18} /> {t.connectNewChannel || 'Connect new channel'}
                   </button>
                 )}
               </div>
@@ -1229,16 +1399,16 @@ export default function BotDetails() {
                   }}>
                     <Phone size={36} color="var(--primary)" />
                   </div>
-                  <h3 style={{ margin: '0 0 0.8rem 0', fontSize: '1.4rem', fontWeight: 700, color: 'var(--on-surface)' }}>У вас нет активных каналов</h3>
+                  <h3 style={{ margin: '0 0 0.8rem 0', fontSize: '1.4rem', fontWeight: 700, color: 'var(--on-surface)' }}>{t.noChannels || 'No active channels'}</h3>
                   <p style={{ color: 'var(--on-surface-variant)', marginBottom: '2rem', fontSize: '1rem', maxWidth: '460px', margin: '0 auto 2rem auto', lineHeight: '1.6' }}>
-                    Подключите Telegram Bot или WhatsApp, чтобы ваш искусственный интеллект начал мгновенно отвечать клиентам 24/7.
+                    {t.noChannelsHint || 'Connect Telegram Bot or WhatsApp so your AI assistant can instantly respond to clients 24/7.'}
                   </p>
                   <button 
                     onClick={() => setIsAddingChannel(true)} 
                     className="btn-primary" 
                     style={{ padding: '0.9rem 2rem', borderRadius: '14px', margin: '0 auto', fontSize: '1rem' }}
                   >
-                    Подключить первый канал
+                    Connect first channel
                   </button>
                 </div>
               )}
@@ -1317,7 +1487,7 @@ export default function BotDetails() {
                               </div>
                               <div>
                                 <div style={{ fontWeight: 800, fontSize: '1.25rem', color: 'var(--on-surface)' }}>
-                                  {isTg ? 'Telegram Bot' : isIg ? 'Instagram API' : 'WhatsApp Client'}
+                                  {isTg ? (t.telegramBot || 'Telegram Bot') : isIg ? (t.instagramApi || 'Instagram API') : (t.whatsappClient || 'WhatsApp Client')}
                                 </div>
                                 <div style={{ fontSize: '0.82rem', color: 'var(--on-surface-variant)', fontFamily: 'monospace', background: 'var(--surface-container-high)', padding: '2px 8px', borderRadius: '6px', display: 'inline-block', marginTop: '0.2rem' }}>
                                   ID: {channel.slug}
@@ -1335,7 +1505,7 @@ export default function BotDetails() {
                                 boxShadow: channel.isActive ? '0 0 8px rgba(37,211,102,0.6)' : 'none'
                               }} />
                               <span style={{ fontSize: '0.85rem', fontWeight: 600, color: channel.isActive ? '#1e7e34' : '#9b1c1c' }}>
-                                {channel.isActive ? 'Подключен' : 'На паузе'}
+                                {channel.isActive ? (t.connected || 'Connected') : (t.paused || 'Paused')}
                               </span>
                             </div>
                           </div>
@@ -1343,7 +1513,7 @@ export default function BotDetails() {
 
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.5rem', paddingTop: '1.2rem', borderTop: '1px solid var(--outline-variant)' }}>
                           <span style={{ fontSize: '0.82rem', color: 'var(--on-surface-variant)' }}>
-                            Управление приёмом сообщений
+                            {t.msgReception || 'Message Reception Control'}
                           </span>
                           <div style={{ display: 'flex', gap: '0.6rem' }}>
                             <button 
@@ -1367,11 +1537,11 @@ export default function BotDetails() {
                                 transition: 'all 0.2s'
                               }}
                             >
-                              {channel.isActive ? <><Pause size={14} /> Пауза</> : <><Play size={14} /> Старт</>}
+                              {channel.isActive ? <><Pause size={14} /> {t.paused || 'Pause'}</> : <><Play size={14} /> {t.startAgent || 'Start'}</>}
                             </button>
                             <button 
                               onClick={async () => {
-                                if (!confirm('Вы уверены, что хотите отключить и удалить этот канал связи?')) return;
+                                if (!confirm(t.deleteChannelConfirm || 'Are you sure you want to disconnect and delete this communication channel?')) return;
                                 await fetch(`${API}/bot/${botId}/channels/${channel.id}`, { method: 'DELETE', credentials: 'include' });
                                 fetchChannels();
                               }} 
@@ -1384,7 +1554,7 @@ export default function BotDetails() {
                                 borderRadius: '10px',
                                 transition: 'all 0.2s'
                               }}
-                              title="Удалить канал"
+                              title="Delete Channel"
                             >
                               <Trash2 size={16} />
                             </button>
@@ -1428,10 +1598,10 @@ export default function BotDetails() {
                     </button>
                     <div>
                       <h3 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 800 }}>
-                        {!newChannelPlatform ? 'Выбор платформы' : newChannelPlatform === 'TELEGRAM' ? 'Подключение Telegram' : 'Подключение WhatsApp'}
+                        {!newChannelPlatform ? (t.platformSelection || 'Platform Selection') : newChannelPlatform === 'TELEGRAM' ? (t.connectTelegram || 'Connect Telegram') : newChannelPlatform === 'INSTAGRAM' ? (t.connectInstagram || 'Connect Instagram') : (t.connectWhatsapp || 'Connect WhatsApp')}
                       </h3>
                       <p style={{ margin: '0.2rem 0 0 0', color: 'var(--on-surface-variant)', fontSize: '0.85rem' }}>
-                        {!newChannelPlatform ? 'Выберите мессенджер для интеграции' : `Шаг подключения бота к вашему аккаунту`}
+                        {!newChannelPlatform ? (t.selectMessenger || 'Select messenger for integration') : (t.stepToConnect || 'Step to connect bot to your account')}
                       </p>
                     </div>
                   </div>
@@ -1473,7 +1643,7 @@ export default function BotDetails() {
                         </div>
                         <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1.3rem', fontWeight: 700 }}>Telegram Bot</h4>
                         <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--on-surface-variant)', lineHeight: '1.5' }}>
-                          Идеально для официальных ботов, рассылок, кнопок и каналов.
+                          {t.tgDescription || 'Ideal for official bots, broadcasts, buttons, and channels.'}
                         </p>
                       </div>
 
@@ -1509,7 +1679,7 @@ export default function BotDetails() {
                         </div>
                         <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1.3rem', fontWeight: 700 }}>WhatsApp</h4>
                         <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--on-surface-variant)', lineHeight: '1.5' }}>
-                          Прямая работа с личными номерами. Быстрый старт через сканирование QR.
+                          {t.waDescription || 'Direct work with personal numbers. Quick start via QR scanning.'}
                         </p>
                       </div>
 
@@ -1547,7 +1717,7 @@ export default function BotDetails() {
                           </div>
                           <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1.3rem', fontWeight: 700 }}>Instagram</h4>
                           <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--on-surface-variant)', lineHeight: '1.5' }}>
-                            Тестовое подключение Instagram канала по API Meta.
+                            {t.igDescription || 'Test connection of Instagram channel via Meta API.'}
                           </p>
                         </div>
                       )}
@@ -1567,35 +1737,35 @@ export default function BotDetails() {
                     <div>
                       <div style={{ background: 'rgba(34, 158, 217, 0.05)', border: '1px solid rgba(34, 158, 217, 0.15)', padding: '1.8rem', borderRadius: '20px', marginBottom: '2rem' }}>
                         <h4 style={{ margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.6rem', color: '#229ed9', fontWeight: 700 }}>
-                          Инструкция по подключению Telegram
+                          {t.connectTelegram || 'Instructions for connecting Telegram'}
                         </h4>
                         
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                           <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
                             <div style={{ background: '#229ed9', color: '#fff', width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 800, flexShrink: 0, marginTop: '2px' }}>1</div>
                             <div style={{ fontSize: '0.92rem', lineHeight: '1.5' }}>
-                              Откройте Telegram и перейдите к официальному боту <a href="https://t.me/BotFather" target="_blank" rel="noopener noreferrer" style={{ color: '#229ed9', fontWeight: 700, textDecoration: 'underline' }}>@BotFather</a>
+                              Open Telegram and go to the official bot <a href="https://t.me/BotFather" target="_blank" rel="noopener noreferrer" style={{ color: '#229ed9', fontWeight: 700, textDecoration: 'underline' }}>@BotFather</a>
                             </div>
                           </div>
                           
                           <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
                             <div style={{ background: '#229ed9', color: '#fff', width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 800, flexShrink: 0, marginTop: '2px' }}>2</div>
                             <div style={{ fontSize: '0.92rem', lineHeight: '1.5' }}>
-                              Отправьте ему команду <code style={{ background: 'var(--surface-container-highest)', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold' }}>/newbot</code> для создания нового бота
+                              {t.tgStep2 || 'Send him the command /newbot to create a new bot'}
                             </div>
                           </div>
 
                           <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
                             <div style={{ background: '#229ed9', color: '#fff', width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 800, flexShrink: 0, marginTop: '2px' }}>3</div>
                             <div style={{ fontSize: '0.92rem', lineHeight: '1.5' }}>
-                              Задайте боту имя и уникальный юзернейм (оканчивающийся на <code style={{ fontWeight: 'bold' }}>_bot</code>)
+                              {t.tgStep3 || 'Give the bot a name and a unique username (ending in _bot)'}
                             </div>
                           </div>
 
                           <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
                             <div style={{ background: '#229ed9', color: '#fff', width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 800, flexShrink: 0, marginTop: '2px' }}>4</div>
                             <div style={{ fontSize: '0.92rem', lineHeight: '1.5' }}>
-                              Скопируйте полученный **API Token** и введите его в текстовое поле ниже
+                              {t.tgStep4 || 'Copy the API Token and enter it in the field below'}
                             </div>
                           </div>
                         </div>
@@ -1603,13 +1773,13 @@ export default function BotDetails() {
                       
                       <div style={{ marginBottom: '1.8rem' }}>
                         <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.6rem', color: 'var(--on-surface-variant)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                          Токен бота (API HTTP Token)
+                          {t.telegramToken || 'Bot Token (API HTTP Token)'}
                         </label>
                         <input 
                           type="text" 
                           value={newChannelToken} 
                           onChange={e => setNewChannelToken(e.target.value)} 
-                          placeholder="Пример: 123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11" 
+                          placeholder="Example: 123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11" 
                           className="premium-input" 
                           style={{ width: '100%', padding: '1rem 1.2rem', fontSize: '0.98rem' }} 
                         />
@@ -1634,27 +1804,27 @@ export default function BotDetails() {
                             setNewChannelToken('');
                             fetchChannels();
                           } else {
-                            alert((await res.json()).error || 'Неверный токен бота или ошибка подключения');
+                            alert((await res.json()).error || 'Invalid bot token or connection error');
                           }
                         }}
                       >
-                        {isSaving ? 'Подключение канала...' : 'Подключить Telegram Bot'}
+                        {isSaving ? (t.saving || 'Connecting...') : (t.connectTelegram || 'Connect Telegram Bot')}
                       </button>
                     </div>
                   ) : newChannelPlatform === 'INSTAGRAM' ? (
                     <div>
                       <div style={{ background: 'rgba(225, 48, 108, 0.05)', border: '1px solid rgba(225, 48, 108, 0.15)', padding: '1.8rem', borderRadius: '20px', marginBottom: '2rem' }}>
                         <h4 style={{ margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.6rem', color: '#E1306C', fontWeight: 700 }}>
-                          Подключение Instagram API
+                          {t.connectInstagram || 'Connect Instagram API'}
                         </h4>
                         <p style={{ fontSize: '0.92rem', lineHeight: '1.5', color: 'var(--on-surface-variant)' }}>
-                          Введите настройки Meta API для подключения Instagram аккаунта (Page Access Token).
+                          {t.metaTokenHint || 'Enter Meta API settings to connect Instagram account (Page Access Token).'}
                         </p>
                       </div>
                       
                       <div style={{ marginBottom: '1.8rem' }}>
                         <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.6rem', color: 'var(--on-surface-variant)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                          Meta Page Access Token
+                          {t.metaPageToken || 'Meta Page Access Token'}
                         </label>
                         <input 
                           type="text" 
@@ -1685,11 +1855,11 @@ export default function BotDetails() {
                             setNewChannelToken('');
                             fetchChannels();
                           } else {
-                            alert((await res.json()).error || 'Неверный токен или ошибка подключения');
+                            alert((await res.json()).error || 'Invalid token or connection error');
                           }
                         }}
                       >
-                        {isSaving ? 'Подключение канала...' : 'Подключить Instagram'}
+                        {isSaving ? (t.saving || 'Connecting...') : (t.connectInstagram || 'Connect Instagram')}
                       </button>
                     </div>
                   ) : (
@@ -1712,9 +1882,9 @@ export default function BotDetails() {
                               <path d="M12.01 2C6.48 2 2 6.48 2 12.01C2 13.86 2.5 15.6 3.39 17.12L2.01 22.01L7.04 20.72C8.5 21.54 10.19 22.01 12 22.01C17.53 22.01 22 17.53 22 12.01C22 6.48 17.53 2 12.01 2ZM17.19 15.61C16.98 16.2 16.03 16.71 15.46 16.82C14.99 16.91 14.37 16.97 12.31 16.12C9.66 15.02 7.95 12.33 7.82 12.15C7.69 11.97 6.74 10.71 6.74 9.41C6.74 8.11 7.4 7.47 7.67 7.21C7.94 6.95 8.38 6.84 8.81 6.84C8.95 6.84 9.07 6.85 9.17 6.85C9.47 6.86 9.62 7.04 9.72 7.28L10.51 9.19C10.6 9.4 10.69 9.63 10.55 9.91C10.41 10.19 10.3 10.32 10.1 10.55L9.61 11.12C9.46 11.29 9.3 11.47 9.49 11.8C9.68 12.12 10.33 13.18 11.29 14.04C12.53 15.15 13.55 15.5 13.9 15.65C14.23 15.79 14.43 15.76 14.62 15.54C14.86 15.26 15.39 14.62 15.72 14.15C15.98 13.78 16.3 13.84 16.63 13.96L18.66 14.96C18.99 15.12 19.22 15.2 19.3 15.34C19.38 15.48 19.38 16.15 19.1 16.74C18.82 17.33 17.47 17.9 16.88 17.9C16.88 17.9 16.89 17.9 16.88 17.9C16.88 17.9 12.63 17.06 17.19 15.61Z"/>
                             </svg>
                           </div>
-                          <h4 style={{ fontSize: '1.2rem', fontWeight: 700, margin: '0 0 0.5rem 0' }}>Генерация QR-кода</h4>
+                          <h4 style={{ fontSize: '1.2rem', fontWeight: 700, margin: '0 0 0.5rem 0' }}>{t.qrGenTitle || 'QR Code Generation'}</h4>
                           <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.95rem', marginBottom: '2rem', maxWidth: '380px', margin: '0 auto 2rem auto', lineHeight: '1.6' }}>
-                            Для подключения WhatsApp сессии мы сгенерируем защищенный веб-интерфейс QR-кода.
+                            {t.waDescription || 'To connect WhatsApp session, we will generate a secure QR code web interface.'}
                           </p>
                           <button 
                             className="btn-primary" 
@@ -1729,32 +1899,32 @@ export default function BotDetails() {
                               if (res.ok) fetchChannels(); // Socket will send QR code
                             }}
                           >
-                            Сгенерировать QR-код
+                            {t.generateQR || 'Generate QR code'}
                           </button>
                         </div>
                       ) : (
                         <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '2.5rem', alignItems: 'center' }}>
                           <div>
                             <h4 style={{ margin: '0 0 1rem 0', color: '#25d366', fontWeight: 700 }}>
-                              Как отсканировать QR-код
+                              {t.howToScanQr || 'How to scan QR code'}
                             </h4>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
                               <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
                                 <div style={{ background: '#25d366', color: '#fff', width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 800, flexShrink: 0, marginTop: '2px' }}>1</div>
                                 <div style={{ fontSize: '0.92rem', lineHeight: '1.5' }}>
-                                  Откройте **WhatsApp** на вашем телефоне
+                                  {t.waStep1 || 'Open WhatsApp on your phone'}
                                 </div>
                               </div>
                               <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
                                 <div style={{ background: '#25d366', color: '#fff', width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 800, flexShrink: 0, marginTop: '2px' }}>2</div>
                                 <div style={{ fontSize: '0.92rem', lineHeight: '1.5' }}>
-                                  Перейдите в **Меню** (три точки) или **Настройки** → **Связанные устройства**
+                                  {t.waStep2 || 'Go to Menu (three dots) or Settings → Linked Devices'}
                                 </div>
                               </div>
                               <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
                                 <div style={{ background: '#25d366', color: '#fff', width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 800, flexShrink: 0, marginTop: '2px' }}>3</div>
                                 <div style={{ fontSize: '0.92rem', lineHeight: '1.5' }}>
-                                  Нажмите кнопку **Привязка устройства** и наведите камеру телефона на экран
+                                  {t.waStep3 || "Click the 'Link a Device' button and point your phone camera at the screen"}
                                 </div>
                               </div>
                             </div>
@@ -1769,7 +1939,7 @@ export default function BotDetails() {
                               color: 'var(--on-surface-variant)',
                               lineHeight: '1.5'
                             }}>
-                              🔔 **Важно:** Не закрывайте страницу до завершения сканирования. Сессия подключится автоматически.
+                              {t.qrImportant || '🔔 Important: Do not close the page until scanning is complete. The session will connect automatically.'}
                             </div>
                           </div>
                           
@@ -1793,8 +1963,8 @@ export default function BotDetails() {
                                 background: 'var(--primary)',
                                 animation: 'pulse 1.5s infinite' 
                               }} />
-                              <span style={{ fontSize: '0.85rem', color: 'var(--on-surface-variant)', fontWeight: 600 }}>
-                                Ожидание подключения с телефона...
+                              <span>
+                                {t.waitingPhone || 'Waiting for connection from phone...'}
                               </span>
                             </div>
                           </div>
@@ -1880,7 +2050,7 @@ export default function BotDetails() {
                               ? (chat.name || chat.chatId)
                               : (chat.name 
                                   ? (chat.realJid || chat.chatId).includes('@lid') ? chat.name : `+${formatChatId(chat.realJid || chat.chatId)} (${chat.name})`
-                                  : ((chat.realJid || chat.chatId).includes('@lid') ? 'Скрытый номер' : `+${formatChatId(chat.realJid || chat.chatId)}`))}
+                                  : ((chat.realJid || chat.chatId).includes('@lid') ? (t.hiddenNumber || 'Hidden number') : `+${formatChatId(chat.realJid || chat.chatId)}`))}
                           </div>
                           <Edit2 size={12} color="#666" style={{ cursor: 'pointer', opacity: 0.7 }} onClick={(e) => handleEditContactName(e, chat.chatId, chat.name || '')} />
                         </div>
@@ -1944,13 +2114,13 @@ export default function BotDetails() {
                                   ? (currentChat?.name || selectedChat)
                                   : (currentChat?.name 
                                       ? (currentChat.realJid || selectedChat).includes('@lid') ? currentChat.name : `+${formatChatId(currentChat.realJid || selectedChat)} (${currentChat.name})`
-                                      : ((currentChat?.realJid || selectedChat).includes('@lid') ? 'Скрытый номер' : `+${formatChatId(currentChat?.realJid || selectedChat)}`))}
+                                      : ((currentChat?.realJid || selectedChat).includes('@lid') ? (t.hiddenNumber || 'Hidden number') : `+${formatChatId(currentChat?.realJid || selectedChat)}`))}
                               </div>
                               <Edit2 size={12} color="#565e74" style={{ cursor: 'pointer', opacity: 0.7 }} onClick={(e) => handleEditContactName(e, selectedChat, currentChat?.name || '')} />
                             </div>
                             <div style={{ fontSize: '0.75rem', color: '#565e74', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                               <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#1e7e34' }} />
-                              Active ID: {formatChatId(currentChat?.realJid || selectedChat).slice(-4)}...
+                              {t.activeId || 'Active ID'}: {formatChatId(currentChat?.realJid || selectedChat).slice(-4)}...
                             </div>
                           </div>
                         </div>
@@ -1966,7 +2136,7 @@ export default function BotDetails() {
                               border: `1px solid ${bot?.pausedChats?.includes(selectedChat) ? '#fcd34d' : '#bbf7d0'}`
                             }}
                           >
-                            {bot?.pausedChats?.includes(selectedChat) ? <><Play size={14} /> Включить ИИ</> : <><Pause size={14} /> Отключить ИИ</>}
+                            {bot?.pausedChats?.includes(selectedChat) ? <><Play size={14} /> {t.turnOnAi || 'Turn on AI'}</> : <><Pause size={14} /> {t.turnOffAi || 'Turn off AI'}</>}
                           </button>
                           <button onClick={() => handleDeleteChat()} className="btn-action" style={{ padding: '0.5rem 0.8rem', fontSize: '0.8rem', background: '#fdf2f2', color: '#9b1c1c', border: '1px solid #fbd5d5' }}>
                             <Trash2 size={14} /> {t.clearChat}
@@ -2008,7 +2178,7 @@ export default function BotDetails() {
                           minWidth: '80px',
                           position: 'relative'
                         }}>
-                          <div style={{ paddingRight: msg.sender === 'user' ? '1rem' : '0' }}>{renderMessageContent(msg.text)}</div>
+                          <div style={{ paddingRight: msg.sender === 'user' ? '1rem' : '0' }}>{renderMessageContent(msg)}</div>
                           <div style={{ 
                             fontSize: '0.6rem', 
                             opacity: 0.6, 
@@ -2049,7 +2219,7 @@ export default function BotDetails() {
                           boxShadow: 'none'
                         }}
                         onFocus={(e) => e.target.style.boxShadow = 'none'}
-                        placeholder="Направьте бота (например: 'Будь вежливее')"
+                        placeholder={t.directBot || "Direct the bot (e.g. 'Be more polite')"}
                         onKeyDown={async (e) => {
                           if (e.key === 'Enter' && e.currentTarget.value.trim()) {
                             const newInstruction = e.currentTarget.value.trim();
@@ -2065,9 +2235,87 @@ export default function BotDetails() {
                           }
                         }}
                       />
-                      <div style={{ fontSize: '0.7rem', color: '#565e74', fontWeight: 600, opacity: 0.5 }}>ENTER TO APPLY</div>
+                      <div style={{ fontSize: '0.7rem', color: '#565e74', fontWeight: 600, opacity: 0.5 }}>{t.enterToApply || 'ENTER TO APPLY'}</div>
                     </div>
-                    <div style={{ display: 'flex', gap: '0.75rem' }}>
+                    {selectedFile && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem', background: 'var(--surface-container-low)', borderRadius: '12px', border: '1px solid var(--outline-variant)' }}>
+                        {fileType === 'image' && filePreviewUrl && (
+                          <img src={filePreviewUrl} alt="Preview" style={{ height: '100px', borderRadius: '8px', objectFit: 'cover' }} />
+                        )}
+                        {fileType === 'audio' && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem' }}>
+                            <FileAudio2 size={24} color="var(--primary)" />
+                            <span style={{ fontSize: '0.85rem', color: 'var(--on-surface)' }}>{selectedFile.name}</span>
+                          </div>
+                        )}
+                        {fileType === 'document' && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem' }}>
+                            <FileUp size={24} color="var(--primary)" />
+                            <span style={{ fontSize: '0.85rem', color: 'var(--on-surface)' }}>{selectedFile.name}</span>
+                          </div>
+                        )}
+                        <button 
+                          onClick={() => { setSelectedFile(null); setFilePreviewUrl(null); setFileType(null); }}
+                          style={{ background: 'none', border: 'none', color: 'var(--error)', cursor: 'pointer', marginLeft: 'auto', padding: '0.5rem' }}
+                        >
+                          <X size={20} />
+                        </button>
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                      <label style={{ cursor: 'pointer', padding: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--on-surface-variant)', transition: 'color 0.2s' }}>
+                        <LucideImage size={24} />
+                        <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => {
+                          if (e.target.files && e.target.files[0]) {
+                            const file = e.target.files[0];
+                            setSelectedFile(file);
+                            setFileType('image');
+                            setFilePreviewUrl(URL.createObjectURL(file));
+                          }
+                          e.target.value = '';
+                        }} />
+                      </label>
+                      <label style={{ cursor: 'pointer', padding: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--on-surface-variant)', transition: 'color 0.2s' }}>
+                        <FileAudio2 size={24} />
+                        <input type="file" accept="audio/*" style={{ display: 'none' }} onChange={e => {
+                          if (e.target.files && e.target.files[0]) {
+                            const file = e.target.files[0];
+                            setSelectedFile(file);
+                            setFileType('audio');
+                            setFilePreviewUrl(null);
+                          }
+                          e.target.value = '';
+                        }} />
+                      </label>
+                      <label style={{ cursor: 'pointer', padding: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--on-surface-variant)', transition: 'color 0.2s' }}>
+                        <FileUp size={24} />
+                        <input type="file" accept=".pdf,.docx,.txt,.doc,.xls,.xlsx,.ppt,.pptx" style={{ display: 'none' }} onChange={e => {
+                          if (e.target.files && e.target.files[0]) {
+                            const file = e.target.files[0];
+                            setSelectedFile(file);
+                            setFileType('document');
+                            setFilePreviewUrl(null);
+                          }
+                          e.target.value = '';
+                        }} />
+                      </label>
+                      <button
+                        onClick={toggleRecording}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          padding: '0.5rem',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: isRecording ? 'var(--error)' : 'var(--on-surface-variant)',
+                          transition: 'all 0.2s',
+                          animation: isRecording ? 'pulse 1.5s infinite' : 'none'
+                        }}
+                      >
+                        {isRecording ? <div style={{ width: 12, height: 12, background: 'var(--error)', borderRadius: 2 }} /> : <Mic size={24} />}
+                      </button>
                       <input
                         type="text"
                         className="premium-input"
@@ -2077,7 +2325,7 @@ export default function BotDetails() {
                         placeholder={t.takeOver}
                         style={{ flex: 1, borderRadius: '14px', padding: '0.8rem 1.2rem' }}
                       />
-                      <button onClick={handleSend} disabled={!replyText.trim()} className="btn-primary" style={{ width: '48px', height: '48px', borderRadius: '14px', padding: 0, justifyContent: 'center' }}>
+                      <button onClick={handleSend} disabled={!replyText.trim() && !selectedFile} className="btn-primary" style={{ width: '48px', height: '48px', borderRadius: '14px', padding: 0, justifyContent: 'center' }}>
                         <Send size={20} />
                       </button>
                     </div>
@@ -2093,10 +2341,10 @@ export default function BotDetails() {
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--background)' }}>
             <div style={{ padding: '1.5rem', background: 'var(--surface-container-lowest)', borderBottom: '1px solid var(--outline-variant)' }}>
               <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--on-surface)', display: 'flex', alignItems: 'center', gap: '0.75rem', margin: 0 }}>
-                <BrainCircuit size={28} color="var(--primary)" /> Взаимодействие с AI Мозгом
+                <BrainCircuit size={28} color="var(--primary)" /> {t.interactionBrain || 'Interaction with AI Brain'}
               </h2>
               <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.9rem', marginTop: '0.5rem', marginBottom: 0 }}>
-                Общайтесь с агентом напрямую для настройки его поведения и базы знаний.
+                {t.agentTabDesc || 'Communicate with the agent directly to configure its behavior and knowledge base.'}
               </p>
             </div>
             
@@ -2104,7 +2352,7 @@ export default function BotDetails() {
               {agentChatHistory.length === 0 ? (
                 <div style={{ margin: 'auto', textAlign: 'center', color: '#565e74' }}>
                   <Bot size={48} style={{ opacity: 0.1, marginBottom: '1rem' }} />
-                  <div>Напишите, что нужно изменить в поведении бота.</div>
+                  <div>{t.writeChanges || 'Write what needs to be changed in the bots behavior.'}</div>
                 </div>
               ) : agentChatHistory.map((msg, i) => (
                 <div key={i} style={{ display: 'flex', flexDirection: msg.role === 'user' ? 'row-reverse' : 'row', gap: '0.75rem', maxWidth: '85%', alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
@@ -2125,7 +2373,7 @@ export default function BotDetails() {
               ))}
               {isAgentLoading && (
                 <div style={{ alignSelf: 'flex-start', background: 'var(--surface-container-lowest)', padding: '0.8rem 1.2rem', borderRadius: '16px', borderBottomLeftRadius: '2px', color: 'var(--on-surface-variant)', fontSize: '0.9rem' }}>
-                  ИИ думает...
+                  {t.aiThinking || 'AI is thinking...'}
                 </div>
               )}
             </div>
@@ -2135,18 +2383,18 @@ export default function BotDetails() {
                 <FileUp size={20} />
                 <input type="file" accept="application/pdf" style={{ display: 'none' }} onChange={handlePdfUpload} disabled={isUploadingPdf} />
               </label>
-              <input
-                type="text"
+              <textarea
                 className="premium-input"
+                rows={3}
                 value={agentInput}
                 onChange={e => setAgentInput(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleAgentSend()}
-                placeholder="Например: 'Будь более вежливым' или 'Добавь в базу, что мы не работаем по выходным'"
-                style={{ flex: 1 }}
+                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAgentSend(); } }}
+                placeholder={t.agentInputPlaceholder || "Example: 'Be more polite' or 'Add to the database that we do not work on weekends'"}
+                style={{ flex: 1, resize: 'vertical' }}
                 disabled={isAgentLoading}
               />
               <button onClick={handleAgentSend} disabled={!agentInput.trim() || isAgentLoading} className="btn-primary" style={{ padding: '0 1.5rem' }}>
-                <Send size={18} /> Отправить
+                <Send size={18} /> {t.send || 'Send'}
               </button>
             </div>
           </div>
@@ -2157,15 +2405,6 @@ export default function BotDetails() {
           <div style={{ flex: 1, overflowY: 'auto', padding: '3rem 2rem' }}>
             <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
               
-              {qrCode && bot.platform === 'WHATSAPP' && (
-                <div className="glass-panel" style={{ padding: '3rem', textAlign: 'center', marginBottom: '3rem', display: 'flex', flexDirection: 'column', alignItems: 'center', background: '#e6f4ea', borderColor: '#c3e6cb' }}>
-                  <h3 style={{ margin: '0 0 1rem', color: '#003527', fontSize: '1.5rem' }}>{t.linkWhatsapp}</h3>
-                  <p style={{ color: '#565e74', marginBottom: '2rem' }}>{t.scanQr}</p>
-                  <div style={{ background: '#fff', padding: '1rem', borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,53,39,0.1)' }}>
-                    <img src={qrCode} alt="QR Code" style={{ width: '100%', maxWidth: '260px', height: 'auto', display: 'block' }} />
-                  </div>
-                </div>
-              )}
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
                 <h2 style={{ fontSize: '1.8rem', fontWeight: '800', color: 'var(--on-surface)', display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -2266,8 +2505,8 @@ export default function BotDetails() {
                     {faq.map((item, index) => (
                       <div key={index} style={{ display: 'flex', gap: '12px', marginBottom: '16px', alignItems: 'flex-start' }}>
                         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                          <input className="premium-input" type="text" value={item.q} onChange={e => { const newFaq = [...faq]; newFaq[index].q = e.target.value; setFaq(newFaq); }} placeholder="Вопрос" style={{ padding: '0.8rem 1rem', width: '100%' }} />
-                          <textarea className="premium-input" rows={2} style={{ padding: '0.8rem 1rem', resize: 'vertical', width: '100%' }} value={item.a} onChange={e => { const newFaq = [...faq]; newFaq[index].a = e.target.value; setFaq(newFaq); }} placeholder="Ответ" />
+                          <input className="premium-input" type="text" value={item.q} onChange={e => { const newFaq = [...faq]; newFaq[index].q = e.target.value; setFaq(newFaq); }} placeholder={t.question || "Question"} style={{ padding: '0.8rem 1rem', width: '100%' }} />
+                          <textarea className="premium-input" rows={2} style={{ padding: '0.8rem 1rem', resize: 'vertical', width: '100%' }} value={item.a} onChange={e => { const newFaq = [...faq]; newFaq[index].a = e.target.value; setFaq(newFaq); }} placeholder={t.answer || "Answer"} />
                         </div>
                         <button type="button" onClick={() => { const newFaq = faq.filter((_, i) => i !== index); setFaq(newFaq.length ? newFaq : [{q:'', a:''}]); }} style={{ padding: '0.8rem', background: 'rgba(255, 77, 79, 0.1)', color: '#ff4d4f', borderRadius: '8px', border: '1px solid rgba(255, 77, 79, 0.2)', cursor: 'pointer' }}>
                           <Trash2 size={20} />
@@ -2275,7 +2514,7 @@ export default function BotDetails() {
                       </div>
                     ))}
                     <button type="button" onClick={() => setFaq([...faq, { q: '', a: '' }])} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'transparent', border: '1px dashed rgba(255,255,255,0.2)', color: '#fff', padding: '12px', borderRadius: '8px', cursor: 'pointer', width: '100%', justifyContent: 'center', fontWeight: '600' }}>
-                      <Plus size={18} /> Добавить вопрос
+                      <Plus size={18} /> {t.addQuestion || 'Add question'}
                     </button>
                   </div>
 
@@ -2283,7 +2522,7 @@ export default function BotDetails() {
                     <label style={{ display: 'block', fontSize: '1rem', color: 'var(--on-surface)', marginBottom: '1rem', fontWeight: 600 }}>{t.usefulLinks}</label>
                     {links.map((item, index) => (
                       <div key={index} style={{ display: 'flex', gap: '12px', marginBottom: '12px', alignItems: 'center' }}>
-                        <input className="premium-input" type="text" value={item.title} onChange={e => { const newLinks = [...links]; newLinks[index].title = e.target.value; setLinks(newLinks); }} placeholder="Название (напр. Наш сайт)" style={{ flex: 1, padding: '0.8rem 1rem' }} />
+                        <input className="premium-input" type="text" value={item.title} onChange={e => { const newLinks = [...links]; newLinks[index].title = e.target.value; setLinks(newLinks); }} placeholder={t.linkName || "Name (e.g. Our website)"} style={{ flex: 1, padding: '0.8rem 1rem' }} />
                         <input className="premium-input" type="text" value={item.url} onChange={e => { const newLinks = [...links]; newLinks[index].url = e.target.value; setLinks(newLinks); }} placeholder="https://..." style={{ flex: 2, padding: '0.8rem 1rem' }} />
                         <button type="button" onClick={() => { const newLinks = links.filter((_, i) => i !== index); setLinks(newLinks.length ? newLinks : [{title:'', url:''}]); }} style={{ padding: '0.8rem', background: 'rgba(255, 77, 79, 0.1)', color: '#ff4d4f', borderRadius: '8px', border: '1px solid rgba(255, 77, 79, 0.2)', cursor: 'pointer' }}>
                           <Trash2 size={20} />
@@ -2291,7 +2530,7 @@ export default function BotDetails() {
                       </div>
                     ))}
                     <button type="button" onClick={() => setLinks([...links, { title: '', url: '' }])} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'transparent', border: '1px dashed rgba(255,255,255,0.2)', color: '#fff', padding: '12px', borderRadius: '8px', cursor: 'pointer', width: '100%', justifyContent: 'center', fontWeight: '600' }}>
-                      <Plus size={18} /> Добавить ссылку
+                      <Plus size={18} /> {t.addLink || 'Add link'}
                     </button>
                   </div>
 
@@ -2299,21 +2538,21 @@ export default function BotDetails() {
                     <label style={{ display: 'block', fontSize: '1rem', color: 'var(--on-surface)', marginBottom: '0.5rem', fontWeight: 600 }}>{t.quickFact}</label>
                     <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.85rem', marginBottom: '1rem', lineHeight: '1.4' }}>{t.quickFactHint}</p>
                     <div style={{ display: 'flex', gap: '12px' }}>
-                      <input className="premium-input" type="text" id="customFactInput" placeholder="Введите информацию..." style={{ flex: 1, padding: '0.8rem 1rem' }} onKeyDown={(e) => {
+                      <input className="premium-input" type="text" id="customFactInput" placeholder={t.enterInfo || "Enter information..."} style={{ flex: 1, padding: '0.8rem 1rem' }} onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           e.preventDefault();
                           const val = e.currentTarget.value;
-                          if (val.trim()) { setDataPrompt(prev => prev + '\n\nДополнительный факт: ' + val.trim()); e.currentTarget.value = ''; }
+                          if (val.trim()) { setDataPrompt(prev => prev + '\n\nAdditional fact: ' + val.trim()); e.currentTarget.value = ''; }
                         }
                       }} />
                       <button type="button" className="btn-primary" onClick={() => {
                         const input = document.getElementById('customFactInput') as HTMLInputElement;
                         if (input && input.value.trim()) {
-                          setDataPrompt(prev => prev + '\n\nДополнительный факт: ' + input.value.trim());
+                          setDataPrompt(prev => prev + '\n\nAdditional fact: ' + input.value.trim());
                           input.value = '';
                         }
                       }}>
-                        <Plus size={18} /> Добавить
+                        <Plus size={18} /> {t.add || 'Add'}
                       </button>
                     </div>
                   </div>
@@ -2465,8 +2704,8 @@ export default function BotDetails() {
       {tourStep !== null && (
         <div style={{
           position: 'fixed',
-          bottom: '24px',
-          right: '24px',
+          bottom: `${tourPos.bottom}px`,
+          right: `${tourPos.right}px`,
           width: '360px',
           background: 'var(--surface-container-lowest)',
           border: '1px solid var(--outline-variant)',
@@ -2492,8 +2731,8 @@ export default function BotDetails() {
               <img src="/logo.jpg" alt="Logo" style={{ width: '32px', height: '32px', borderRadius: '8px', objectFit: 'cover' }} />
             </div>
             <div>
-              <div style={{ fontWeight: 'bold', fontSize: '15px', color: 'var(--on-surface)' }}>Помощник UP-CHAT</div>
-              <div style={{ fontSize: '11px', color: 'var(--on-surface-variant)' }}>Шаг {tourStep} из 5</div>
+              <div style={{ fontWeight: 'bold', fontSize: '15px', color: 'var(--on-surface)' }}>{t.assistantTitle || "Помощник UP-CHAT"}</div>
+              <div style={{ fontSize: '11px', color: 'var(--on-surface-variant)' }}>{t.tourStepX || "Шаг"} {tourStep} {t.tourStepOf || "из"} 5</div>
             </div>
             <button 
               onClick={handleSkipTour}
@@ -2504,11 +2743,11 @@ export default function BotDetails() {
           </div>
 
           <p style={{ fontSize: '14px', lineHeight: '1.5', color: 'var(--on-surface)', margin: 0 }}>
-            {tourStep === 1 && "Ваш ИИ-ассистент успешно создан! 🎉 Теперь давайте подключим каналы связи (Telegram или WhatsApp), чтобы он мог общаться с клиентами."}
-            {tourStep === 2 && "Отлично! После подключения каналов обязательно настройте базу знаний во вкладке AI Brain. 🧠 Вы можете загрузить сюда файлы, написать описание компании и товаров, добавить полезные ссылки и FAQ. Это научит ассистента вашему продукту."}
-            {tourStep === 3 && "Вкладка Диалоги 💬 — это ваш живой пульт управления. Здесь отображаются все переписки в реальном времени. В любой момент вы можете перехватить диалог у бота и ответить клиенту лично."}
-            {tourStep === 4 && "Вкладка Конфигурация ⚙️ позволяет настраивать тон общения, цели бота, собираемые данные о лидах и тестировать ассистента в песочнице перед публикацией."}
-            {tourStep === 5 && "Вы готовы к запуску! 🚀 Теперь вы можете подключить Telegram или WhatsApp и протестировать работу вашего бота. Если возникнут вопросы — наша поддержка всегда на связи."}
+            {tourStep === 1 && (t.tourStep1 || "Ваш ИИ-помощник успешно создан! 🎉 Теперь давайте подключим каналы связи (Telegram или WhatsApp), чтобы он мог общаться с клиентами.")}
+            {tourStep === 2 && (t.tourStep2 || "Отлично! После подключения каналов, обязательно настройте базу знаний во вкладке Мозг ИИ. 🧠 Сюда вы можете загрузить файлы, написать описание компании и товаров, добавить полезные ссылки и FAQ. Это обучит помощника вашему продукту.")}
+            {tourStep === 3 && (t.tourStep3 || "Вкладка Диалоги 💬 — это ваша живая панель контроля. Здесь в реальном времени отображаются все переписки. В любой момент вы можете перехватить диалог у бота и ответить клиенту лично.")}
+            {tourStep === 4 && (t.tourStep4 || "Вкладка Настройки ⚙️ позволяет настроить тон общения, цели бота, собираемые данные лидов и протестировать помощника в песочнице перед публикацией.")}
+            {tourStep === 5 && (t.tourStep5 || "Вы готовы к запуску! 🚀 Теперь вы можете подключить Telegram или WhatsApp и тестировать вашего бота. Если возникнут вопросы — наша техподдержка всегда на связи.")}
           </p>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '8px' }}>
@@ -2536,7 +2775,7 @@ export default function BotDetails() {
                 gap: '4px'
               }}
             >
-              {tourStep === 5 ? "Завершить" : "Далее →"}
+              {tourStep === 5 ? (t.tourFinish || "Завершить") : (t.tourNext || "Далее →")}
             </button>
           </div>
         </div>

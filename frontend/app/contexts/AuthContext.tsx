@@ -11,6 +11,7 @@ interface User {
   email: string;
   messagesRemaining: number;
   totalMessagesUsed: number;
+  subscriptionPlan?: string;
 }
 
 interface AuthContextType {
@@ -68,8 +69,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     router.push('/login');
   };
 
+  const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
+  
+  if (!clientId) {
+    console.warn("AuthContext: NEXT_PUBLIC_GOOGLE_CLIENT_ID is not set in environment variables!");
+  }
+
   return (
-    <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ""}>
+    <GoogleOAuthProvider clientId={clientId}>
       <AuthContext.Provider value={{ user, loading, login, logout, refreshProfile }}>
         {children}
       </AuthContext.Provider>

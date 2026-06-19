@@ -38,10 +38,10 @@ router.post('/register', async (req, res) => {
                 email,
                 password: hashedPassword,
                 isVerified: false,
-                messagesRemaining: 1000,
+                messagesRemaining: 100,
                 messageTransactions: {
                     create: {
-                        amount: 1000,
+                        amount: 100,
                         type: 'bonus',
                         description: 'Welcome Bonus'
                     }
@@ -168,7 +168,7 @@ router.get('/profile', async (req, res) => {
         if (!user) {
             return res.status(404).json({ error: 'User not found' });
         }
-        res.json({ user: { id: user.id, name: user.name, email: user.email, messagesRemaining: user.messagesRemaining, totalMessagesUsed: user.totalMessagesUsed } });
+        res.json({ user: { id: user.id, name: user.name, email: user.email, messagesRemaining: user.messagesRemaining, totalMessagesUsed: user.totalMessagesUsed, subscriptionPlan: user.subscriptionPlan } });
     } catch (e) {
         console.error('Profile fetch error:', e);
         res.status(500).json({ error: 'Internal server error' });
@@ -206,10 +206,10 @@ router.post('/google', async (req, res) => {
                     email,
                     googleId,
                     isVerified: true,
-                    messagesRemaining: 1000,
+                    messagesRemaining: 100,
                     messageTransactions: {
                         create: {
-                            amount: 1000,
+                            amount: 100,
                             type: 'bonus',
                             description: 'Welcome Bonus (Google)'
                         }

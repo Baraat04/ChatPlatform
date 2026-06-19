@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { Bot, MessageCircle, Phone, Globe, ArrowRight, ArrowLeft, CheckCircle2, ChevronDown, Sparkles } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '../contexts/LanguageContext';
+import { translations } from '../locales/translations';
 import { API_URL } from '../config';
 
 const InstagramIcon = ({ size = 24, color = 'currentColor' }: { size?: number; color?: string }) => (
@@ -75,7 +76,9 @@ function CustomSelect({ options, value, onChange, placeholder }: any) {
     return () => document.removeEventListener('mousedown', handleOutside);
   }, [isOpen]);
 
-  const displayLabel = showCustomInput ? '✍️ Свой вариант...' : (value || placeholder);
+  const { language } = useLanguage();
+  const t = (translations as any)[language] || translations.RU;
+  const displayLabel = showCustomInput ? (t.createBotCustomOption || '✍️ Свой вариант...') : (value || placeholder);
 
   const dropdownContent = (
     <div className="cs-dropdown" style={dropdownStyle}>
@@ -115,7 +118,7 @@ function CustomSelect({ options, value, onChange, placeholder }: any) {
         onMouseOver={(e) => { if (!showCustomInput) e.currentTarget.style.background = '#f1f5f9'; }}
         onMouseOut={(e) => { if (!showCustomInput) e.currentTarget.style.background = '#ffffff'; }}
       >
-        ✍️ Свой вариант...
+        {t.createBotCustomOption || '✍️ Свой вариант...'}
       </div>
     </div>
   );
@@ -159,7 +162,7 @@ function CustomSelect({ options, value, onChange, placeholder }: any) {
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); (e.target as HTMLInputElement).blur(); } }}
-          placeholder="Напишите свой вариант здесь..."
+          placeholder={t.createBotCustomPlaceholder || "Напишите свой вариант здесь..."}
           className="input-field anim-item"
           autoFocus
           style={{ marginTop: '4px' }}
@@ -171,7 +174,8 @@ function CustomSelect({ options, value, onChange, placeholder }: any) {
 
 export default function CreateBotFast() {
   const router = useRouter();
-  const { t } = useLanguage();
+  const { language } = useLanguage();
+  const t = (translations as any)[language] || translations.RU;
   
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -190,52 +194,21 @@ export default function CreateBotFast() {
     { id: 'WHATSAPP', name: 'WhatsApp', icon: <Phone size={32} color="#22c55e" />, bg: 'rgba(34,197,94,0.1)' },
   ];
 
-  const industries = [
-    "Страхование",
-    "Право и бухгалтерия",
-    "Недвижимость",
-    "Ремонт",
-    "Строительство",
-    "Логистика и транспорт",
-    "Производство",
-    "IT и технологии",
-    "Маркетинг и реклама",
-    "Креатив и контент",
-    "HR и услуги для бизнеса",
-    "Сфера услуг",
-    "Торговля",
-    "Интернет-магазин",
-    "Красота",
-    "Медицина и здоровье",
-    "Стоматология",
-    "Косметология",
-    "Фитнес и спорт",
-    "Образование",
-    "Кафе и кофейни",
-    "Ресторанный бизнес",
-    "Автомобильный бизнес",
-    "Туризм",
-    "Отельный бизнес",
-    "Финансы"
+  const industries = (t.createBotIndustries as string[]) || [
+    "Страхование", "Право и бухгалтерия", "Недвижимость", "Ремонт", "Строительство",
+    "Логистика и транспорт", "Производство", "IT и технологии", "Маркетинг и реклама"
   ];
 
-  const tones = [
+  const tones = (t.createBotTones as string[]) || [
     "Дружелюбный и заботливый (как приятель)",
     "Строгий и деловой (корпоративный стиль)",
-    "Энергичный и продающий (мотиватор)",
-    "Лаконичный помощник (только суть, без воды)",
-    "Дерзкий и молодежный (юмор, сленг)",
-    "Успокаивающий и эмпатичный",
-    "Экспертный и академичный"
+    "Энергичный и продающий (мотиватор)"
   ];
 
-  const goals = [
+  const goals = (t.createBotGoals as string[]) || [
     "Квалифицировать заявку (задать вопросы и собрать контакты)",
     "Записать на консультацию/приём (согласовать время)",
-    "Ответить на частые вопросы (FAQ и техподдержка)",
-    "Продать товар/услугу (работа с возражениями и ценами)",
-    "Собрать отзывы после оказания услуги",
-    "Напомнить о брони или вебинаре (Follow-up)"
+    "Ответить на частые вопросы (FAQ и техподдержка)"
   ];
 
   const totalSteps = 3;
@@ -496,17 +469,17 @@ export default function CreateBotFast() {
 
   // Right Panel Content based on step
   const getRightPanelTitle = () => {
-    if (step === 1) return "Привет! 👋 Давай создадим твоего первого AI-агента.";
-    if (step === 2) return "Отлично! Расскажи немного о своём бизнесе.";
-    if (step === 3) return "Почти готово! Как твой агент должен общаться?";
-    return "Создаем магию... ✨";
+    if (step === 1) return t.createBotRightTitle1 || "Привет! 👋 Давай создадим твоего первого AI-агента.";
+    if (step === 2) return t.createBotRightTitle2 || "Отлично! Расскажи немного о своём бизнесе.";
+    if (step === 3) return t.createBotRightTitle3 || "Почти готово! Как твой агент должен общаться?";
+    return t.createBotCreating || "Создаем магию... ✨";
   };
 
   const getRightPanelDesc = () => {
-    if (step === 1) return "Выбери платформу, где бот будет встречать твоих клиентов. Ты всегда сможешь добавить другие платформы позже.";
-    if (step === 2) return "Эта информация поможет ИИ понять контекст вашей работы и лучше отвечать клиентам.";
-    if (step === 3) return "Тон общения и главная цель — это то, что отличает обычного бота от гениального AI-сотрудника.";
-    return "Пакуем нейросети, настраиваем серверы и готовим твой дашборд.";
+    if (step === 1) return t.createBotRightDesc1 || "Выбери платформу, где бот будет встречать твоих клиентов. Ты всегда сможешь добавить другие платформы позже.";
+    if (step === 2) return t.createBotRightDesc2 || "Эта информация поможет ИИ понять контекст вашей работы и лучше отвечать клиентам.";
+    if (step === 3) return t.createBotRightDesc3 || "Тон общения и главная цель — это то, что отличает обычного бота от гениального AI-сотрудника.";
+    return t.createBotCreating || "Пакуем нейросети, настраиваем серверы и готовим твой дашборд.";
   };
 
   return (
@@ -701,12 +674,12 @@ export default function CreateBotFast() {
             onClick={() => router.push('/')} 
             style={{ background: 'none', border: 'none', color: 'var(--on-surface-variant)', fontSize: '15px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', transition: 'color 0.2s', padding: '8px 0' }}
           >
-            <ArrowLeft size={18} /> На главную
+            <ArrowLeft size={18} /> {t.createBotHome || 'На главную'}
           </button>
 
           {/* Mobile step indicator */}
           <div className="mobile-step-badge">
-            Шаг {step} из {totalSteps}
+          {t.createBotStep || 'Шаг'} {step} {t.createBotOf || 'из'} {totalSteps}
           </div>
 
           {/* Prev step (only if step > 1) */}
@@ -715,7 +688,7 @@ export default function CreateBotFast() {
               onClick={prevStep} 
               style={{ background: 'var(--surface-container-high)', border: 'none', color: 'var(--on-surface)', fontSize: '14px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', transition: 'all 0.2s', padding: '8px 16px', borderRadius: '30px' }}
             >
-              <ArrowLeft size={16} /> Назад
+              <ArrowLeft size={16} /> {t.createBotBack || 'Назад'}
             </button>
           ) : <div />}
         </div>
@@ -728,7 +701,7 @@ export default function CreateBotFast() {
             {/* STEP 1: PLATFORM */}
             {step === 1 && (
               <div key="step1" className="anim-step">
-                <h2 style={{ fontSize: '28px', fontWeight: 'bold', color: 'var(--on-surface)', marginBottom: '24px' }}>Где будет работать ваш ИИ-агент?</h2>
+                <h2 style={{ fontSize: '28px', fontWeight: 'bold', color: 'var(--on-surface)', marginBottom: '24px' }}>{t.createBotTitle1 || 'Где будет работать ваш ИИ-агент?'}</h2>
                 
                 <div className="platform-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
                   {platforms.map((p, idx) => (
@@ -751,15 +724,15 @@ export default function CreateBotFast() {
             {/* STEP 2: COMPANY INFO */}
             {step === 2 && (
               <div key="step2" className="anim-step">
-                <h2 style={{ fontSize: '28px', fontWeight: 'bold', color: 'var(--on-surface)', marginBottom: '24px' }}>Базовая информация</h2>
+                <h2 style={{ fontSize: '28px', fontWeight: 'bold', color: 'var(--on-surface)', marginBottom: '24px' }}>{t.createBotTitle2 || 'Базовая информация'}</h2>
                 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                   <div className="anim-item" style={{ animationDelay: '0.1s' }}>
-                    <label style={{ display: 'block', fontSize: '15px', fontWeight: '600', color: 'var(--on-surface)', marginBottom: '8px' }}>Название компании (или ваше имя)</label>
+                    <label style={{ display: 'block', fontSize: '15px', fontWeight: '600', color: 'var(--on-surface)', marginBottom: '8px' }}>{t.createBotCompanyLabel || 'Название компании (или ваше имя)'}</label>
                     <input 
                       type="text" 
                       className="input-field" 
-                      placeholder="Например: Студия красоты 'Эйфория'" 
+                      placeholder={t.createBotCompanyPlaceholder || "Например: Студия красоты 'Эйфория'"} 
                       value={companyName}
                       onChange={(e) => setCompanyName(e.target.value)}
                       onKeyDown={(e) => {
@@ -771,13 +744,12 @@ export default function CreateBotFast() {
                   </div>
 
                   <div className="anim-item" style={{ animationDelay: '0.2s', position: 'relative', zIndex: 100 }}>
-                    <label style={{ display: 'block', fontSize: '15px', fontWeight: '600', color: 'var(--on-surface)', marginBottom: '8px' }}>Сфера деятельности</label>
+                    <label style={{ display: 'block', fontSize: '15px', fontWeight: '600', color: 'var(--on-surface)', marginBottom: '8px' }}>{t.createBotIndustryLabel || 'Сфера деятельности'}</label>
                     <CustomSelect 
                       options={industries} 
                       value={industry} 
                       onChange={setIndustry} 
-                      placeholder="Выберите сферу бизнеса..."
-                    />
+                      placeholder={t.createBotIndustryPlaceholder || "Выберите сферу бизнеса..."}                     />
                   </div>
                 </div>
               </div>
@@ -786,27 +758,25 @@ export default function CreateBotFast() {
             {/* STEP 3: AI BEHAVIOR */}
             {step === 3 && (
               <div key="step3" className="anim-step">
-                <h2 style={{ fontSize: '28px', fontWeight: 'bold', color: 'var(--on-surface)', marginBottom: '24px' }}>Настройка ИИ-агента</h2>
+                <h2 style={{ fontSize: '28px', fontWeight: 'bold', color: 'var(--on-surface)', marginBottom: '24px' }}>{t.createBotTitle3 || 'Настройка ИИ-агента'}</h2>
                 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                   <div className="anim-item" style={{ animationDelay: '0.1s', position: 'relative', zIndex: 101 }}>
-                    <label style={{ display: 'block', fontSize: '15px', fontWeight: '600', color: 'var(--on-surface)', marginBottom: '8px' }}>Формат общения ИИ-сотрудника</label>
+                    <label style={{ display: 'block', fontSize: '15px', fontWeight: '600', color: 'var(--on-surface)', marginBottom: '8px' }}>{t.createBotToneLabel || 'Формат общения ИИ-сотрудника'}</label>
                     <CustomSelect 
                       options={tones} 
                       value={tone} 
                       onChange={setTone} 
-                      placeholder="Выберите формат (тон)..."
-                    />
+                      placeholder={t.createBotTonePlaceholder || "Выберите формат (тон)..."}                     />
                   </div>
 
                   <div className="anim-item" style={{ animationDelay: '0.2s', position: 'relative', zIndex: 100 }}>
-                    <label style={{ display: 'block', fontSize: '15px', fontWeight: '600', color: 'var(--on-surface)', marginBottom: '8px' }}>Основная цель ИИ-агента</label>
+                    <label style={{ display: 'block', fontSize: '15px', fontWeight: '600', color: 'var(--on-surface)', marginBottom: '8px' }}>{t.createBotGoalLabel || 'Основная цель ИИ-агента'}</label>
                     <CustomSelect 
                       options={goals} 
                       value={goal} 
                       onChange={setGoal} 
-                      placeholder="Что должен делать бот?..."
-                    />
+                      placeholder={t.createBotGoalPlaceholder || "Что должен делать бот?..."}                     />
                   </div>
                 </div>
               </div>
@@ -841,11 +811,11 @@ export default function CreateBotFast() {
                 }}
               >
                 {isSubmitting ? (
-                  <>Создаем агента... ✨</>
+                  <>{t.createBotCreating || 'Создаем агента...'} ✨</>
                 ) : step === totalSteps ? (
-                  <>Запустить ИИ-агента <Sparkles size={20} /></>
+                  <>{t.createBotLaunch || 'Запустить ИИ-агента'} <Sparkles size={20} /></>
                 ) : (
-                  <>Далее <ArrowRight size={20} /></>
+                  <>{t.createBotNext || 'Далее'} <ArrowRight size={20} /></>
                 )}
               </button>
             </div>
@@ -876,9 +846,9 @@ export default function CreateBotFast() {
         {/* Progress Steps */}
         <div className="right-panel-steps" style={{ marginTop: 'auto', paddingTop: 'clamp(16px, 3vh, 32px)', display: 'flex', flexDirection: 'column', gap: 'clamp(12px, 2vh, 24px)' }}>
           {[
-            { num: 1, label: 'Платформа' },
-            { num: 2, label: 'Базовая информация' },
-            { num: 3, label: 'Настройка поведения' }
+            { num: 1, label: t.createBotStepPlatform || 'Платформа' },
+            { num: 2, label: t.createBotStepInfo || 'Базовая информация' },
+            { num: 3, label: t.createBotStepBehavior || 'Настройка поведения' }
           ].map((s) => {
             const isCompleted = step > s.num;
             const isActive = step === s.num;
@@ -975,7 +945,7 @@ export default function CreateBotFast() {
           </div>
 
           <h2 style={{ fontSize: '28px', fontWeight: 'bold', letterSpacing: '0.5px', marginBottom: '16px', backgroundImage: 'linear-gradient(to right, #22c55e, #10b981)', backgroundClip: 'text', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-            Активация вашего бот-ассистента...
+            {t.createBotActivating || 'Активация вашего бот-ассистента...'}
           </h2>
           
           {/* Progress sequence */}
