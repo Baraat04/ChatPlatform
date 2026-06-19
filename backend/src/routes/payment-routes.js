@@ -39,7 +39,6 @@ async function applySubscription(plan, userId) {
         where: { id: uid },
         data: {
             subscriptionPlan: plan,
-            messageLimit,
             messagesRemaining: messageLimit,
             subscriptionExpiresAt: expiresAt
         }
