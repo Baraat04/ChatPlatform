@@ -77,10 +77,19 @@ router.post('/robokassa/pay', async (req, res) => {
         const signatureString = `${MERCHANT_LOGIN}:${amountStr}:${invId}:${PASSWORD_1}:${customParams}`;
         const signature = crypto.createHash('md5').update(signatureString).digest('hex');
 
-        const paymentUrl = `https://auth.robokassa.kz/Merchant/Index.aspx?MerchantLogin=${MERCHANT_LOGIN}&OutSum=${amountStr}&InvId=${invId}&Description=${encodeURIComponent('Подписка UP-CHAT ' + plan)}&SignatureValue=${signature}&shp_plan=${shp_plan}&shp_user=${shp_user}&IsTest=${IS_TEST}`;
+        // Derive backend base URL for SuccessURL and FailURL
+        // This ensures Robokassa redirects to THIS server (not the merchant dashboard URL)
+        const backendBase = (process.env.BASE_URL || '').replace(/\/$/, '') 
+            || `http://localhost:${process.env.PORT || 3001}`;
+        const successUrl = `${backendBase}/api/payments/robokassa/success`;
+        const failUrl = `${backendBase}/api/payments/robokassa/fail`;
+
+        const paymentUrl = `https://auth.robokassa.kz/Merchant/Index.aspx?MerchantLogin=${MERCHANT_LOGIN}&OutSum=${amountStr}&InvId=${invId}&Description=${encodeURIComponent('Подписка UP-CHAT ' + plan)}&SignatureValue=${signature}&shp_plan=${shp_plan}&shp_user=${shp_user}&IsTest=${IS_TEST}&SuccessURL=${encodeURIComponent(successUrl)}&FailURL=${encodeURIComponent(failUrl)}`;
 
         console.log(`[Payment] Generated invId=${invId} plan=${plan} userId=${userId}`);
+        console.log(`[Payment] SuccessURL=${successUrl}`);
         res.json({ paymentUrl });
+
     } catch (e) {
         console.error('Robokassa pay error:', e);
         res.status(500).json({ error: 'Internal server error' });
