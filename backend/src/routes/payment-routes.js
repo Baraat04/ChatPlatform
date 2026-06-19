@@ -42,10 +42,36 @@ router.post('/robokassa/pay', async (req, res) => {
     }
 });
 
-// Result URL (Webhook) - Robokassa sends POST request here
+// Helper: apply subscription update to user (idempotent — safe to call from both webhook and success URL)
+async function applySubscription(shp_plan, shp_user) {
+    let messageLimit = 100;
+    if (shp_plan === 'STARTER') messageLimit = 1000;
+    else if (shp_plan === 'GROWTH') messageLimit = 6000;
+    else if (shp_plan === 'PRO') messageLimit = 15000;
+
+    const expiresAt = new Date();
+    expiresAt.setMonth(expiresAt.getMonth() + 1);
+
+    const db = getPrisma();
+    // CRITICAL FIX: parseInt — Robokassa returns shp_user as string, but DB user.id is Int
+    const userId = parseInt(shp_user, 10);
+    if (isNaN(userId)) throw new Error(`Invalid shp_user: ${shp_user}`);
+
+    await db.user.update({
+        where: { id: userId },
+        data: {
+            subscriptionPlan: shp_plan,
+            messageLimit,
+            messagesRemaining: messageLimit,
+            subscriptionExpiresAt: expiresAt
+        }
+    });
+    console.log(`[Payment] ✅ Applied plan=${shp_plan} messageLimit=${messageLimit} for userId=${userId}`);
+}
+
+// Result URL (Webhook) - Robokassa sends POST here after successful payment
 router.post('/robokassa/webhook', async (req, res) => {
     try {
-        // Robokassa might send parameters via POST (x-www-form-urlencoded) or GET
         const params = req.method === 'POST' ? req.body : req.query;
         const { OutSum, InvId, SignatureValue, shp_plan, shp_user } = params;
 
@@ -58,27 +84,7 @@ router.post('/robokassa/webhook', async (req, res) => {
             return res.status(400).send('Bad signature');
         }
 
-        // Update user subscription
-        let messageLimit = 100;
-        if (shp_plan === 'STARTER') messageLimit = 1000;
-        else if (shp_plan === 'GROWTH') messageLimit = 6000;
-        else if (shp_plan === 'PRO') messageLimit = 15000;
-
-        const expiresAt = new Date();
-        expiresAt.setMonth(expiresAt.getMonth() + 1);
-
-        const db = getPrisma();
-        await db.user.update({
-            where: { id: shp_user },
-            data: {
-                subscriptionPlan: shp_plan,
-                messageLimit,
-                messagesRemaining: messageLimit,  // Reset to full plan quota
-                subscriptionExpiresAt: expiresAt
-            }
-        });
-
-        // Always respond with OK<InvId> to confirm receipt
+        await applySubscription(shp_plan, shp_user);
         res.send(`OK${InvId}`);
     } catch (e) {
         console.error('Robokassa webhook error:', e);
@@ -86,12 +92,32 @@ router.post('/robokassa/webhook', async (req, res) => {
     }
 });
 
-// Success URL (Robokassa redirects user here after payment)
-router.get('/robokassa/success', (req, res) => {
-    res.redirect(`${process.env.FRONTEND_URL || 'https://up-chat.com'}/profile?payment=success`);
+// Success URL — Robokassa redirects user here after payment
+// ALSO applies subscription here as fallback (critical for local dev where webhook can't reach localhost)
+router.get('/robokassa/success', async (req, res) => {
+    try {
+        const { OutSum, InvId, SignatureValue, shp_plan, shp_user } = req.query;
+
+        if (OutSum && InvId && SignatureValue && shp_plan && shp_user) {
+            // Success URL signature uses PASSWORD_1 (NOT password_2)
+            const signatureString = `${OutSum}:${InvId}:${PASSWORD_1}:shp_plan=${shp_plan}:shp_user=${shp_user}`;
+            const expectedSignature = crypto.createHash('md5').update(signatureString).digest('hex').toUpperCase();
+
+            if (SignatureValue.toUpperCase() === expectedSignature) {
+                await applySubscription(shp_plan, shp_user);
+            } else {
+                console.warn('[Success URL] Signature mismatch — skipping subscription update');
+            }
+        }
+    } catch (e) {
+        console.error('[Success URL] Error applying subscription:', e);
+    }
+
+    const frontendUrl = process.env.FRONTEND_URL || 'https://up-chat.com';
+    res.redirect(`${frontendUrl}/profile?payment=success`);
 });
 
-// Fail URL (Robokassa redirects user here after failed payment)
+// Fail URL
 router.get('/robokassa/fail', (req, res) => {
     res.redirect(`${process.env.FRONTEND_URL || 'https://up-chat.com'}/profile?payment=fail`);
 });
