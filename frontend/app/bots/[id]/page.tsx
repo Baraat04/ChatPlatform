@@ -51,7 +51,8 @@ const DATA_FIELDS = [
 ];
 
 function CustomSelect({ options, displayOptions, value, onChange, placeholder }: any) {
-  const t = translations.EN;
+  const { language } = useLanguage();
+  const t = (translations as any)[language] || translations.RU;
   const [isOpen, setIsOpen] = useState(false);
   const [customInput, setCustomInput] = useState('');
   const [isAddingCustom, setIsAddingCustom] = useState(false);
@@ -140,7 +141,8 @@ function CustomSelect({ options, displayOptions, value, onChange, placeholder }:
 }
 
 function CustomMultiSelect({ options, displayOptions, value, onChange, placeholder }: any) {
-  const t = translations.EN;
+  const { language } = useLanguage();
+  const t = (translations as any)[language] || translations.RU;
   const [isOpen, setIsOpen] = useState(false);
   const [customInput, setCustomInput] = useState('');
   const [isAddingCustom, setIsAddingCustom] = useState(false);
@@ -294,7 +296,8 @@ interface Channel {
 
 
 export default function BotDetails() {
-  const t = translations.EN;
+  const { language } = useLanguage();
+  const t = (translations as any)[language] || translations.RU;
   const { user } = useAuth();
   const params = useParams();
   const router = useRouter();
@@ -351,7 +354,7 @@ export default function BotDetails() {
         setIsRecording(true);
       } catch (error) {
         console.error('Error accessing microphone:', error);
-        alert('Не удалось получить доступ к микрофону. Пожалуйста, проверьте разрешения.');
+        alert(t.micError || 'Не удалось получить доступ к микрофону. Пожалуйста, проверьте разрешения.');
       }
     }
   };
@@ -365,7 +368,12 @@ export default function BotDetails() {
     const tourKey = `up_tour_done_${botId}`;
     const tourDone = localStorage.getItem(tourKey);
     if (isNewBot && !tourDone) {
-      const timer = setTimeout(() => setTourStep(1), 600);
+      // Mark immediately so it never shows again, even if user closes mid-tour
+      localStorage.setItem(tourKey, 'true');
+      const timer = setTimeout(() => {
+        setTourStep(1);
+        window.dispatchEvent(new Event('tour_started'));
+      }, 600);
       return () => clearTimeout(timer);
     }
   }, [botId, searchParams]);
@@ -386,13 +394,30 @@ export default function BotDetails() {
     } else if (tourStep === 5) {
       setTourStep(null);
       localStorage.setItem(`up_tour_done_${botId}`, 'true');
+      window.dispatchEvent(new Event('tour_finished'));
     }
   };
 
   const handleSkipTour = () => {
     setTourStep(null);
     localStorage.setItem(`up_tour_done_${botId}`, 'true');
+    window.dispatchEvent(new Event('tour_finished'));
   };
+
+  const [tourPos, setTourPos] = useState({ bottom: 104, right: 24 });
+  
+  useEffect(() => {
+    const handleWidgetMoved = (e: any) => {
+      if (e.detail) {
+        setTourPos({ 
+          bottom: e.detail.bottom + 76,
+          right: Math.max(24, e.detail.right - 296)
+        });
+      }
+    };
+    window.addEventListener('widget_moved', handleWidgetMoved);
+    return () => window.removeEventListener('widget_moved', handleWidgetMoved);
+  }, []);
   
   // Channels States
   const [channels, setChannels] = useState<Channel[]>([]);
@@ -757,7 +782,7 @@ export default function BotDetails() {
       setSelectedFile(null);
       setFilePreviewUrl(null);
       setFileType(null);
-    } else alert('Не удалось отправить: ' + (await res.json().catch(() => ({}))).error);
+    } else alert((t.sendError || 'Failed to send: ') + (await res.json().catch(() => ({}))).error);
   }
 
   async function handleToggleActive() {
@@ -766,7 +791,7 @@ export default function BotDetails() {
     const endpoint = bot.isActive ? 'pause' : 'start';
     const res = await fetch(`${API}/bot/${botId}/${endpoint}`, { method: 'POST', credentials: 'include' });
     if (res.ok) await fetchBot();
-    else alert('Ошибка при изменении статуса бота');
+    else alert(t.statusChangeError || 'Error changing bot status');
     setIsTogglingActive(false);
   }
 
@@ -1299,7 +1324,7 @@ export default function BotDetails() {
         {([
           ['chats', <MessageSquare size={16} />, t.chats || 'Dialogs'],
           ['channels', <Phone size={16} />, t.channels || 'Channels'],
-          ['agent', <BrainCircuit size={16} />, 'AI Brain'], 
+          ['agent', <BrainCircuit size={16} />, t.aiBrain || 'AI Brain'], 
           ['settings', <Bot size={16} />, t.settings || 'Configuration'], 
           ['broadcast', <Radio size={16} />, t.campaigns]
         ] as const)
@@ -1323,10 +1348,10 @@ export default function BotDetails() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem', borderBottom: '1px solid var(--outline-variant)', paddingBottom: '1.5rem' }}>
                 <div>
                   <h2 style={{ margin: 0, fontSize: '1.8rem', fontWeight: 800, color: 'var(--on-surface)', letterSpacing: '-0.5px' }}>
-                    Каналы связи
+                    {t.channelsTitle || 'Communication Channels'}
                   </h2>
                   <p style={{ margin: '0.4rem 0 0 0', color: 'var(--on-surface-variant)', fontSize: '0.92rem' }}>
-                    Подключайте внешние мессенджеры для автоматической работы вашего AI ассистента.
+                    {t.channelsSub || 'Connect external messengers for automated AI responses.'}
                   </p>
                 </div>
                 {!isAddingChannel && (
@@ -1344,7 +1369,7 @@ export default function BotDetails() {
                       transition: 'all 0.3s ease'
                     }}
                   >
-                    <Plus size={18} /> Подключить новый канал
+                    <Plus size={18} /> {t.connectNewChannel || 'Connect new channel'}
                   </button>
                 )}
               </div>
@@ -1374,9 +1399,9 @@ export default function BotDetails() {
                   }}>
                     <Phone size={36} color="var(--primary)" />
                   </div>
-                  <h3 style={{ margin: '0 0 0.8rem 0', fontSize: '1.4rem', fontWeight: 700, color: 'var(--on-surface)' }}>У вас нет активных каналов</h3>
+                  <h3 style={{ margin: '0 0 0.8rem 0', fontSize: '1.4rem', fontWeight: 700, color: 'var(--on-surface)' }}>{t.noChannels || 'No active channels'}</h3>
                   <p style={{ color: 'var(--on-surface-variant)', marginBottom: '2rem', fontSize: '1rem', maxWidth: '460px', margin: '0 auto 2rem auto', lineHeight: '1.6' }}>
-                    Подключите Telegram Bot или WhatsApp, чтобы ваш искусственный интеллект начал мгновенно отвечать клиентам 24/7.
+                    {t.noChannelsHint || 'Connect Telegram Bot or WhatsApp so your AI assistant can instantly respond to clients 24/7.'}
                   </p>
                   <button 
                     onClick={() => setIsAddingChannel(true)} 
@@ -1462,7 +1487,7 @@ export default function BotDetails() {
                               </div>
                               <div>
                                 <div style={{ fontWeight: 800, fontSize: '1.25rem', color: 'var(--on-surface)' }}>
-                                  {isTg ? 'Telegram Bot' : isIg ? 'Instagram API' : 'WhatsApp Client'}
+                                  {isTg ? (t.telegramBot || 'Telegram Bot') : isIg ? (t.instagramApi || 'Instagram API') : (t.whatsappClient || 'WhatsApp Client')}
                                 </div>
                                 <div style={{ fontSize: '0.82rem', color: 'var(--on-surface-variant)', fontFamily: 'monospace', background: 'var(--surface-container-high)', padding: '2px 8px', borderRadius: '6px', display: 'inline-block', marginTop: '0.2rem' }}>
                                   ID: {channel.slug}
@@ -1480,7 +1505,7 @@ export default function BotDetails() {
                                 boxShadow: channel.isActive ? '0 0 8px rgba(37,211,102,0.6)' : 'none'
                               }} />
                               <span style={{ fontSize: '0.85rem', fontWeight: 600, color: channel.isActive ? '#1e7e34' : '#9b1c1c' }}>
-                                {channel.isActive ? 'Connected' : 'Paused'}
+                                {channel.isActive ? (t.connected || 'Connected') : (t.paused || 'Paused')}
                               </span>
                             </div>
                           </div>
@@ -1488,7 +1513,7 @@ export default function BotDetails() {
 
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.5rem', paddingTop: '1.2rem', borderTop: '1px solid var(--outline-variant)' }}>
                           <span style={{ fontSize: '0.82rem', color: 'var(--on-surface-variant)' }}>
-                            Message Reception Control
+                            {t.msgReception || 'Message Reception Control'}
                           </span>
                           <div style={{ display: 'flex', gap: '0.6rem' }}>
                             <button 
@@ -1512,11 +1537,11 @@ export default function BotDetails() {
                                 transition: 'all 0.2s'
                               }}
                             >
-                              {channel.isActive ? <><Pause size={14} /> Pause</> : <><Play size={14} /> Start</>}
+                              {channel.isActive ? <><Pause size={14} /> {t.paused || 'Pause'}</> : <><Play size={14} /> {t.startAgent || 'Start'}</>}
                             </button>
                             <button 
                               onClick={async () => {
-                                if (!confirm('Are you sure you want to disconnect and delete this communication channel?')) return;
+                                if (!confirm(t.deleteChannelConfirm || 'Are you sure you want to disconnect and delete this communication channel?')) return;
                                 await fetch(`${API}/bot/${botId}/channels/${channel.id}`, { method: 'DELETE', credentials: 'include' });
                                 fetchChannels();
                               }} 
@@ -1573,10 +1598,10 @@ export default function BotDetails() {
                     </button>
                     <div>
                       <h3 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 800 }}>
-                        {!newChannelPlatform ? 'Platform Selection' : newChannelPlatform === 'TELEGRAM' ? 'Connect Telegram' : 'Connect WhatsApp'}
+                        {!newChannelPlatform ? (t.platformSelection || 'Platform Selection') : newChannelPlatform === 'TELEGRAM' ? (t.connectTelegram || 'Connect Telegram') : newChannelPlatform === 'INSTAGRAM' ? (t.connectInstagram || 'Connect Instagram') : (t.connectWhatsapp || 'Connect WhatsApp')}
                       </h3>
                       <p style={{ margin: '0.2rem 0 0 0', color: 'var(--on-surface-variant)', fontSize: '0.85rem' }}>
-                        {!newChannelPlatform ? 'Select messenger for integration' : `Step to connect bot to your account`}
+                        {!newChannelPlatform ? (t.selectMessenger || 'Select messenger for integration') : (t.stepToConnect || 'Step to connect bot to your account')}
                       </p>
                     </div>
                   </div>
@@ -1618,7 +1643,7 @@ export default function BotDetails() {
                         </div>
                         <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1.3rem', fontWeight: 700 }}>Telegram Bot</h4>
                         <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--on-surface-variant)', lineHeight: '1.5' }}>
-                          Ideal for official bots, broadcasts, buttons, and channels.
+                          {t.tgDescription || 'Ideal for official bots, broadcasts, buttons, and channels.'}
                         </p>
                       </div>
 
@@ -1654,7 +1679,7 @@ export default function BotDetails() {
                         </div>
                         <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1.3rem', fontWeight: 700 }}>WhatsApp</h4>
                         <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--on-surface-variant)', lineHeight: '1.5' }}>
-                          Direct work with personal numbers. Quick start via QR scanning.
+                          {t.waDescription || 'Direct work with personal numbers. Quick start via QR scanning.'}
                         </p>
                       </div>
 
@@ -1692,7 +1717,7 @@ export default function BotDetails() {
                           </div>
                           <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1.3rem', fontWeight: 700 }}>Instagram</h4>
                           <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--on-surface-variant)', lineHeight: '1.5' }}>
-                            Test connection of Instagram channel via Meta API.
+                            {t.igDescription || 'Test connection of Instagram channel via Meta API.'}
                           </p>
                         </div>
                       )}
@@ -1712,7 +1737,7 @@ export default function BotDetails() {
                     <div>
                       <div style={{ background: 'rgba(34, 158, 217, 0.05)', border: '1px solid rgba(34, 158, 217, 0.15)', padding: '1.8rem', borderRadius: '20px', marginBottom: '2rem' }}>
                         <h4 style={{ margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.6rem', color: '#229ed9', fontWeight: 700 }}>
-                          Instructions for connecting Telegram
+                          {t.connectTelegram || 'Instructions for connecting Telegram'}
                         </h4>
                         
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -1726,21 +1751,21 @@ export default function BotDetails() {
                           <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
                             <div style={{ background: '#229ed9', color: '#fff', width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 800, flexShrink: 0, marginTop: '2px' }}>2</div>
                             <div style={{ fontSize: '0.92rem', lineHeight: '1.5' }}>
-                              Send him the command <code style={{ background: 'var(--surface-container-highest)', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold' }}>/newbot</code> to create a new bot
+                              {t.tgStep2 || 'Send him the command /newbot to create a new bot'}
                             </div>
                           </div>
 
                           <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
                             <div style={{ background: '#229ed9', color: '#fff', width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 800, flexShrink: 0, marginTop: '2px' }}>3</div>
                             <div style={{ fontSize: '0.92rem', lineHeight: '1.5' }}>
-                              Give the bot a name and a unique username (ending in <code style={{ fontWeight: 'bold' }}>_bot</code>)
+                              {t.tgStep3 || 'Give the bot a name and a unique username (ending in _bot)'}
                             </div>
                           </div>
 
                           <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
                             <div style={{ background: '#229ed9', color: '#fff', width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 800, flexShrink: 0, marginTop: '2px' }}>4</div>
                             <div style={{ fontSize: '0.92rem', lineHeight: '1.5' }}>
-                              Copy the received **API Token** and enter it in the text field below
+                              {t.tgStep4 || 'Copy the API Token and enter it in the field below'}
                             </div>
                           </div>
                         </div>
@@ -1748,7 +1773,7 @@ export default function BotDetails() {
                       
                       <div style={{ marginBottom: '1.8rem' }}>
                         <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.6rem', color: 'var(--on-surface-variant)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                          Bot Token (API HTTP Token)
+                          {t.telegramToken || 'Bot Token (API HTTP Token)'}
                         </label>
                         <input 
                           type="text" 
@@ -1783,23 +1808,23 @@ export default function BotDetails() {
                           }
                         }}
                       >
-                        {isSaving ? 'Connectedие канала...' : 'Connect Telegram Bot'}
+                        {isSaving ? (t.saving || 'Connecting...') : (t.connectTelegram || 'Connect Telegram Bot')}
                       </button>
                     </div>
                   ) : newChannelPlatform === 'INSTAGRAM' ? (
                     <div>
                       <div style={{ background: 'rgba(225, 48, 108, 0.05)', border: '1px solid rgba(225, 48, 108, 0.15)', padding: '1.8rem', borderRadius: '20px', marginBottom: '2rem' }}>
                         <h4 style={{ margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.6rem', color: '#E1306C', fontWeight: 700 }}>
-                          Connectedие Instagram API
+                          {t.connectInstagram || 'Connect Instagram API'}
                         </h4>
                         <p style={{ fontSize: '0.92rem', lineHeight: '1.5', color: 'var(--on-surface-variant)' }}>
-                          Enter Meta API settings to connect Instagram account (Page Access Token).
+                          {t.metaTokenHint || 'Enter Meta API settings to connect Instagram account (Page Access Token).'}
                         </p>
                       </div>
                       
                       <div style={{ marginBottom: '1.8rem' }}>
                         <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.6rem', color: 'var(--on-surface-variant)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                          Meta Page Access Token
+                          {t.metaPageToken || 'Meta Page Access Token'}
                         </label>
                         <input 
                           type="text" 
@@ -1834,7 +1859,7 @@ export default function BotDetails() {
                           }
                         }}
                       >
-                        {isSaving ? 'Connectedие канала...' : 'Connect Instagram'}
+                        {isSaving ? (t.saving || 'Connecting...') : (t.connectInstagram || 'Connect Instagram')}
                       </button>
                     </div>
                   ) : (
@@ -1857,9 +1882,9 @@ export default function BotDetails() {
                               <path d="M12.01 2C6.48 2 2 6.48 2 12.01C2 13.86 2.5 15.6 3.39 17.12L2.01 22.01L7.04 20.72C8.5 21.54 10.19 22.01 12 22.01C17.53 22.01 22 17.53 22 12.01C22 6.48 17.53 2 12.01 2ZM17.19 15.61C16.98 16.2 16.03 16.71 15.46 16.82C14.99 16.91 14.37 16.97 12.31 16.12C9.66 15.02 7.95 12.33 7.82 12.15C7.69 11.97 6.74 10.71 6.74 9.41C6.74 8.11 7.4 7.47 7.67 7.21C7.94 6.95 8.38 6.84 8.81 6.84C8.95 6.84 9.07 6.85 9.17 6.85C9.47 6.86 9.62 7.04 9.72 7.28L10.51 9.19C10.6 9.4 10.69 9.63 10.55 9.91C10.41 10.19 10.3 10.32 10.1 10.55L9.61 11.12C9.46 11.29 9.3 11.47 9.49 11.8C9.68 12.12 10.33 13.18 11.29 14.04C12.53 15.15 13.55 15.5 13.9 15.65C14.23 15.79 14.43 15.76 14.62 15.54C14.86 15.26 15.39 14.62 15.72 14.15C15.98 13.78 16.3 13.84 16.63 13.96L18.66 14.96C18.99 15.12 19.22 15.2 19.3 15.34C19.38 15.48 19.38 16.15 19.1 16.74C18.82 17.33 17.47 17.9 16.88 17.9C16.88 17.9 16.89 17.9 16.88 17.9C16.88 17.9 12.63 17.06 17.19 15.61Z"/>
                             </svg>
                           </div>
-                          <h4 style={{ fontSize: '1.2rem', fontWeight: 700, margin: '0 0 0.5rem 0' }}>QR Code Generation</h4>
+                          <h4 style={{ fontSize: '1.2rem', fontWeight: 700, margin: '0 0 0.5rem 0' }}>{t.qrGenTitle || 'QR Code Generation'}</h4>
                           <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.95rem', marginBottom: '2rem', maxWidth: '380px', margin: '0 auto 2rem auto', lineHeight: '1.6' }}>
-                            To connect WhatsApp session, we will generate a secure QR code web interface.
+                            {t.waDescription || 'To connect WhatsApp session, we will generate a secure QR code web interface.'}
                           </p>
                           <button 
                             className="btn-primary" 
@@ -1874,32 +1899,32 @@ export default function BotDetails() {
                               if (res.ok) fetchChannels(); // Socket will send QR code
                             }}
                           >
-                            Generate QR code
+                            {t.generateQR || 'Generate QR code'}
                           </button>
                         </div>
                       ) : (
                         <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '2.5rem', alignItems: 'center' }}>
                           <div>
                             <h4 style={{ margin: '0 0 1rem 0', color: '#25d366', fontWeight: 700 }}>
-                              How to scan QR code
+                              {t.howToScanQr || 'How to scan QR code'}
                             </h4>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
                               <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
                                 <div style={{ background: '#25d366', color: '#fff', width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 800, flexShrink: 0, marginTop: '2px' }}>1</div>
                                 <div style={{ fontSize: '0.92rem', lineHeight: '1.5' }}>
-                                  Open **WhatsApp** on your phone
+                                  {t.waStep1 || 'Open WhatsApp on your phone'}
                                 </div>
                               </div>
                               <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
                                 <div style={{ background: '#25d366', color: '#fff', width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 800, flexShrink: 0, marginTop: '2px' }}>2</div>
                                 <div style={{ fontSize: '0.92rem', lineHeight: '1.5' }}>
-                                  Go to **Menu** (three dots) or **Settings** → **Linked Devices**
+                                  {t.waStep2 || 'Go to Menu (three dots) or Settings → Linked Devices'}
                                 </div>
                               </div>
                               <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
                                 <div style={{ background: '#25d366', color: '#fff', width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 800, flexShrink: 0, marginTop: '2px' }}>3</div>
                                 <div style={{ fontSize: '0.92rem', lineHeight: '1.5' }}>
-                                  Click the **Link a Device** button and point your phone camera at the screen
+                                  {t.waStep3 || "Click the 'Link a Device' button and point your phone camera at the screen"}
                                 </div>
                               </div>
                             </div>
@@ -1914,7 +1939,7 @@ export default function BotDetails() {
                               color: 'var(--on-surface-variant)',
                               lineHeight: '1.5'
                             }}>
-                              🔔 **Important:** Do not close the page until scanning is complete. The session will connect automatically.
+                              {t.qrImportant || '🔔 Important: Do not close the page until scanning is complete. The session will connect automatically.'}
                             </div>
                           </div>
                           
@@ -1938,8 +1963,8 @@ export default function BotDetails() {
                                 background: 'var(--primary)',
                                 animation: 'pulse 1.5s infinite' 
                               }} />
-                              <span style={{ fontSize: '0.85rem', color: 'var(--on-surface-variant)', fontWeight: 600 }}>
-                                Waiting for connection from phone...
+                              <span>
+                                {t.waitingPhone || 'Waiting for connection from phone...'}
                               </span>
                             </div>
                           </div>
@@ -2025,7 +2050,7 @@ export default function BotDetails() {
                               ? (chat.name || chat.chatId)
                               : (chat.name 
                                   ? (chat.realJid || chat.chatId).includes('@lid') ? chat.name : `+${formatChatId(chat.realJid || chat.chatId)} (${chat.name})`
-                                  : ((chat.realJid || chat.chatId).includes('@lid') ? 'Hidden number' : `+${formatChatId(chat.realJid || chat.chatId)}`))}
+                                  : ((chat.realJid || chat.chatId).includes('@lid') ? (t.hiddenNumber || 'Hidden number') : `+${formatChatId(chat.realJid || chat.chatId)}`))}
                           </div>
                           <Edit2 size={12} color="#666" style={{ cursor: 'pointer', opacity: 0.7 }} onClick={(e) => handleEditContactName(e, chat.chatId, chat.name || '')} />
                         </div>
@@ -2089,13 +2114,13 @@ export default function BotDetails() {
                                   ? (currentChat?.name || selectedChat)
                                   : (currentChat?.name 
                                       ? (currentChat.realJid || selectedChat).includes('@lid') ? currentChat.name : `+${formatChatId(currentChat.realJid || selectedChat)} (${currentChat.name})`
-                                      : ((currentChat?.realJid || selectedChat).includes('@lid') ? 'Hidden number' : `+${formatChatId(currentChat?.realJid || selectedChat)}`))}
+                                      : ((currentChat?.realJid || selectedChat).includes('@lid') ? (t.hiddenNumber || 'Hidden number') : `+${formatChatId(currentChat?.realJid || selectedChat)}`))}
                               </div>
                               <Edit2 size={12} color="#565e74" style={{ cursor: 'pointer', opacity: 0.7 }} onClick={(e) => handleEditContactName(e, selectedChat, currentChat?.name || '')} />
                             </div>
                             <div style={{ fontSize: '0.75rem', color: '#565e74', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                               <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#1e7e34' }} />
-                              Active ID: {formatChatId(currentChat?.realJid || selectedChat).slice(-4)}...
+                              {t.activeId || 'Active ID'}: {formatChatId(currentChat?.realJid || selectedChat).slice(-4)}...
                             </div>
                           </div>
                         </div>
@@ -2111,7 +2136,7 @@ export default function BotDetails() {
                               border: `1px solid ${bot?.pausedChats?.includes(selectedChat) ? '#fcd34d' : '#bbf7d0'}`
                             }}
                           >
-                            {bot?.pausedChats?.includes(selectedChat) ? <><Play size={14} /> Turn on AI</> : <><Pause size={14} /> Turn off AI</>}
+                            {bot?.pausedChats?.includes(selectedChat) ? <><Play size={14} /> {t.turnOnAi || 'Turn on AI'}</> : <><Pause size={14} /> {t.turnOffAi || 'Turn off AI'}</>}
                           </button>
                           <button onClick={() => handleDeleteChat()} className="btn-action" style={{ padding: '0.5rem 0.8rem', fontSize: '0.8rem', background: '#fdf2f2', color: '#9b1c1c', border: '1px solid #fbd5d5' }}>
                             <Trash2 size={14} /> {t.clearChat}
@@ -2194,7 +2219,7 @@ export default function BotDetails() {
                           boxShadow: 'none'
                         }}
                         onFocus={(e) => e.target.style.boxShadow = 'none'}
-                        placeholder="Direct the bot (e.g. 'Be more polite')"
+                        placeholder={t.directBot || "Direct the bot (e.g. 'Be more polite')"}
                         onKeyDown={async (e) => {
                           if (e.key === 'Enter' && e.currentTarget.value.trim()) {
                             const newInstruction = e.currentTarget.value.trim();
@@ -2210,7 +2235,7 @@ export default function BotDetails() {
                           }
                         }}
                       />
-                      <div style={{ fontSize: '0.7rem', color: '#565e74', fontWeight: 600, opacity: 0.5 }}>ENTER TO APPLY</div>
+                      <div style={{ fontSize: '0.7rem', color: '#565e74', fontWeight: 600, opacity: 0.5 }}>{t.enterToApply || 'ENTER TO APPLY'}</div>
                     </div>
                     {selectedFile && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem', background: 'var(--surface-container-low)', borderRadius: '12px', border: '1px solid var(--outline-variant)' }}>
@@ -2316,10 +2341,10 @@ export default function BotDetails() {
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--background)' }}>
             <div style={{ padding: '1.5rem', background: 'var(--surface-container-lowest)', borderBottom: '1px solid var(--outline-variant)' }}>
               <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--on-surface)', display: 'flex', alignItems: 'center', gap: '0.75rem', margin: 0 }}>
-                <BrainCircuit size={28} color="var(--primary)" /> Interaction with AI Brain
+                <BrainCircuit size={28} color="var(--primary)" /> {t.interactionBrain || 'Interaction with AI Brain'}
               </h2>
               <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.9rem', marginTop: '0.5rem', marginBottom: 0 }}>
-                Communicate with the agent directly to configure its behavior and knowledge base.
+                {t.agentTabDesc || 'Communicate with the agent directly to configure its behavior and knowledge base.'}
               </p>
             </div>
             
@@ -2327,7 +2352,7 @@ export default function BotDetails() {
               {agentChatHistory.length === 0 ? (
                 <div style={{ margin: 'auto', textAlign: 'center', color: '#565e74' }}>
                   <Bot size={48} style={{ opacity: 0.1, marginBottom: '1rem' }} />
-                  <div>Write what needs to be changed in the bots behavior.</div>
+                  <div>{t.writeChanges || 'Write what needs to be changed in the bots behavior.'}</div>
                 </div>
               ) : agentChatHistory.map((msg, i) => (
                 <div key={i} style={{ display: 'flex', flexDirection: msg.role === 'user' ? 'row-reverse' : 'row', gap: '0.75rem', maxWidth: '85%', alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
@@ -2348,7 +2373,7 @@ export default function BotDetails() {
               ))}
               {isAgentLoading && (
                 <div style={{ alignSelf: 'flex-start', background: 'var(--surface-container-lowest)', padding: '0.8rem 1.2rem', borderRadius: '16px', borderBottomLeftRadius: '2px', color: 'var(--on-surface-variant)', fontSize: '0.9rem' }}>
-                  AI is thinking...
+                  {t.aiThinking || 'AI is thinking...'}
                 </div>
               )}
             </div>
@@ -2364,12 +2389,12 @@ export default function BotDetails() {
                 value={agentInput}
                 onChange={e => setAgentInput(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAgentSend(); } }}
-                placeholder="Example: 'Be more polite' or 'Add to the database that we do not work on weekends'"
+                placeholder={t.agentInputPlaceholder || "Example: 'Be more polite' or 'Add to the database that we do not work on weekends'"}
                 style={{ flex: 1, resize: 'vertical' }}
                 disabled={isAgentLoading}
               />
               <button onClick={handleAgentSend} disabled={!agentInput.trim() || isAgentLoading} className="btn-primary" style={{ padding: '0 1.5rem' }}>
-                <Send size={18} /> Send
+                <Send size={18} /> {t.send || 'Send'}
               </button>
             </div>
           </div>
@@ -2480,8 +2505,8 @@ export default function BotDetails() {
                     {faq.map((item, index) => (
                       <div key={index} style={{ display: 'flex', gap: '12px', marginBottom: '16px', alignItems: 'flex-start' }}>
                         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                          <input className="premium-input" type="text" value={item.q} onChange={e => { const newFaq = [...faq]; newFaq[index].q = e.target.value; setFaq(newFaq); }} placeholder="Question" style={{ padding: '0.8rem 1rem', width: '100%' }} />
-                          <textarea className="premium-input" rows={2} style={{ padding: '0.8rem 1rem', resize: 'vertical', width: '100%' }} value={item.a} onChange={e => { const newFaq = [...faq]; newFaq[index].a = e.target.value; setFaq(newFaq); }} placeholder="Answer" />
+                          <input className="premium-input" type="text" value={item.q} onChange={e => { const newFaq = [...faq]; newFaq[index].q = e.target.value; setFaq(newFaq); }} placeholder={t.question || "Question"} style={{ padding: '0.8rem 1rem', width: '100%' }} />
+                          <textarea className="premium-input" rows={2} style={{ padding: '0.8rem 1rem', resize: 'vertical', width: '100%' }} value={item.a} onChange={e => { const newFaq = [...faq]; newFaq[index].a = e.target.value; setFaq(newFaq); }} placeholder={t.answer || "Answer"} />
                         </div>
                         <button type="button" onClick={() => { const newFaq = faq.filter((_, i) => i !== index); setFaq(newFaq.length ? newFaq : [{q:'', a:''}]); }} style={{ padding: '0.8rem', background: 'rgba(255, 77, 79, 0.1)', color: '#ff4d4f', borderRadius: '8px', border: '1px solid rgba(255, 77, 79, 0.2)', cursor: 'pointer' }}>
                           <Trash2 size={20} />
@@ -2489,7 +2514,7 @@ export default function BotDetails() {
                       </div>
                     ))}
                     <button type="button" onClick={() => setFaq([...faq, { q: '', a: '' }])} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'transparent', border: '1px dashed rgba(255,255,255,0.2)', color: '#fff', padding: '12px', borderRadius: '8px', cursor: 'pointer', width: '100%', justifyContent: 'center', fontWeight: '600' }}>
-                      <Plus size={18} /> Add question
+                      <Plus size={18} /> {t.addQuestion || 'Add question'}
                     </button>
                   </div>
 
@@ -2497,7 +2522,7 @@ export default function BotDetails() {
                     <label style={{ display: 'block', fontSize: '1rem', color: 'var(--on-surface)', marginBottom: '1rem', fontWeight: 600 }}>{t.usefulLinks}</label>
                     {links.map((item, index) => (
                       <div key={index} style={{ display: 'flex', gap: '12px', marginBottom: '12px', alignItems: 'center' }}>
-                        <input className="premium-input" type="text" value={item.title} onChange={e => { const newLinks = [...links]; newLinks[index].title = e.target.value; setLinks(newLinks); }} placeholder="Name (e.g. Our website)" style={{ flex: 1, padding: '0.8rem 1rem' }} />
+                        <input className="premium-input" type="text" value={item.title} onChange={e => { const newLinks = [...links]; newLinks[index].title = e.target.value; setLinks(newLinks); }} placeholder={t.linkName || "Name (e.g. Our website)"} style={{ flex: 1, padding: '0.8rem 1rem' }} />
                         <input className="premium-input" type="text" value={item.url} onChange={e => { const newLinks = [...links]; newLinks[index].url = e.target.value; setLinks(newLinks); }} placeholder="https://..." style={{ flex: 2, padding: '0.8rem 1rem' }} />
                         <button type="button" onClick={() => { const newLinks = links.filter((_, i) => i !== index); setLinks(newLinks.length ? newLinks : [{title:'', url:''}]); }} style={{ padding: '0.8rem', background: 'rgba(255, 77, 79, 0.1)', color: '#ff4d4f', borderRadius: '8px', border: '1px solid rgba(255, 77, 79, 0.2)', cursor: 'pointer' }}>
                           <Trash2 size={20} />
@@ -2505,7 +2530,7 @@ export default function BotDetails() {
                       </div>
                     ))}
                     <button type="button" onClick={() => setLinks([...links, { title: '', url: '' }])} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'transparent', border: '1px dashed rgba(255,255,255,0.2)', color: '#fff', padding: '12px', borderRadius: '8px', cursor: 'pointer', width: '100%', justifyContent: 'center', fontWeight: '600' }}>
-                      <Plus size={18} /> Add link
+                      <Plus size={18} /> {t.addLink || 'Add link'}
                     </button>
                   </div>
 
@@ -2513,7 +2538,7 @@ export default function BotDetails() {
                     <label style={{ display: 'block', fontSize: '1rem', color: 'var(--on-surface)', marginBottom: '0.5rem', fontWeight: 600 }}>{t.quickFact}</label>
                     <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.85rem', marginBottom: '1rem', lineHeight: '1.4' }}>{t.quickFactHint}</p>
                     <div style={{ display: 'flex', gap: '12px' }}>
-                      <input className="premium-input" type="text" id="customFactInput" placeholder="Enter information..." style={{ flex: 1, padding: '0.8rem 1rem' }} onKeyDown={(e) => {
+                      <input className="premium-input" type="text" id="customFactInput" placeholder={t.enterInfo || "Enter information..."} style={{ flex: 1, padding: '0.8rem 1rem' }} onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           e.preventDefault();
                           const val = e.currentTarget.value;
@@ -2527,7 +2552,7 @@ export default function BotDetails() {
                           input.value = '';
                         }
                       }}>
-                        <Plus size={18} /> Add
+                        <Plus size={18} /> {t.add || 'Add'}
                       </button>
                     </div>
                   </div>
@@ -2679,8 +2704,8 @@ export default function BotDetails() {
       {tourStep !== null && (
         <div style={{
           position: 'fixed',
-          bottom: '24px',
-          right: '24px',
+          bottom: `${tourPos.bottom}px`,
+          right: `${tourPos.right}px`,
           width: '360px',
           background: 'var(--surface-container-lowest)',
           border: '1px solid var(--outline-variant)',
@@ -2706,8 +2731,8 @@ export default function BotDetails() {
               <img src="/logo.jpg" alt="Logo" style={{ width: '32px', height: '32px', borderRadius: '8px', objectFit: 'cover' }} />
             </div>
             <div>
-              <div style={{ fontWeight: 'bold', fontSize: '15px', color: 'var(--on-surface)' }}>UP-CHAT Assistant</div>
-              <div style={{ fontSize: '11px', color: 'var(--on-surface-variant)' }}>Step {tourStep} of 5</div>
+              <div style={{ fontWeight: 'bold', fontSize: '15px', color: 'var(--on-surface)' }}>{t.assistantTitle || "Помощник UP-CHAT"}</div>
+              <div style={{ fontSize: '11px', color: 'var(--on-surface-variant)' }}>{t.tourStepX || "Шаг"} {tourStep} {t.tourStepOf || "из"} 5</div>
             </div>
             <button 
               onClick={handleSkipTour}
@@ -2718,11 +2743,11 @@ export default function BotDetails() {
           </div>
 
           <p style={{ fontSize: '14px', lineHeight: '1.5', color: 'var(--on-surface)', margin: 0 }}>
-            {tourStep === 1 && "Your AI assistant has been successfully created! 🎉 Now lets connect communication channels (Telegram or WhatsApp) so it can chat with clients."}
-            {tourStep === 2 && "Great! After connecting channels, be sure to set up the knowledge base in the AI Brain tab. 🧠 You can upload files here, write a description of the company and products, add useful links and FAQ. This will teach the assistant about your product."}
-            {tourStep === 3 && "The Dialogues tab 💬 is your live control panel. All correspondence is displayed here in real time. At any time you can intercept the dialogue from the bot and answer the client personally."}
-            {tourStep === 4 && "The Configuration tab ⚙️ allows you to configure the tone of communication, bot goals, collected lead data, and test the assistant in the sandbox before publishing."}
-            {tourStep === 5 && "You are ready to launch! 🚀 Now you can connect Telegram or WhatsApp and test your bot. If you have any questions - our support is always in touch."}
+            {tourStep === 1 && (t.tourStep1 || "Ваш ИИ-помощник успешно создан! 🎉 Теперь давайте подключим каналы связи (Telegram или WhatsApp), чтобы он мог общаться с клиентами.")}
+            {tourStep === 2 && (t.tourStep2 || "Отлично! После подключения каналов, обязательно настройте базу знаний во вкладке Мозг ИИ. 🧠 Сюда вы можете загрузить файлы, написать описание компании и товаров, добавить полезные ссылки и FAQ. Это обучит помощника вашему продукту.")}
+            {tourStep === 3 && (t.tourStep3 || "Вкладка Диалоги 💬 — это ваша живая панель контроля. Здесь в реальном времени отображаются все переписки. В любой момент вы можете перехватить диалог у бота и ответить клиенту лично.")}
+            {tourStep === 4 && (t.tourStep4 || "Вкладка Настройки ⚙️ позволяет настроить тон общения, цели бота, собираемые данные лидов и протестировать помощника в песочнице перед публикацией.")}
+            {tourStep === 5 && (t.tourStep5 || "Вы готовы к запуску! 🚀 Теперь вы можете подключить Telegram или WhatsApp и тестировать вашего бота. Если возникнут вопросы — наша техподдержка всегда на связи.")}
           </p>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '8px' }}>
@@ -2750,7 +2775,7 @@ export default function BotDetails() {
                 gap: '4px'
               }}
             >
-              {tourStep === 5 ? "Finish" : "Next →"}
+              {tourStep === 5 ? (t.tourFinish || "Завершить") : (t.tourNext || "Далее →")}
             </button>
           </div>
         </div>
