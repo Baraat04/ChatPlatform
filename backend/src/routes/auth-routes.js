@@ -1,21 +1,12 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
-import nodemailer from 'nodemailer';
 import { OAuth2Client } from 'google-auth-library';
 import { prisma } from './bot-routes.js';
+import { transporter } from '../services/emailService.js';
 
 const router = express.Router();
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-
-// Configure Nodemailer for Gmail SMTP
-const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS
-    }
-});
 router.post('/register', async (req, res) => {
     try {
         const { name, email, password } = req.body;

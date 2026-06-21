@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, Save, Trash2, Send, Bot, User, Users, UserPlus, Pause, Play, Phone, MessageSquare, Radio, Edit2, Wand2, ChevronDown, Check, Plus, Database, BrainCircuit, FileUp, Image as LucideImage, FileAudio2, X, Mic } from 'lucide-react';
+import { ArrowLeft, Save, Trash2, Send, Bot, User, Users, UserPlus, Pause, Play, Phone, MessageSquare, Radio, Edit2, Wand2, ChevronDown, Check, Plus, Database, BrainCircuit, FileUp, Image as LucideImage, FileAudio2, X, Mic, BarChart2, Activity, Settings, FileText, Loader2, Link as LinkIcon, Lock, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
 import { io } from 'socket.io-client';
 import { useLanguage } from '../../contexts/LanguageContext';
@@ -23,7 +23,23 @@ const TONES = [
 ];
 
 const INDUSTRIES = [
-  "Финансы",
+  "Страхование",
+  "Право и бухгалтерия",
+  "Недвижимость",
+  "Ремонт",
+  "Строительство",
+  "Логистика и транспорт",
+  "Производство",
+  "IT и технологии",
+  "Маркетинг и реклама",
+  "Креатив и контент",
+  "HR и услуги для бизнеса",
+  "Сфера услуг",
+  "Торговля",
+  "Интернет-магазин",
+  "Красота",
+  "Медицина и здоровье",
+  "Стоматология",
   "Косметология",
   "Фитнес и спорт",
   "Образование",
@@ -32,8 +48,8 @@ const INDUSTRIES = [
   "Автомобильный бизнес",
   "Туризм",
   "Отельный бизнес",
-  "Розничная торговля",
-  "IT и технологии"
+  "Финансы",
+  "Розничная торговля"
 ];
 
 const DATA_FIELDS = [
@@ -272,6 +288,9 @@ interface Chat {
   name?: string;
   realJid?: string | null;
   platform?: string;
+  status?: string;
+  funnelStage?: string;
+  unreadCount?: number;
 }
 
 interface Message {
@@ -310,14 +329,26 @@ export default function BotDetails() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [systemPrompt, setSystemPrompt] = useState('');
   const [dataPrompt, setDataPrompt] = useState('');
+  const [googleSheetUrl, setGoogleSheetUrl] = useState('');
+  const [googleSheetColumns, setGoogleSheetColumns] = useState('');
+  const [isGoogleSheetsActive, setIsGoogleSheetsActive] = useState(false);
+  const [googleCalendarId, setGoogleCalendarId] = useState('');
+  const [isGoogleCalendarActive, setIsGoogleCalendarActive] = useState(false);
+  const [bitrixWebhookUrl, setBitrixWebhookUrl] = useState('');
+  const [bitrixFields, setBitrixFields] = useState('');
+  const [isBitrixActive, setIsBitrixActive] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isTogglingActive, setIsTogglingActive] = useState(false);
+  const [isRefreshingStatuses, setIsRefreshingStatuses] = useState(false);
+  const [isRefreshingChatStatus, setIsRefreshingChatStatus] = useState(false);
   const [replyText, setReplyText] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
   const [fileType, setFileType] = useState<'image' | 'audio' | 'document' | null>(null);
-  const [activeTab, setActiveTab] = useState<'chats' | 'agent' | 'settings' | 'broadcast' | 'channels'>('chats');
+  const [activeTab, setActiveTab] = useState<'chats' | 'agent' | 'settings' | 'broadcast' | 'channels' | 'integrations'>('chats');
+  const [chatFilter, setChatFilter] = useState('Все');
+  const [searchQuery, setSearchQuery] = useState('');
   
   const [isRecording, setIsRecording] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -438,7 +469,7 @@ export default function BotDetails() {
   const [qrCode, setQrCode] = useState<string | null>(null);
   
   // Full Configuration States
-  const [industry, setIndustry] = useState('Финансы');
+  const [industry, setIndustry] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [companyDescription, setCompanyDescription] = useState('');
   const [productDescription, setProductDescription] = useState('');
@@ -460,6 +491,8 @@ export default function BotDetails() {
   const [faq, setFaq] = useState([{ q: '', a: '' }]);
   const [links, setLinks] = useState([{ title: '', url: '' }]);
   const [managerContact, setManagerContact] = useState('');
+  const [additionalInfo, setAdditionalInfo] = useState('');
+  const [isLoadingBot, setIsLoadingBot] = useState(true);
 
   const API_BASE = CONFIG_API_BASE;
   const renderMessageContent = (msg: any) => {
@@ -569,13 +602,26 @@ export default function BotDetails() {
 
   const parseSystemPrompt = (prompt: string) => {
     if (!prompt) return;
-    if (!prompt.includes('Сфера деятельности:') && !prompt.includes('Компания занимается:')) {
-      return;
+    // Try multiple patterns for company name
+    const companyMatch = prompt.match(/Ты AI-(?:консультант|сотрудник) компании \"?(.*?)\"?(?:\s*\(Сфера:|\.)/i) ||
+                         prompt.match(/компании[: ]+"?([^"()\n]+)"?/i);
+    if (companyMatch && companyMatch[1] && companyMatch[1] !== '[Название компании]') {
+      setCompanyName(companyMatch[1].replace(/"/g, '').trim());
     }
-    const companyMatch = prompt.match(/Ты AI-консультант компании (.*?)\./);
-    if (companyMatch && companyMatch[1] !== '[Название компании]') setCompanyName(companyMatch[1]);
-    const industryMatch = prompt.match(/Сфера деятельности:\s*(.*)/);
-    if (industryMatch) setIndustry(industryMatch[1]);
+    // Try multiple industry patterns — handle both formats:
+    // New format: "Сфера деятельности: Косметология"
+    // Create-bot format: "(Сфера: Косметология)"
+    let parsedIndustry = '';
+    const industryMatch1 = prompt.match(/\(Сфера:\s*([^\)]+)\)/);
+    const industryMatch2 = prompt.match(/Сфера деятельности:\s*([^\n]+)/);
+    if (industryMatch1 && industryMatch1[1] && industryMatch1[1].trim()) {
+      parsedIndustry = industryMatch1[1].trim();
+    } else if (industryMatch2 && industryMatch2[1] && industryMatch2[1].trim()) {
+      parsedIndustry = industryMatch2[1].replace(/[\.]+$/, '').trim();
+    }
+    if (parsedIndustry && parsedIndustry !== '[Сфера деятельности]') {
+      setIndustry(parsedIndustry);
+    }
     const companyDescMatch = prompt.match(/Компания занимается:\n([\s\S]*?)\n\nОсновной продукт/);
     if (companyDescMatch && companyDescMatch[1] !== '[Описание компании]') setCompanyDescription(companyDescMatch[1].trim());
     const productDescMatch = prompt.match(/Основной продукт или услуга:\n([\s\S]*?)\n\nТвоя задача:/);
@@ -600,46 +646,79 @@ export default function BotDetails() {
     if (fallbackMatch) setFallbackBehavior(fallbackMatch[1].trim());
   };
 
+  // Helper: check if a parsed value is a real value or a placeholder
+  const isRealValue = (val: string | null | undefined, placeholderKeywords: string[] = []) => {
+    if (!val || !val.trim()) return false;
+    const lowerVal = val.toLowerCase();
+    const defaultKeywords = ['leave blank', 'description]', 'benefits]', 'pricing]', 'example.com', '[name]', '[оставьте пустым', '[append any', '[no real'];
+    const allKeywords = [...defaultKeywords, ...placeholderKeywords];
+    return !allKeywords.some(kw => lowerVal.includes(kw.toLowerCase()));
+  };
+
   const parseDataPrompt = (prompt: string) => {
     if (!prompt) return;
-    const businessInfoMatch = prompt.match(/Описание:\n([\s\S]*?)\n\n{t.benefits}:/);
-    if (businessInfoMatch) setBusinessInfo(businessInfoMatch[1].trim());
-    const benefitsMatch = prompt.match(/{t.benefits}:\n([\s\S]*?)\n\n{t.pricingTerms}:/);
-    if (benefitsMatch) setBenefits(benefitsMatch[1].trim());
-    const pricingMatch = prompt.match(/{t.pricingTerms}:\n([\s\S]*?)\n\nFAQ:/);
-    if (pricingMatch) setPricing(pricingMatch[1].trim());
-    const managerContactMatch = prompt.match(/Контакт менеджера:\n(.*)/);
-    if (managerContactMatch) setManagerContact(managerContactMatch[1].trim());
+    const businessInfoMatch = prompt.match(/Описание:\n([\s\S]*?)\n\nПреимущества:/);
+    if (businessInfoMatch && isRealValue(businessInfoMatch[1])) setBusinessInfo(businessInfoMatch[1].trim());
+    const benefitsMatch = prompt.match(/Преимущества:\n([\s\S]*?)\n\nЦены и условия:/);
+    if (benefitsMatch && isRealValue(benefitsMatch[1])) setBenefits(benefitsMatch[1].trim());
+    const pricingMatch = prompt.match(/Цены и условия:\n([\s\S]*?)\n\nFAQ:/);
+    if (pricingMatch && isRealValue(pricingMatch[1])) setPricing(pricingMatch[1].trim());
+    const managerContactMatch = prompt.match(/Контакт менеджера:\n([^\n]*)/);
+    if (managerContactMatch && isRealValue(managerContactMatch[1], ['leave blank', 'no real contact', 'оставьте'])) {
+      setManagerContact(managerContactMatch[1].trim());
+    } else {
+      setManagerContact('');
+    }
     const faqSectionMatch = prompt.match(/FAQ:\n([\s\S]*?)\n\nПолезные ссылки:/);
     if (faqSectionMatch) {
       const faqText = faqSectionMatch[1].trim();
-      const faqItems = [];
-      const blocks = faqText.split('\n\n');
-      for (const block of blocks) {
-        const qMatch = block.match(/В: (.*)/);
-        const aMatch = block.match(/О: ([\s\S]*)/);
-        if (qMatch && aMatch) faqItems.push({ q: qMatch[1], a: aMatch[1] });
+      // Check if it's a real FAQ (not placeholder)
+      if (isRealValue(faqText, ['leave blank', 'no real faq', 'оставьте'])) {
+        const faqItems: {q: string; a: string}[] = [];
+        const blocks = faqText.split('\n\n');
+        for (const block of blocks) {
+          const qMatch = block.match(/В: (.*)/);
+          const aMatch = block.match(/О: ([\s\S]*)/);
+          if (qMatch && aMatch) faqItems.push({ q: qMatch[1], a: aMatch[1] });
+        }
+        if (faqItems.length > 0) setFaq(faqItems);
+        else setFaq([{ q: '', a: '' }]);
+      } else {
+        setFaq([{ q: '', a: '' }]);
       }
-      if (faqItems.length > 0) setFaq(faqItems);
+    } else {
+      setFaq([{ q: '', a: '' }]);
     }
     const linksSectionMatch = prompt.match(/Полезные ссылки:\n([\s\S]*?)\n\nКонтакт менеджера:/);
     if (linksSectionMatch) {
       const linksText = linksSectionMatch[1].trim();
-      const linksItems = [];
-      const lines = linksText.split('\n');
-      for (const line of lines) {
-        const parts = line.split(': ');
-        if (parts.length >= 2) {
-          const url = parts.pop()!;
-          const title = parts.join(': ');
-          linksItems.push({ title, url });
+      if (isRealValue(linksText, ['leave blank', 'no real links', 'оставьте'])) {
+        const linksItems: {title: string; url: string}[] = [];
+        const lines = linksText.split('\n');
+        for (const line of lines) {
+          const parts = line.split(': ');
+          if (parts.length >= 2) {
+            const url = parts.pop()!;
+            const title = parts.join(': ');
+            if (url.trim() && title.trim()) linksItems.push({ title, url });
+          }
         }
+        if (linksItems.length > 0) setLinks(linksItems);
+        else setLinks([{ title: '', url: '' }]);
+      } else {
+        setLinks([{ title: '', url: '' }]);
       }
-      if (linksItems.length > 0) setLinks(linksItems);
+    } else {
+      setLinks([{ title: '', url: '' }]);
+    }
+    const additionalInfoMatch = prompt.match(/Дополнительная информация:\n([\s\S]*)/);
+    if (additionalInfoMatch && isRealValue(additionalInfoMatch[1], ['append any large', 'оставьте'])) {
+      setAdditionalInfo(additionalInfoMatch[1].trim());
     }
   };
 
   useEffect(() => {
+    if (isLoadingBot) return;
     let rulesText = '';
     if (rules.onlyKnowledgeBase) rulesText += '- Отвечай только на основе информации из базы знаний.\n';
     if (rules.noFabrication) rulesText += '- Не выдумывай информацию.\n';
@@ -650,14 +729,14 @@ export default function BotDetails() {
 
     const generated = `Ты AI-консультант компании ${companyName || '[Название компании]'}.\n\nСфера деятельности: ${industry}\n\nКомпания занимается:\n${companyDescription || '[Описание компании]'}\n\nОсновной продукт или услуга:\n${productDescription || '[Описание продукта]'}\n\nТвоя задача:\n${botGoal}\n\nДанные, которые необходимо собрать у клиента:\n${dataToCollect.length > 0 ? dataToCollect.join(', ') : 'Не требуется'}\n\nСтиль общения:\n${tone}\n\nОсновные правила:\n${rulesText}`;
     setSystemPrompt(generated);
-  }, [industry, companyName, companyDescription, productDescription, botGoal, tone, dataToCollect, fallbackBehavior, rules]);
+  }, [isLoadingBot, industry, companyName, companyDescription, productDescription, botGoal, tone, dataToCollect, fallbackBehavior, rules]);
 
   useEffect(() => {
     let faqText = faq.filter(f => f.q || f.a).map(f => `В: ${f.q}\nО: ${f.a}`).join('\n\n');
     let linksText = links.filter(l => l.title || l.url).map(l => `${l.title}: ${l.url}`).join('\n');
-    const generated = `Компания:\n${companyName}\n\nОписание:\n${businessInfo}\n\n{t.benefits}:\n${benefits}\n\n{t.pricingTerms}:\n${pricing}\n\nFAQ:\n${faqText}\n\nПолезные ссылки:\n${linksText}\n\nКонтакт менеджера:\n${managerContact}`;
+    const generated = `Компания:\n${companyName}\n\nОписание:\n${businessInfo}\n\nПреимущества:\n${benefits}\n\nЦены и условия:\n${pricing}\n\nFAQ:\n${faqText}\n\nПолезные ссылки:\n${linksText}\n\nКонтакт менеджера:\n${managerContact}\n\nДополнительная информация:\n${additionalInfo}`;
     setDataPrompt(generated);
-  }, [companyName, businessInfo, benefits, pricing, faq, links, managerContact]);
+  }, [companyName, businessInfo, benefits, pricing, faq, links, managerContact, additionalInfo]);
 
 
 
@@ -688,13 +767,19 @@ export default function BotDetails() {
     });
     socket.on(`qr-${botId}`, (qr: string) => setQrCode(qr));
     socket.on(`contact-update-${botId}`, (updatedContact: any) => {
-      // ONLY update existing chats — NEVER add new empty ones from contact sync
+      // Update existing chat with ALL fields from updated contact (status, funnelStage, name, etc.)
       setChats(prev => {
         const exists = prev.some(c => c.chatId === updatedContact.chatId);
         if (!exists) return prev; // Don't add empty contact-only chats
         return prev.map(c => {
           if (c.chatId === updatedContact.chatId) {
-            return { ...c, name: updatedContact.name || c.name, realJid: updatedContact.realJid || c.realJid };
+            return { 
+              ...c, 
+              name: updatedContact.name || c.name, 
+              realJid: updatedContact.realJid || c.realJid,
+              status: updatedContact.status || c.status,
+              funnelStage: updatedContact.funnelStage || c.funnelStage,
+            };
           }
           return c;
         });
@@ -709,6 +794,13 @@ export default function BotDetails() {
         fetchChannels();
         setIsAddingChannel(false);
       }
+    });
+
+    socket.on(`bot-update-${botId}`, (updates: any) => {
+      setBot((prev: any) => {
+        if (!prev) return prev;
+        return { ...prev, ...updates };
+      });
     });
 
     return () => { socket.disconnect(); };
@@ -730,6 +822,7 @@ export default function BotDetails() {
   }, [selectedChat]);
 
   async function fetchBot() {
+    setIsLoadingBot(true);
     const res = await fetch(`${API}/bot/${botId}`, { credentials: 'include' });
     if (res.ok) {
       const data = await res.json();
@@ -738,6 +831,12 @@ export default function BotDetails() {
       if (data.data_prompt) parseDataPrompt(data.data_prompt);
       setSystemPrompt(data.system_prompt || '');
       setDataPrompt(data.data_prompt || '');
+      setGoogleSheetUrl(data.googleSheetUrl || '');
+      setGoogleSheetColumns(data.googleSheetColumns || '');
+      setGoogleCalendarId(data.googleCalendarId || '');
+      setBitrixWebhookUrl(data.bitrixWebhookUrl || '');
+      setBitrixFields(data.bitrixFields || '');
+      setChannels(data.channels || []);
       if (data.agentHistory) {
         try {
           setAgentChatHistory(JSON.parse(data.agentHistory));
@@ -745,6 +844,10 @@ export default function BotDetails() {
           console.error("Failed to parse agent history", e);
         }
       }
+      // Release the lock AFTER all state is set — small delay so React batches the sets
+      setTimeout(() => setIsLoadingBot(false), 100);
+    } else {
+      setIsLoadingBot(false);
     }
   }
 
@@ -800,10 +903,21 @@ export default function BotDetails() {
     await fetch(`${API}/bot/${botId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ system_prompt: systemPrompt, data_prompt: dataPrompt }),
+      body: JSON.stringify({ 
+        system_prompt: systemPrompt, 
+        data_prompt: dataPrompt,
+        googleSheetUrl,
+        googleSheetColumns,
+        googleCalendarId,
+        bitrixWebhookUrl,
+        bitrixFields
+      }),
       credentials: 'include'
     });
     setIsSaving(false);
+    setIsGoogleSheetsActive(false);
+    setIsGoogleCalendarActive(false);
+    setIsBitrixActive(false);
   }
 
   async function sendToAgent(text: string) {
@@ -875,7 +989,15 @@ export default function BotDetails() {
         await fetch(`${API}/bot/${botId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ system_prompt: systemPrompt, data_prompt: newDataPrompt }),
+          body: JSON.stringify({ 
+            system_prompt: systemPrompt, 
+            data_prompt: newDataPrompt,
+            googleSheetUrl,
+            googleSheetColumns,
+            googleCalendarId,
+            bitrixWebhookUrl,
+            bitrixFields
+          }),
           credentials: 'include'
         });
         
@@ -1231,6 +1353,11 @@ export default function BotDetails() {
         ::-webkit-scrollbar-thumb { background: var(--outline-variant); border-radius: 10px; }
         ::-webkit-scrollbar-thumb:hover { background: var(--outline); }
 
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+
         @media (min-width: 769px) {
           .mobile-only-btn { display: none !important; }
         }
@@ -1310,6 +1437,9 @@ export default function BotDetails() {
         </div>
 
         <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.75rem' }}>
+          <Link href={`/bots/${botId}/analytics`} className="btn-action" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--surface-container-high)', color: 'var(--primary)', fontWeight: 600, padding: '0.5rem 1rem', borderRadius: '10px', textDecoration: 'none' }}>
+            <BarChart2 size={16} /> ИИ-Аналитика
+          </Link>
           <button onClick={handleToggleActive} disabled={isTogglingActive} className={`btn-action btn-toggle ${bot.isActive ? 'paused' : ''}`}>
             {bot.isActive ? <><Pause size={16} /> {t.pauseAgent}</> : <><Play size={16} /> {t.startAgent}</>}
           </button>
@@ -1325,7 +1455,8 @@ export default function BotDetails() {
           ['chats', <MessageSquare size={16} />, t.chats || 'Dialogs'],
           ['channels', <Phone size={16} />, t.channels || 'Channels'],
           ['agent', <BrainCircuit size={16} />, t.aiBrain || 'AI Brain'], 
-          ['settings', <Bot size={16} />, t.settings || 'Configuration'], 
+          ['integrations', <Activity size={16} />, 'Интеграции'],
+          ['settings', <Settings size={16} />, t.settings || 'Configuration'], 
           ['broadcast', <Radio size={16} />, t.campaigns]
         ] as const)
         .filter(([tab]) => tab !== 'broadcast' || (user?.subscriptionPlan === 'GROWTH' || user?.subscriptionPlan === 'PRO'))
@@ -1985,18 +2116,126 @@ export default function BotDetails() {
             
             {/* Contacts sidebar */}
             <div className={`contacts-sidebar ${selectedChat ? 'mobile-hidden' : ''}`}>
-              <div style={{ padding: '1.2rem', borderBottom: '1px solid #e0e3e5', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.85rem', color: 'var(--on-surface-variant)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t.conversations}</span>
-                <span style={{ background: 'var(--primary-container)', color: 'var(--on-primary-container)', padding: '0.2rem 0.6rem', borderRadius: '10px', fontSize: '0.75rem', fontWeight: 700 }}>{chats.length}</span>
+              <div style={{ padding: '1.2rem', borderBottom: '1px solid #e0e3e5', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--on-surface-variant)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t.conversations}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span
+                      title="ИИ анализирует диалоги и обновляет статусы автоматически каждые 15 минут"
+                      style={{ fontSize: '0.7rem', color: 'var(--on-surface-variant)', opacity: 0.6, cursor: 'help', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                      15 мин
+                    </span>
+                    <button
+                      onClick={async () => {
+                        setIsRefreshingStatuses(true);
+                        try {
+                          const res = await fetch(`${API}/bot/${botId}/refresh-statuses`, { method: 'POST', credentials: 'include' });
+                          if (res.ok) {
+                            await fetchChats();
+                          }
+                        } catch(e) { console.error(e); }
+                        finally { setIsRefreshingStatuses(false); }
+                      }}
+                      disabled={isRefreshingStatuses}
+                      title="Обновить статусы всех диалогов прямо сейчас"
+                      style={{
+                        padding: '0.3rem 0.6rem',
+                        borderRadius: '8px',
+                        border: '1px solid var(--outline-variant)',
+                        background: 'var(--surface-container-high)',
+                        color: 'var(--primary)',
+                        cursor: isRefreshingStatuses ? 'wait' : 'pointer',
+                        fontSize: '0.72rem',
+                        fontWeight: 600,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.3rem',
+                        transition: 'all 0.2s',
+                        opacity: isRefreshingStatuses ? 0.6 : 1
+                      }}
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ animation: isRefreshingStatuses ? 'spin 1s linear infinite' : 'none' }}><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                      {isRefreshingStatuses ? 'Анализирую...' : 'Обновить статусы'}
+                    </button>
+                    <span style={{ background: 'var(--primary-container)', color: 'var(--on-primary-container)', padding: '0.2rem 0.6rem', borderRadius: '10px', fontSize: '0.75rem', fontWeight: 700 }}>{chats.length}</span>
+                  </div>
+                </div>
+                
+                <div style={{ position: 'relative' }}>
+                  <div style={{ position: 'absolute', top: '50%', left: '12px', transform: 'translateY(-50%)', color: 'var(--on-surface-variant)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                  </div>
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    placeholder="Поиск по имени или номеру"
+                    className="premium-input"
+                    style={{ paddingLeft: '38px', borderRadius: '12px', background: 'var(--surface-container-low)', border: 'none', height: '42px', fontSize: '0.9rem' }}
+                  />
+                </div>
+                
+                <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.2rem', scrollbarWidth: 'none' }}>
+                  {['Все', 'Нужен ответ', 'Вручную'].map(filter => (
+                    <button
+                      key={filter}
+                      onClick={() => setChatFilter(filter)}
+                      style={{
+                        padding: '0.4rem 0.8rem',
+                        borderRadius: '20px',
+                        border: 'none',
+                        fontSize: '0.8rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                        background: chatFilter === filter ? 'rgba(37, 211, 102, 0.15)' : 'var(--surface-container-high)',
+                        color: chatFilter === filter ? '#1e7e34' : 'var(--on-surface-variant)',
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      {filter}
+                    </button>
+                  ))}
+                </div>
               </div>
               
               <div style={{ flex: 1, overflowY: 'auto' }}>
-                {chats.length === 0 ? (
+                {chats.filter(c => {
+                  if (chatFilter === 'Вручную') {
+                    if (!bot?.pausedChats?.includes(c.chatId)) return false;
+                  } else if (chatFilter !== 'Все') {
+                    if (c.status !== chatFilter) return false;
+                  }
+                  
+                  if (searchQuery) {
+                    const q = searchQuery.toLowerCase();
+                    const nameMatch = c.name?.toLowerCase().includes(q);
+                    const idMatch = c.chatId.toLowerCase().includes(q) || c.realJid?.toLowerCase().includes(q);
+                    if (!nameMatch && !idMatch) return false;
+                  }
+                  return true;
+                }).length === 0 ? (
                   <div style={{ padding: '3rem 2rem', textAlign: 'center', color: 'var(--on-surface-variant)' }}>
                     <MessageSquare size={32} style={{ opacity: 0.5, marginBottom: '1rem' }} />
-                    <div style={{ fontSize: '0.9rem' }}>{t.noActiveConv}<br/>{t.waitingMsgs}</div>
+                    <div style={{ fontSize: '0.9rem' }}>Диалоги не найдены</div>
                   </div>
-                ) : chats.map(chat => (
+                ) : chats.filter(c => {
+                  if (chatFilter === 'Вручную') {
+                    if (!bot?.pausedChats?.includes(c.chatId)) return false;
+                  } else if (chatFilter !== 'Все') {
+                    if (c.status !== chatFilter) return false;
+                  }
+                  
+                  if (searchQuery) {
+                    const q = searchQuery.toLowerCase();
+                    const nameMatch = c.name?.toLowerCase().includes(q);
+                    const idMatch = c.chatId.toLowerCase().includes(q) || c.realJid?.toLowerCase().includes(q);
+                    if (!nameMatch && !idMatch) return false;
+                  }
+                  return true;
+                }).map(chat => (
                   <div key={chat.chatId} onClick={() => setSelectedChat(chat.chatId)} className={`chat-item ${selectedChat === chat.chatId ? 'active' : ''}`}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                       <div className="avatar" style={{ position: 'relative' }}>
@@ -2044,24 +2283,90 @@ export default function BotDetails() {
                         )}
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.2rem' }}>
-                          <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--on-surface)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {chat.platform === 'TELEGRAM' 
-                              ? (chat.name || chat.chatId)
-                              : (chat.name 
-                                  ? (chat.realJid || chat.chatId).includes('@lid') ? chat.name : `+${formatChatId(chat.realJid || chat.chatId)} (${chat.name})`
-                                  : ((chat.realJid || chat.chatId).includes('@lid') ? (t.hiddenNumber || 'Hidden number') : `+${formatChatId(chat.realJid || chat.chatId)}`))}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', overflow: 'hidden' }}>
+                            <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--on-surface)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {chat.platform === 'TELEGRAM' 
+                                ? (chat.name || chat.chatId)
+                                : (chat.name 
+                                    ? (chat.realJid || chat.chatId).includes('@lid') ? chat.name : `+${formatChatId(chat.realJid || chat.chatId)} (${chat.name})`
+                                    : ((chat.realJid || chat.chatId).includes('@lid') ? (t.hiddenNumber || 'Hidden number') : `+${formatChatId(chat.realJid || chat.chatId)}`))}
+                            </div>
+                            <Edit2 size={12} color="#666" style={{ cursor: 'pointer', opacity: 0.7, flexShrink: 0 }} onClick={(e) => handleEditContactName(e, chat.chatId, chat.name || '')} />
                           </div>
-                          <Edit2 size={12} color="#666" style={{ cursor: 'pointer', opacity: 0.7 }} onClick={(e) => handleEditContactName(e, chat.chatId, chat.name || '')} />
+                          <div style={{ fontSize: '0.75rem', color: 'var(--primary)', fontWeight: 600 }}>{formatTime(chat.lastAt)}</div>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <div style={{ fontSize: '0.8rem', color: 'var(--on-surface-variant)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '65%' }}>
-                            {chat.lastSender === 'bot' && <span style={{ color: 'var(--primary)', marginRight: '4px', fontWeight: 600 }}>AI:</span>}
-                            {chat.lastMessage}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', overflow: 'hidden', maxWidth: '75%' }}>
+                            {bot?.pausedChats?.includes(chat.chatId) && (
+                              <div 
+                                title="ИИ приостановлен. Вы перехватили управление этим чатом. ИИ больше не будет отвечать, пока вы не нажмете кнопку 'Возобновить ИИ'."
+                                style={{ 
+                                background: '#fdf2f2', 
+                                color: '#9b1c1c', 
+                                padding: '2px 6px', 
+                                borderRadius: '4px', 
+                                fontSize: '0.7rem', 
+                                fontWeight: 600,
+                                whiteSpace: 'nowrap',
+                                cursor: 'help'
+                              }}>
+                                Вручную
+                              </div>
+                            )}
+                            {(chat.status && chat.status !== 'Все' && !['Успех', 'Успешно'].includes(chat.status) && chat.status !== chat.funnelStage) && (
+                              <div 
+                                title={chat.status === 'Нужен ответ' ? "ИИ не смог ответить или клиент ждет реакции человека." : "Текущий статус чата."}
+                                style={{ 
+                                background: chat.status === 'Нужен ответ' ? '#fee2e2' : 'var(--surface-container-high)', 
+                                color: chat.status === 'Нужен ответ' ? '#991b1b' : 'var(--on-surface-variant)', 
+                                padding: '2px 6px', 
+                                borderRadius: '4px', 
+                                fontSize: '0.7rem', 
+                                fontWeight: 600,
+                                whiteSpace: 'nowrap',
+                                cursor: 'help'
+                              }}>
+                                {chat.status}
+                              </div>
+                            )}
+                            {chat.funnelStage && (
+                              <div 
+                                title={
+                                  chat.funnelStage === 'Лид' ? 'Новый контакт. ИИ только начал общение.' :
+                                  chat.funnelStage === 'Квалификация' ? 'ИИ задает вопросы, чтобы понять потребности клиента.' :
+                                  chat.funnelStage === 'Презентация' ? 'ИИ рассказывает о товарах, услугах или ценах.' :
+                                  chat.funnelStage === 'Отработка возражений' ? 'Клиент сомневается, ИИ отрабатывает возражения.' :
+                                  chat.funnelStage === 'Согласие' ? 'Клиент готов к покупке или записи.' :
+                                  chat.funnelStage === 'Успешно' ? 'Сделка или запись успешно завершена!' :
+                                  chat.funnelStage === 'Отказ' ? 'Клиент отказался от услуг или перестал отвечать.' :
+                                  'Текущий этап клиента в воронке продаж.'
+                                }
+                                style={{ 
+                                background: 'rgba(59, 130, 246, 0.1)', 
+                                color: '#2563eb', 
+                                padding: '2px 6px', 
+                                borderRadius: '4px', 
+                                fontSize: '0.7rem', 
+                                fontWeight: 600,
+                                whiteSpace: 'nowrap',
+                                cursor: 'help'
+                              }}>
+                                {chat.funnelStage}
+                              </div>
+                            )}
+                            <div style={{ fontSize: '0.8rem', color: 'var(--on-surface-variant)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {chat.lastSender === 'bot' && <span style={{ color: 'var(--primary)', marginRight: '4px', fontWeight: 600 }}>AI:</span>}
+                              {chat.lastMessage}
+                            </div>
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <div style={{ fontSize: '0.7rem', color: 'var(--on-surface-variant)' }}>{formatTime(chat.lastAt)}</div>
-                            <Trash2 size={12} color="#444" style={{ cursor: 'pointer', opacity: 0.5 }} onClick={(e) => { e.stopPropagation(); handleDeleteChat(chat.chatId); }} />
+                            {(chat.unreadCount || 0) > 0 && (
+                              <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#25d366', color: '#fff', fontSize: '0.7rem', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                {chat.unreadCount}
+                              </div>
+                            )}
+                            <Trash2 size={14} color="#444" style={{ cursor: 'pointer', opacity: 0.5 }} onClick={(e) => { e.stopPropagation(); handleDeleteChat(chat.chatId); }} />
                           </div>
                         </div>
                       </div>
@@ -2137,6 +2442,25 @@ export default function BotDetails() {
                             }}
                           >
                             {bot?.pausedChats?.includes(selectedChat) ? <><Play size={14} /> {t.turnOnAi || 'Turn on AI'}</> : <><Pause size={14} /> {t.turnOffAi || 'Turn off AI'}</>}
+                          </button>
+                          <button
+                            onClick={async () => {
+                              if (!selectedChat) return;
+                              setIsRefreshingChatStatus(true);
+                              try {
+                                const encodedId = encodeURIComponent(selectedChat);
+                                await fetch(`${API}/bot/${botId}/refresh-status/${encodedId}`, { method: 'POST', credentials: 'include' });
+                                await fetchChats();
+                              } catch(e) { console.error(e); }
+                              finally { setIsRefreshingChatStatus(false); }
+                            }}
+                            disabled={isRefreshingChatStatus}
+                            title="Обновить статус этого диалога прямо сейчас"
+                            className="btn-action"
+                            style={{ padding: '0.5rem 0.8rem', fontSize: '0.8rem', background: '#f0f4ff', color: '#3b57eb', border: '1px solid #c7d2fe', display: 'flex', alignItems: 'center', gap: '0.3rem', opacity: isRefreshingChatStatus ? 0.6 : 1 }}
+                          >
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ animation: isRefreshingChatStatus ? 'spin 1s linear infinite' : 'none' }}><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                            {isRefreshingChatStatus ? '...' : 'Статус'}
                           </button>
                           <button onClick={() => handleDeleteChat()} className="btn-action" style={{ padding: '0.5rem 0.8rem', fontSize: '0.8rem', background: '#fdf2f2', color: '#9b1c1c', border: '1px solid #fbd5d5' }}>
                             <Trash2 size={14} /> {t.clearChat}
@@ -2400,6 +2724,350 @@ export default function BotDetails() {
           </div>
         )}
 
+        {/* ══ INTEGRATIONS TAB ══ */}
+        {activeTab === 'integrations' && (
+          <div style={{ flex: 1, overflowY: 'auto', padding: '3rem 2rem', background: 'var(--background)' }}>
+            <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
+              <div style={{ marginBottom: '2rem' }}>
+                <h2 style={{ fontSize: '1.8rem', fontWeight: '800', color: 'var(--on-surface)', display: 'flex', alignItems: 'center', gap: '12px', margin: '0 0 0.5rem 0' }}>
+                  <Activity size={28} color="var(--primary)" /> Интеграции
+                </h2>
+                <p style={{ color: 'var(--on-surface-variant)', margin: 0 }}>Подключите сторонние сервисы и CRM для автоматической передачи лидов.</p>
+              </div>
+
+              {(!user || !['PRO', 'GROWTH'].includes(user?.subscriptionPlan || '')) ? (
+                <div style={{ background: 'var(--surface)', border: '1px solid var(--outline-variant)', borderRadius: '24px', padding: '4rem 2rem', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <div style={{ width: '80px', height: '80px', background: 'var(--primary-container)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1.5rem' }}>
+                    <Lock size={40} color="var(--primary)" />
+                  </div>
+                  <h3 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--on-surface)', margin: '0 0 1rem 0' }}>Интеграции недоступны</h3>
+                  <p style={{ color: 'var(--on-surface-variant)', fontSize: '1rem', maxWidth: '500px', margin: '0 0 2rem 0', lineHeight: 1.5 }}>
+                    Подключение Google Sheets, amoCRM и Zapier доступно только на тарифах <b>GROWTH</b> и <b>PRO</b>. Перейдите на более продвинутый тариф, чтобы автоматизировать передачу лидов.
+                  </p>
+                  <Link href="/profile" className="btn-primary" style={{ textDecoration: 'none', padding: '1rem 2rem', fontSize: '1rem' }}>
+                    Улучшить тариф
+                  </Link>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem', marginBottom: '3rem' }}>
+                  {/* Google Sheets Card */}
+                  {(!isGoogleCalendarActive && !isBitrixActive) && (
+                  <div style={{ background: 'var(--surface)', border: '1px solid var(--outline-variant)', borderRadius: '20px', padding: '1.5rem', display: 'flex', flexDirection: 'column', transition: 'all 0.3s ease' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
+                      <div style={{ width: '48px', height: '48px', background: 'rgba(16, 163, 127, 0.1)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <FileText size={24} color="#10a37f" />
+                      </div>
+                      <div>
+                        <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'var(--on-surface)' }}>Google Sheets</h3>
+                        <div style={{ fontSize: '0.8rem', color: '#10a37f', fontWeight: 600 }}>Легкая CRM</div>
+                      </div>
+                    </div>
+                    <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.9rem', marginBottom: '1.5rem', flex: 1 }}>
+                      Автоматически выгружайте собранные ИИ лиды и данные прямо в вашу таблицу Excel.
+                    </p>
+
+                    {!isGoogleSheetsActive ? (
+                      <button 
+                        onClick={() => setIsGoogleSheetsActive(true)}
+                        style={{ width: '100%', padding: '0.8rem', borderRadius: '12px', border: googleSheetUrl ? '1px solid transparent' : '1px solid #10a37f', background: googleSheetUrl ? '#10a37f' : 'rgba(16, 163, 127, 0.1)', color: googleSheetUrl ? '#fff' : '#10a37f', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s ease', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                        onMouseOver={(e) => e.currentTarget.style.opacity = '0.8'}
+                        onMouseOut={(e) => e.currentTarget.style.opacity = '1'}
+                      >
+                        {googleSheetUrl ? <><CheckCircle2 size={16} /> Подключено (Настроить)</> : 'Подключить интеграцию'}
+                      </button>
+                    ) : (
+                      <div style={{ overflow: 'hidden', animation: 'slideDown 0.4s ease-out forwards' }}>
+                        <button onClick={() => setIsGoogleSheetsActive(false)} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'none', border: '1px solid var(--outline-variant)', borderRadius: '8px', padding: '6px 14px', cursor: 'pointer', color: 'var(--on-surface-variant)', fontSize: '0.85rem', marginBottom: '1rem' }}>
+                          <ArrowLeft size={14} /> Назад
+                        </button>
+                        {/* Инструкция Шаг 1 */}
+                        <div style={{ background: 'var(--surface-container-lowest)', padding: '1rem', borderRadius: '12px', marginBottom: '1rem', borderLeft: '4px solid #10a37f' }}>
+                          <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--on-surface)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ background: '#10a37f', color: '#fff', width: '20px', height: '20px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', fontSize: '12px' }}>1</span>
+                            Создайте Гугл Таблицу
+                          </div>
+                          <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.85rem', marginBottom: '0.5rem', lineHeight: '1.4' }}>
+                            Зайдите в <a href="https://docs.google.com/spreadsheets" target="_blank" rel="noopener noreferrer" style={{ color: '#10a37f', textDecoration: 'underline' }}>Google Таблицы</a> и создайте пустой файл (или откройте существующий). 
+                            В первой строке напишите названия колонок (например: <b>Имя</b>, <b>Телефон</b>, <b>Услуга</b>, <b>Дата</b>).
+                          </p>
+                        </div>
+
+                        {/* Инструкция Шаг 2 */}
+                        <div style={{ background: 'var(--surface-container-lowest)', padding: '1rem', borderRadius: '12px', marginBottom: '1rem', borderLeft: '4px solid #10a37f' }}>
+                          <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--on-surface)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ background: '#10a37f', color: '#fff', width: '20px', height: '20px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', fontSize: '12px' }}>2</span>
+                            Выдайте доступ нашему боту
+                          </div>
+                          <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.85rem', marginBottom: '0.8rem', lineHeight: '1.4' }}>
+                            Чтобы ИИ мог добавлять туда заявки, в вашей таблице в правом верхнем углу нажмите зеленую кнопку <b>«Настройки доступа» (Поделиться)</b>. Вставьте туда этот специальный email и обязательно выберите роль <b>«Редактор»</b>:
+                          </p>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <code style={{ background: 'rgba(16, 163, 127, 0.1)', padding: '8px 12px', borderRadius: '6px', userSelect: 'all', wordBreak: 'break-all', border: '1px solid rgba(16, 163, 127, 0.2)', width: '100%', display: 'block', color: '#10a37f', fontWeight: 600 }}>chatflowbot@gen-lang-client-0537370402.iam.gserviceaccount.com</code>
+                          </div>
+                        </div>
+
+                        {/* Инструкция Шаг 3 */}
+                        <div style={{ background: 'var(--surface-container-lowest)', padding: '1rem', borderRadius: '12px', marginBottom: '1rem', borderLeft: '4px solid #10a37f' }}>
+                          <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--on-surface)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ background: '#10a37f', color: '#fff', width: '20px', height: '20px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', fontSize: '12px' }}>3</span>
+                            Вставьте ссылку на таблицу
+                          </div>
+                          <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.85rem', marginBottom: '0.5rem', lineHeight: '1.4' }}>
+                            Скопируйте ссылку на вашу таблицу из адресной строки браузера (она длинная, начинается с https://docs.google.com/...) и вставьте сюда:
+                          </p>
+                          <input 
+                            type="text"
+                            className="premium-input" 
+                            placeholder="https://docs.google.com/spreadsheets/d/..." 
+                            value={googleSheetUrl} 
+                            onChange={e => setGoogleSheetUrl(e.target.value)} 
+                            style={{ background: 'var(--background)', width: '100%', padding: '0.8rem', borderRadius: '8px', fontSize: '0.9rem', border: '1px solid var(--outline-variant)' }} 
+                          />
+                        </div>
+
+                        {/* Инструкция Шаг 4 */}
+                        <div style={{ background: 'var(--surface-container-lowest)', padding: '1rem', borderRadius: '12px', marginBottom: '1.5rem', borderLeft: '4px solid #10a37f' }}>
+                          <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--on-surface)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ background: '#10a37f', color: '#fff', width: '20px', height: '20px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', fontSize: '12px' }}>4</span>
+                            Какие данные собирать?
+                          </div>
+                          <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.85rem', marginBottom: '0.5rem', lineHeight: '1.4' }}>
+                            Укажите названия колонок в вашей таблице через запятую. ИИ сам поймет, какие данные нужно спросить у клиента и запишет их в правильный столбец.
+                          </p>
+                          <input 
+                            type="text"
+                            className="premium-input" 
+                            placeholder="Например: Имя, Телефон, Город, Услуга" 
+                            value={googleSheetColumns} 
+                            onChange={e => setGoogleSheetColumns(e.target.value)} 
+                            style={{ background: 'var(--background)', width: '100%', padding: '0.8rem', borderRadius: '8px', fontSize: '0.9rem', border: '1px solid var(--outline-variant)' }} 
+                          />
+                        </div>
+
+                        <button 
+                          onClick={handleSave} 
+                          disabled={isSaving}
+                          style={{ width: '100%', padding: '0.8rem', borderRadius: '12px', border: 'none', background: '#10a37f', color: '#fff', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', transition: 'all 0.2s' }}
+                          onMouseOver={(e) => { if(!isSaving) e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(16, 163, 127, 0.3)'; }}
+                          onMouseOut={(e) => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; }}
+                        >
+                          {isSaving ? <Loader2 size={16} className="spinning" /> : <CheckCircle2 size={16} />}
+                          Сохранить и активировать
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  )}
+
+                  {/* Google Calendar Card */}
+                  {(!isGoogleSheetsActive && !isBitrixActive) && (
+                  <div style={{ background: 'var(--surface)', border: '1px solid var(--outline-variant)', borderRadius: '20px', padding: '1.5rem', display: 'flex', flexDirection: 'column', transition: 'all 0.3s ease' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
+                      <div style={{ width: '48px', height: '48px', background: 'rgba(66, 133, 244, 0.1)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M19 4H5C3.89543 4 3 4.89543 3 6V20C3 21.1046 3.89543 22 5 22H19C20.1046 22 21 21.1046 21 20V6C21 4.89543 20.1046 4 19 4Z" stroke="#4285F4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          <path d="M16 2V6" stroke="#4285F4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          <path d="M8 2V6" stroke="#4285F4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          <path d="M3 10H21" stroke="#4285F4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      </div>
+                      <div>
+                        <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'var(--on-surface)' }}>Google Calendar</h3>
+                        <div style={{ fontSize: '0.8rem', color: '#4285F4', fontWeight: 600 }}>Запись клиентов</div>
+                      </div>
+                    </div>
+                    <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.9rem', marginBottom: '1.5rem', flex: 1 }}>
+                      ИИ сам будет проверять свободное время и записывать клиентов напрямую в ваш календарь.
+                    </p>
+
+                    {!isGoogleCalendarActive ? (
+                      <button 
+                        onClick={() => setIsGoogleCalendarActive(true)}
+                        style={{ width: '100%', padding: '0.8rem', borderRadius: '12px', border: googleCalendarId ? '1px solid transparent' : '1px solid #4285F4', background: googleCalendarId ? '#4285F4' : 'rgba(66, 133, 244, 0.1)', color: googleCalendarId ? '#fff' : '#4285F4', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s ease', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                        onMouseOver={(e) => e.currentTarget.style.opacity = '0.8'}
+                        onMouseOut={(e) => e.currentTarget.style.opacity = '1'}
+                      >
+                        {googleCalendarId ? <><CheckCircle2 size={16} /> Подключено (Настроить)</> : 'Подключить Календарь'}
+                      </button>
+                    ) : (
+                      <div style={{ overflow: 'hidden', animation: 'slideDown 0.4s ease-out forwards' }}>
+                        <button onClick={() => setIsGoogleCalendarActive(false)} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'none', border: '1px solid var(--outline-variant)', borderRadius: '8px', padding: '6px 14px', cursor: 'pointer', color: 'var(--on-surface-variant)', fontSize: '0.85rem', marginBottom: '1rem' }}>
+                          <ArrowLeft size={14} /> Назад
+                        </button>
+
+                        <div style={{ background: 'var(--surface-container-lowest)', padding: '1rem', borderRadius: '12px', marginBottom: '1rem', borderLeft: '4px solid #4285F4' }}>
+                          <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--on-surface)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ background: '#4285F4', color: '#fff', width: '20px', height: '20px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', fontSize: '12px' }}>1</span>
+                            Откройте Google Календарь
+                          </div>
+                          <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.85rem', marginBottom: '0.5rem', lineHeight: '1.4' }}>
+                            Перейдите на <a href="https://calendar.google.com" target="_blank" rel="noopener noreferrer" style={{ color: '#4285F4', textDecoration: 'underline' }}>calendar.google.com</a>. В левой панели найдите нужный календарь в разделе <b>«Мои календари»</b> и нажмите на три точки (⋮) рядом с ним → <b>«Настройки и общий доступ»</b>.
+                          </p>
+                        </div>
+
+                        <div style={{ background: 'var(--surface-container-lowest)', padding: '1rem', borderRadius: '12px', marginBottom: '1rem', borderLeft: '4px solid #4285F4' }}>
+                          <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--on-surface)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ background: '#4285F4', color: '#fff', width: '20px', height: '20px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', fontSize: '12px' }}>2</span>
+                            Добавьте наш email как редактора
+                          </div>
+                          <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.85rem', marginBottom: '0.8rem', lineHeight: '1.4' }}>
+                            Прокрутите вниз до раздела <b>«Доступ для отдельных пользователей»</b> → нажмите <b>«+ Добавить пользователей»</b> → вставьте этот email → выберите роль <b>«Вносить изменения в мероприятия»</b> → нажмите <b>«Отправить»</b>:
+                          </p>
+                          <code style={{ background: 'rgba(66, 133, 244, 0.1)', padding: '8px 12px', borderRadius: '6px', userSelect: 'all', wordBreak: 'break-all', border: '1px solid rgba(66, 133, 244, 0.2)', width: '100%', display: 'block', color: '#4285F4', fontWeight: 600 }}>chatflowbot@gen-lang-client-0537370402.iam.gserviceaccount.com</code>
+                        </div>
+
+                        <div style={{ background: 'var(--surface-container-lowest)', padding: '1rem', borderRadius: '12px', marginBottom: '1rem', borderLeft: '4px solid #4285F4' }}>
+                          <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--on-surface)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ background: '#4285F4', color: '#fff', width: '20px', height: '20px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', fontSize: '12px' }}>3</span>
+                            Скопируйте ID календаря
+                          </div>
+                          <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.85rem', marginBottom: '0.5rem', lineHeight: '1.4' }}>
+                            На той же странице настроек прокрутите вниз до раздела <b>«Интеграция календаря»</b>. Там будет поле <b>«Идентификатор календаря»</b> — скопируйте это значение (обычно это ваш Gmail или длинная строка заканчивающаяся на @group.calendar.google.com) и вставьте сюда:
+                          </p>
+                          <input 
+                            type="text"
+                            className="premium-input" 
+                            placeholder="my-email@gmail.com или xxxx@group.calendar.google.com" 
+                            value={googleCalendarId} 
+                            onChange={e => setGoogleCalendarId(e.target.value)} 
+                            style={{ background: 'var(--background)', width: '100%', padding: '0.8rem', borderRadius: '8px', fontSize: '0.9rem', border: '1px solid var(--outline-variant)' }} 
+                          />
+                        </div>
+
+                        <button 
+                          onClick={handleSave} 
+                          disabled={isSaving}
+                          style={{ width: '100%', padding: '0.8rem', borderRadius: '12px', border: 'none', background: '#4285F4', color: '#fff', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', transition: 'all 0.2s' }}
+                          onMouseOver={(e) => { if(!isSaving) e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(66, 133, 244, 0.3)'; }}
+                          onMouseOut={(e) => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; }}
+                        >
+                          {isSaving ? <Loader2 size={16} className="spinning" /> : <CheckCircle2 size={16} />}
+                          Сохранить и активировать
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  )}
+
+                  {/* Bitrix24 Card */}
+                  {(!isGoogleSheetsActive && !isGoogleCalendarActive) && (
+                  <div style={{ background: 'var(--surface)', border: '1px solid var(--outline-variant)', borderRadius: '20px', padding: '1.5rem', display: 'flex', flexDirection: 'column', transition: 'all 0.3s ease' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
+                      <div style={{ width: '48px', height: '48px', background: 'rgba(47, 198, 246, 0.1)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Database size={24} color="#2fc6f6" />
+                      </div>
+                      <div>
+                        <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'var(--on-surface)' }}>Битрикс24</h3>
+                        <div style={{ fontSize: '0.8rem', color: '#2fc6f6', fontWeight: 600 }}>Мощная CRM</div>
+                      </div>
+                    </div>
+                    <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.9rem', marginBottom: '1.5rem', flex: 1 }}>
+                      Бот будет автоматически создавать карточки "Лида" в вашем Битрикс24 при получении контакта.
+                    </p>
+
+                    {!isBitrixActive ? (
+                      <button 
+                        onClick={() => setIsBitrixActive(true)}
+                        style={{ width: '100%', padding: '0.8rem', borderRadius: '12px', border: bitrixWebhookUrl ? '1px solid transparent' : '1px solid #2fc6f6', background: bitrixWebhookUrl ? '#2fc6f6' : 'rgba(47, 198, 246, 0.1)', color: bitrixWebhookUrl ? '#fff' : '#2fc6f6', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s ease', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                        onMouseOver={(e) => e.currentTarget.style.opacity = '0.8'}
+                        onMouseOut={(e) => e.currentTarget.style.opacity = '1'}
+                      >
+                        {bitrixWebhookUrl ? <><CheckCircle2 size={16} /> Подключено (Настроить)</> : 'Подключить Битрикс24'}
+                      </button>
+                    ) : (
+                      <div style={{ overflow: 'hidden', animation: 'slideDown 0.4s ease-out forwards' }}>
+                        <button onClick={() => setIsBitrixActive(false)} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'none', border: '1px solid var(--outline-variant)', borderRadius: '8px', padding: '6px 14px', cursor: 'pointer', color: 'var(--on-surface-variant)', fontSize: '0.85rem', marginBottom: '1rem' }}>
+                          <ArrowLeft size={14} /> Назад
+                        </button>
+
+                        <div style={{ background: 'var(--surface-container-lowest)', padding: '1rem', borderRadius: '12px', marginBottom: '1rem', borderLeft: '4px solid #2fc6f6' }}>
+                          <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--on-surface)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ background: '#2fc6f6', color: '#fff', width: '20px', height: '20px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', fontSize: '12px' }}>1</span>
+                            Создайте Входящий Вебхук
+                          </div>
+                          <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.85rem', lineHeight: '1.7', marginBottom: 0 }}>
+                            В вашем Битрикс24 перейдите по пути:<br/>
+                            <b>Приложения</b> → <b>Разработчикам</b> → <b>Другое</b> → <b>Входящий вебхук</b><br/><br/>
+                            ⚠️ <b>Важно:</b> В разделе <b>«Настройка прав»</b> обязательно выберите право <b style={{ color: '#2fc6f6' }}>«CRM»</b> (иначе лиды не будут создаваться).<br/><br/>
+                            Нажмите кнопку <b>«Сохранить»</b> внизу страницы.
+                          </p>
+                        </div>
+
+                        <div style={{ background: 'var(--surface-container-lowest)', padding: '1rem', borderRadius: '12px', marginBottom: '1.5rem', borderLeft: '4px solid #2fc6f6' }}>
+                          <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--on-surface)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ background: '#2fc6f6', color: '#fff', width: '20px', height: '20px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', fontSize: '12px' }}>2</span>
+                            Вставьте URL вебхука
+                          </div>
+                          <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.85rem', marginBottom: '0.5rem', lineHeight: '1.4' }}>
+                            Скопируйте полученную ссылку для вызова REST (она длинная) и вставьте её сюда:
+                          </p>
+                          <input 
+                            type="text"
+                            className="premium-input" 
+                            placeholder="https://b24-xxxx.bitrix24.ru/rest/1/secret_token/" 
+                            value={bitrixWebhookUrl} 
+                            onChange={e => setBitrixWebhookUrl(e.target.value)} 
+                            style={{ background: 'var(--background)', width: '100%', padding: '0.8rem', borderRadius: '8px', fontSize: '0.9rem', border: '1px solid var(--outline-variant)', marginBottom: '1rem' }} 
+                          />
+                          <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--on-surface)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ background: '#2fc6f6', color: '#fff', width: '20px', height: '20px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', fontSize: '12px' }}>3</span>
+                            Какие данные передавать в лид? (Необязательно)
+                          </div>
+                          <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.85rem', marginBottom: '0.5rem', lineHeight: '1.4' }}>
+                            Имя и телефон передаются всегда. Напишите, какую еще информацию ИИ должен собирать и записывать в комментарий к лиду:
+                          </p>
+                          <textarea 
+                            className="premium-input" 
+                            placeholder="Например: Какую услугу хочет получить клиент, удобное время для записи и город проживания" 
+                            value={bitrixFields} 
+                            onChange={e => setBitrixFields(e.target.value)} 
+                            style={{ background: 'var(--background)', width: '100%', padding: '0.8rem', borderRadius: '8px', fontSize: '0.9rem', border: '1px solid var(--outline-variant)', minHeight: '80px', resize: 'vertical' }} 
+                          />
+                        </div>
+
+                        <button 
+                          onClick={handleSave} 
+                          disabled={isSaving}
+                          style={{ width: '100%', padding: '0.8rem', borderRadius: '12px', border: 'none', background: '#2fc6f6', color: '#fff', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', transition: 'all 0.2s' }}
+                          onMouseOver={(e) => { if(!isSaving) e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(47, 198, 246, 0.3)'; }}
+                          onMouseOut={(e) => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; }}
+                        >
+                          {isSaving ? <Loader2 size={16} className="spinning" /> : <CheckCircle2 size={16} />}
+                          Сохранить и активировать
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  )}
+
+                  {/* AmoCRM (Coming Soon) */}
+                  {(!isGoogleSheetsActive && !isGoogleCalendarActive && !isBitrixActive) && (
+                  <div style={{ background: 'var(--surface)', border: '1px solid var(--outline-variant)', borderRadius: '20px', padding: '1.5rem', display: 'flex', flexDirection: 'column', opacity: 0.6, cursor: 'not-allowed' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
+                      <div style={{ width: '48px', height: '48px', background: 'var(--surface-container-highest)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Database size={24} color="var(--on-surface-variant)" />
+                      </div>
+                      <div>
+                        <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'var(--on-surface)' }}>amoCRM</h3>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--on-surface-variant)', fontWeight: 600 }}>Полноценная CRM</div>
+                      </div>
+                    </div>
+                    <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.9rem', marginBottom: '1.5rem', flex: 1 }}>
+                      Автоматическое создание сделок и перенос переписки с клиентом прямо в воронку продаж amoCRM.
+                    </p>
+                    <button disabled style={{ width: '100%', padding: '0.8rem', borderRadius: '12px', border: '1px solid var(--outline-variant)', background: 'var(--surface-container-lowest)', color: 'var(--on-surface-variant)', fontWeight: 600 }}>
+                      В разработке
+                    </button>
+                  </div>
+                  )}
+
+
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* ══ SETTINGS TAB ══ */}
         {activeTab === 'settings' && (
           <div style={{ flex: 1, overflowY: 'auto', padding: '3rem 2rem' }}>
@@ -2485,51 +3153,55 @@ export default function BotDetails() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.9rem', color: '#aaa', marginBottom: '0.5rem', fontWeight: 500 }}>{t.genInfo}</label>
-                    <textarea className="premium-input" rows={3} style={{ resize: 'vertical', width: '100%' }} value={businessInfo} onChange={e => setBusinessInfo(e.target.value)} placeholder={t.genInfoHint} />
+                    <textarea className="premium-input" rows={3} style={{ resize: 'vertical', width: '100%' }} value={businessInfo} onChange={e => setBusinessInfo(e.target.value)} placeholder="..." />
                   </div>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.9rem', color: '#aaa', marginBottom: '0.5rem', fontWeight: 500 }}>{t.benefits}</label>
-                    <textarea className="premium-input" rows={2} style={{ resize: 'vertical', width: '100%' }} value={benefits} onChange={e => setBenefits(e.target.value)} placeholder={t.benefitsHint} />
+                    <textarea className="premium-input" rows={2} style={{ resize: 'vertical', width: '100%' }} value={benefits} onChange={e => setBenefits(e.target.value)} placeholder="..." />
                   </div>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.9rem', color: '#aaa', marginBottom: '0.5rem', fontWeight: 500 }}>{t.pricingTerms}</label>
-                    <textarea className="premium-input" rows={3} style={{ resize: 'vertical', width: '100%' }} value={pricing} onChange={e => setPricing(e.target.value)} placeholder={t.pricingHint} />
+                    <textarea className="premium-input" rows={3} style={{ resize: 'vertical', width: '100%' }} value={pricing} onChange={e => setPricing(e.target.value)} placeholder="..." />
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.9rem', color: '#aaa', marginBottom: '0.5rem', fontWeight: 500 }}>{t.managerContact}</label>
-                    <input className="premium-input" type="text" value={managerContact} onChange={e => setManagerContact(e.target.value)} placeholder={t.managerContact} style={{ width: '100%' }} />
+                    <label style={{ display: 'block', fontSize: '0.9rem', color: 'var(--on-surface-variant)', marginBottom: '0.5rem', fontWeight: 500 }}>{t.managerContact}</label>
+                    <input className="premium-input" type="text" value={managerContact} onChange={e => setManagerContact(e.target.value)} placeholder="+7 (777) 123-45-67 или @username" style={{ width: '100%' }} />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.9rem', color: '#aaa', marginBottom: '0.5rem', fontWeight: 500 }}>{t.additionalInfo || 'Дополнительная информация (произвольный текст)'}</label>
+                    <textarea className="premium-input" rows={6} style={{ resize: 'vertical', width: '100%' }} value={additionalInfo} onChange={e => setAdditionalInfo(e.target.value)} placeholder="Вставьте сюда любой объемный текст, описание, услуги, цены, который не поместился в другие разделы..." />
                   </div>
                   
-                  <div style={{ background: 'var(--surface-container-low)', padding: '20px', borderRadius: '12px', border: '1px solid var(--outline-variant)' }}>
+                  <div style={{ background: 'var(--surface-container-high)', padding: '20px', borderRadius: '12px', border: '1px solid var(--outline-variant)' }}>
                     <label style={{ display: 'block', fontSize: '1rem', color: 'var(--on-surface)', marginBottom: '1rem', fontWeight: 600 }}>{t.faqTitle}</label>
                     {faq.map((item, index) => (
                       <div key={index} style={{ display: 'flex', gap: '12px', marginBottom: '16px', alignItems: 'flex-start' }}>
                         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                          <input className="premium-input" type="text" value={item.q} onChange={e => { const newFaq = [...faq]; newFaq[index].q = e.target.value; setFaq(newFaq); }} placeholder={t.question || "Question"} style={{ padding: '0.8rem 1rem', width: '100%' }} />
-                          <textarea className="premium-input" rows={2} style={{ padding: '0.8rem 1rem', resize: 'vertical', width: '100%' }} value={item.a} onChange={e => { const newFaq = [...faq]; newFaq[index].a = e.target.value; setFaq(newFaq); }} placeholder={t.answer || "Answer"} />
+                          <input className="premium-input" type="text" value={item.q} onChange={e => { const newFaq = [...faq]; newFaq[index].q = e.target.value; setFaq(newFaq); }} placeholder={t.question || 'Вопрос...'} style={{ padding: '0.8rem 1rem', width: '100%', background: 'var(--surface-container-lowest)' }} />
+                          <textarea className="premium-input" rows={2} style={{ padding: '0.8rem 1rem', resize: 'vertical', width: '100%', background: 'var(--surface-container-lowest)' }} value={item.a} onChange={e => { const newFaq = [...faq]; newFaq[index].a = e.target.value; setFaq(newFaq); }} placeholder={t.answer || 'Ответ...'} />
                         </div>
                         <button type="button" onClick={() => { const newFaq = faq.filter((_, i) => i !== index); setFaq(newFaq.length ? newFaq : [{q:'', a:''}]); }} style={{ padding: '0.8rem', background: 'rgba(255, 77, 79, 0.1)', color: '#ff4d4f', borderRadius: '8px', border: '1px solid rgba(255, 77, 79, 0.2)', cursor: 'pointer' }}>
                           <Trash2 size={20} />
                         </button>
                       </div>
                     ))}
-                    <button type="button" onClick={() => setFaq([...faq, { q: '', a: '' }])} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'transparent', border: '1px dashed rgba(255,255,255,0.2)', color: '#fff', padding: '12px', borderRadius: '8px', cursor: 'pointer', width: '100%', justifyContent: 'center', fontWeight: '600' }}>
+                    <button type="button" onClick={() => setFaq([...faq, { q: '', a: '' }])} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'transparent', border: '1px dashed var(--outline-variant)', color: 'var(--on-surface-variant)', padding: '12px', borderRadius: '8px', cursor: 'pointer', width: '100%', justifyContent: 'center', fontWeight: '600' }}>
                       <Plus size={18} /> {t.addQuestion || 'Add question'}
                     </button>
                   </div>
 
-                  <div style={{ background: 'var(--surface-container-low)', padding: '20px', borderRadius: '12px', border: '1px solid var(--outline-variant)' }}>
+                  <div style={{ background: 'var(--surface-container-high)', padding: '20px', borderRadius: '12px', border: '1px solid var(--outline-variant)' }}>
                     <label style={{ display: 'block', fontSize: '1rem', color: 'var(--on-surface)', marginBottom: '1rem', fontWeight: 600 }}>{t.usefulLinks}</label>
                     {links.map((item, index) => (
                       <div key={index} style={{ display: 'flex', gap: '12px', marginBottom: '12px', alignItems: 'center' }}>
-                        <input className="premium-input" type="text" value={item.title} onChange={e => { const newLinks = [...links]; newLinks[index].title = e.target.value; setLinks(newLinks); }} placeholder={t.linkName || "Name (e.g. Our website)"} style={{ flex: 1, padding: '0.8rem 1rem' }} />
-                        <input className="premium-input" type="text" value={item.url} onChange={e => { const newLinks = [...links]; newLinks[index].url = e.target.value; setLinks(newLinks); }} placeholder="https://..." style={{ flex: 2, padding: '0.8rem 1rem' }} />
+                        <input className="premium-input" type="text" value={item.title} onChange={e => { const newLinks = [...links]; newLinks[index].title = e.target.value; setLinks(newLinks); }} placeholder={t.linkName || 'Название...'} style={{ flex: 1, padding: '0.8rem 1rem', background: 'var(--surface-container-lowest)' }} />
+                        <input className="premium-input" type="text" value={item.url} onChange={e => { const newLinks = [...links]; newLinks[index].url = e.target.value; setLinks(newLinks); }} placeholder="https://..." style={{ flex: 2, padding: '0.8rem 1rem', background: 'var(--surface-container-lowest)' }} />
                         <button type="button" onClick={() => { const newLinks = links.filter((_, i) => i !== index); setLinks(newLinks.length ? newLinks : [{title:'', url:''}]); }} style={{ padding: '0.8rem', background: 'rgba(255, 77, 79, 0.1)', color: '#ff4d4f', borderRadius: '8px', border: '1px solid rgba(255, 77, 79, 0.2)', cursor: 'pointer' }}>
                           <Trash2 size={20} />
                         </button>
                       </div>
                     ))}
-                    <button type="button" onClick={() => setLinks([...links, { title: '', url: '' }])} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'transparent', border: '1px dashed rgba(255,255,255,0.2)', color: '#fff', padding: '12px', borderRadius: '8px', cursor: 'pointer', width: '100%', justifyContent: 'center', fontWeight: '600' }}>
+                    <button type="button" onClick={() => setLinks([...links, { title: '', url: '' }])} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'transparent', border: '1px dashed var(--outline-variant)', color: 'var(--on-surface-variant)', padding: '12px', borderRadius: '8px', cursor: 'pointer', width: '100%', justifyContent: 'center', fontWeight: '600' }}>
                       <Plus size={18} /> {t.addLink || 'Add link'}
                     </button>
                   </div>
@@ -2559,6 +3231,7 @@ export default function BotDetails() {
 
                 </div>
               </div>
+
 
               <div className="glass-panel" style={{ padding: '2.5rem', marginBottom: '3rem', border: '1px solid var(--outline-variant)' }}>
                 <h3 style={{ fontSize: '1.4rem', color: 'var(--on-surface)', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>

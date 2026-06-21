@@ -1225,12 +1225,20 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             <div className="bg-white thin-border rounded-2xl p-8 space-y-4 shadow-sm flex flex-col justify-between">
               <div className="space-y-4">
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-center flex-wrap">
                   <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center p-1.5 shadow-sm">
                     <img src="/whatsapp-icon.png" alt="WhatsApp" className="w-full h-full object-contain" />
                   </div>
                   <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center p-1.5 shadow-sm">
                     <img src="/telegram-icon.png" alt="Telegram" className="w-full h-full object-contain" />
+                  </div>
+                  <div className="relative w-10 h-10 rounded-xl flex items-center justify-center p-1.5 shadow-sm" style={{ background: 'rgba(188,24,136,0.08)', border: '1px solid rgba(188,24,136,0.15)' }}>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#bc1888" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
+                      <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+                      <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
+                    </svg>
+                    <span style={{ position: 'absolute', top: '-6px', right: '-6px', background: 'linear-gradient(135deg, #f09433, #dc2743, #bc1888)', color: '#fff', fontSize: '7px', fontWeight: '800', padding: '1px 4px', borderRadius: '8px', letterSpacing: '0.3px' }}>{language === 'EN' ? 'SOON' : 'СКОРО'}</span>
                   </div>
                 </div>
                 <h3 className="text-lg font-semibold text-slate-900 heading-font">{t.feature1Title}</h3>
@@ -1238,12 +1246,15 @@ export default function LandingPage() {
                   {t.feature1Desc}
                 </p>
               </div>
-              <div className="flex gap-2.5 pt-2 border-t border-slate-100">
+              <div className="flex gap-2.5 pt-2 border-t border-slate-100 flex-wrap">
                 <span className="text-[10px] uppercase font-bold text-emerald-600 tracking-wider flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span> WhatsApp Business API
                 </span>
                 <span className="text-[10px] uppercase font-bold text-blue-500 tracking-wider flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-ping"></span> Telegram Bot
+                </span>
+                <span className="text-[10px] uppercase font-bold tracking-wider flex items-center gap-1" style={{ color: '#bc1888' }}>
+                  <span className="w-1.5 h-1.5 rounded-full animate-ping" style={{ background: '#bc1888' }}></span> Instagram {language === 'EN' ? 'Soon' : 'Скоро'}
                 </span>
               </div>
             </div>

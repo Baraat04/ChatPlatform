@@ -51,14 +51,27 @@ export async function trackUsage({ userId, botId, provider, model, inputTokens, 
       },
     });
 
-    // Update user message balance atomically
-    await _prisma.user.update({
+    // Update user message balance atomically and get the user's updated balance and email
+    const updatedUser = await _prisma.user.update({
       where: { id: userId },
       data: {
         messagesRemaining: { decrement: messagesUsed },
         totalMessagesUsed: { increment: messagesUsed },
       },
+      select: { email: true, name: true, messagesRemaining: true }
     });
+
+    // Check thresholds for notifications
+    const previousBalance = updatedUser.messagesRemaining + messagesUsed;
+    if (previousBalance > 20 && updatedUser.messagesRemaining <= 20) {
+        import('./emailService.js').then(({ sendLowTokensEmail }) => {
+            sendLowTokensEmail(updatedUser.email, updatedUser.name, updatedUser.messagesRemaining);
+        });
+    } else if (previousBalance > 5 && updatedUser.messagesRemaining <= 5) {
+        import('./emailService.js').then(({ sendLowTokensEmail }) => {
+            sendLowTokensEmail(updatedUser.email, updatedUser.name, updatedUser.messagesRemaining);
+        });
+    }
 
     // Create a transaction record
     await _prisma.messageTransaction.create({

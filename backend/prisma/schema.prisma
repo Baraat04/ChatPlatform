@@ -18,27 +18,27 @@ enum BotPlatform {
 }
 
 model User {
-  id                Int      @id @default(autoincrement())
-  name              String
-  
+  id   Int    @id @default(autoincrement())
+  name String
+
   // --- Added Fields ---
-  email             String?  @unique
-  password          String?
-  googleId          String?  @unique
-  isVerified        Boolean  @default(false)
-  messagesRemaining Int      @default(0)
-  totalMessagesUsed Int      @default(0)
-  subscriptionPlan  String   @default("FREE")
+  email                 String?   @unique
+  password              String?
+  googleId              String?   @unique
+  isVerified            Boolean   @default(false)
+  messagesRemaining     Int       @default(0)
+  totalMessagesUsed     Int       @default(0)
+  subscriptionPlan      String    @default("FREE")
   subscriptionExpiresAt DateTime?
 
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   // Relation to Bots (One-to-Many)
-  bots                 Bot[]
-  usage                AIUsage[]
-  messageTransactions  MessageTransaction[]
-  verificationTokens   VerificationToken[]
+  bots                Bot[]
+  usage               AIUsage[]
+  messageTransactions MessageTransaction[]
+  verificationTokens  VerificationToken[]
 }
 
 model VerificationToken {
@@ -57,28 +57,35 @@ model Session {
 }
 
 model Bot {
-  id            Int      @id @default(autoincrement())
-  slug          String   @unique         // Slugs should generally be unique for routing/webhooks
+  id            Int     @id @default(autoincrement())
+  slug          String  @unique // Slugs should generally be unique for routing/webhooks
   // Using @db.Text is recommended for prompts since they can exceed standard varchar limits
-  system_prompt String?  @db.Text
-  data_prompt   String?  @db.Text
-  
+  system_prompt String? @db.Text
+  data_prompt   String? @db.Text
+
   // --- Added Fields ---
-  platform      BotPlatform              // Specifies if it's Telegram or WhatsApp
-  apiToken      String?                  // Needed to authenticate the bot with Telegram/WhatsApp
-  isActive      Boolean  @default(true)  // Allows users to turn bots on/off without deleting them
-  pausedChats   String[] @default([])    // Array of chat IDs where AI auto-reply is disabled
-  agentHistory  String?  @db.Text        // Stores chat history with the AI configuration agent
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  platform           BotPlatform // Specifies if it's Telegram or WhatsApp
+  apiToken           String? // Needed to authenticate the bot with Telegram/WhatsApp
+  isActive           Boolean     @default(true) // Allows users to turn bots on/off without deleting them
+  pausedChats        String[]    @default([]) // Array of chat IDs where AI auto-reply is disabled
+  agentHistory       String?     @db.Text // Stores chat history with the AI configuration agent
+  googleSheetUrl     String?     @db.Text
+  googleSheetColumns String?     @db.Text
+  googleCalendarId   String?     @db.Text
+  bitrixWebhookUrl   String?     @db.Text
+  bitrixFields       String?     @db.Text
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
 
   // Foreign Key and Relation (Matches your diagram)
-  user_id       Int
-  user          User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user_id          Int
+  user             User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
   whatsappSessions BaileysSession[]
   channels         Channel[]
   messages         Message[]
   usage            AIUsage[]
+  backgroundJobs   BackgroundJob[]
+  chatAnalytics    ChatAnalytics[]
 
   // Adding an index on the foreign key improves query performance
   @@index([user_id])
@@ -113,57 +120,59 @@ model Channel {
 }
 
 model Message {
-  id         Int      @id @default(autoincrement())
-  botId      Int
-  bot        Bot      @relation(fields: [botId], references: [id], onDelete: Cascade)
-  channelId  Int?
-  channel    Channel? @relation(fields: [channelId], references: [id], onDelete: SetNull)
-  platform   String?  // 'TELEGRAM' | 'WHATSAPP' — for filtering
-  sender     String   // 'user' or 'bot'
-  text       String   @db.Text
-  chatId     String   // phone number or telegram chat id
-  createdAt  DateTime @default(now())
-  mediaUrl   String?
-  mediaType  String?
+  id        Int      @id @default(autoincrement())
+  botId     Int
+  bot       Bot      @relation(fields: [botId], references: [id], onDelete: Cascade)
+  channelId Int?
+  channel   Channel? @relation(fields: [channelId], references: [id], onDelete: SetNull)
+  platform  String? // 'TELEGRAM' | 'WHATSAPP' — for filtering
+  sender    String // 'user' or 'bot'
+  text      String   @db.Text
+  chatId    String // phone number or telegram chat id
+  createdAt DateTime @default(now())
+  mediaUrl  String?
+  mediaType String?
 
   @@index([botId, chatId])
   @@index([botId, platform])
 }
 
 model Contact {
-  id        Int      @id @default(autoincrement())
-  botId     Int
-  chatId    String
-  name      String
-  realJid   String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          Int      @id @default(autoincrement())
+  botId       Int
+  chatId      String
+  name        String
+  realJid     String?
+  status      String   @default("Все")
+  unreadCount Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@unique([botId, chatId])
 }
 
 model AIUsage {
-  id             Int      @id @default(autoincrement())
+  id Int @id @default(autoincrement())
 
-  userId         Int
-  botId          Int
+  userId Int
+  botId  Int
 
-  provider       String
-  model          String
+  provider String
+  model    String
 
-  inputTokens    Int
-  outputTokens   Int
-  totalTokens    Int
+  inputTokens  Int
+  outputTokens Int
+  totalTokens  Int
 
-  messagesUsed   Int
+  messagesUsed Int
 
-  providerCost   Float
+  providerCost     Float
   estimatedRevenue Float
 
-  createdAt      DateTime @default(now())
+  createdAt DateTime @default(now())
 
-  user           User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  bot            Bot  @relation(fields: [botId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bot  Bot  @relation(fields: [botId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([botId])
@@ -171,29 +180,29 @@ model AIUsage {
 }
 
 model MessageTransaction {
-  id               Int      @id @default(autoincrement())
+  id Int @id @default(autoincrement())
 
-  userId           Int
-  amount           Int      // positive = purchase, negative = usage
+  userId Int
+  amount Int // positive = purchase, negative = usage
 
-  type             String   // purchase, usage, bonus, refund
+  type String // purchase, usage, bonus, refund
 
-  description      String?
+  description String?
 
-  model            String?
+  model String?
 
-  inputTokens      Int?
-  outputTokens     Int?
-  totalTokens      Int?
+  inputTokens  Int?
+  outputTokens Int?
+  totalTokens  Int?
 
-  messagesUsed     Int?
+  messagesUsed Int?
 
   providerCost     Float?
   estimatedRevenue Float?
 
-  createdAt        DateTime @default(now())
+  createdAt DateTime @default(now())
 
-  user             User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([createdAt])
@@ -207,3 +216,33 @@ model SupportTicket {
   createdAt DateTime @default(now())
 }
 
+model BackgroundJob {
+  id        Int      @id @default(autoincrement())
+  botId     Int
+  type      String // "ANALYZE_CHAT"
+  payload   String   @db.Text // JSON: { chatId: "123" }
+  status    String   @default("PENDING") // PENDING, PROCESSING, COMPLETED, FAILED
+  error     String?  @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  bot Bot @relation(fields: [botId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([botId])
+}
+
+model ChatAnalytics {
+  id            Int      @id @default(autoincrement())
+  botId         Int
+  chatId        String
+  funnelStage   String // e.g. "Лид", "Квалификация", "Презентация", "Ожидание оплаты", "Успешно", "Отказ"
+  dropOffReason String?  @db.Text // Why dropped off
+  score         Int? // Quality score 0-100
+  insights      String?  @db.Text
+  lastAnalyzed  DateTime @default(now())
+
+  bot Bot @relation(fields: [botId], references: [id], onDelete: Cascade)
+
+  @@unique([botId, chatId])
+}

@@ -703,7 +703,7 @@ export default function CreateBotFast() {
               <div key="step1" className="anim-step">
                 <h2 style={{ fontSize: '28px', fontWeight: 'bold', color: 'var(--on-surface)', marginBottom: '24px' }}>{t.createBotTitle1 || 'Где будет работать ваш ИИ-агент?'}</h2>
                 
-                <div className="platform-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
+                <div className="platform-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
                   {platforms.map((p, idx) => (
                     <div 
                       key={p.id} 
@@ -717,6 +717,18 @@ export default function CreateBotFast() {
                       <span style={{ fontSize: '18px', fontWeight: '600', color: 'var(--on-surface)' }}>{p.name}</span>
                     </div>
                   ))}
+
+                  {/* Instagram — Coming Soon */}
+                  <div
+                    className="platform-card anim-item"
+                    style={{ animationDelay: '0.2s', padding: '24px', borderRadius: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', cursor: 'not-allowed', background: 'var(--surface-container-lowest)', opacity: 0.65, position: 'relative', overflow: 'hidden' }}
+                  >
+                    <div style={{ position: 'absolute', top: '10px', right: '10px', background: 'linear-gradient(135deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888)', color: '#fff', fontSize: '10px', fontWeight: '700', padding: '2px 8px', borderRadius: '20px', letterSpacing: '0.5px' }}>СКОРО</div>
+                    <div style={{ background: 'rgba(188,24,136,0.1)', padding: '16px', borderRadius: '50%' }}>
+                      <InstagramIcon size={32} color="#bc1888" />
+                    </div>
+                    <span style={{ fontSize: '18px', fontWeight: '600', color: 'var(--on-surface)' }}>Instagram</span>
+                  </div>
                 </div>
               </div>
             )}

@@ -191,12 +191,17 @@ router.post('/bot', requireAuth, async (req, res) => {
 router.put('/bot/:id', requireAuth, async (req, res) => {
     try {
         const prisma = getPrisma()
-        const { system_prompt, data_prompt, apiToken } = req.body
+        const { system_prompt, data_prompt, apiToken, googleSheetUrl, googleSheetColumns, googleCalendarId, bitrixWebhookUrl, bitrixFields } = req.body
         
         const updateData = {};
         if (system_prompt !== undefined) updateData.system_prompt = system_prompt;
         if (data_prompt !== undefined) updateData.data_prompt = data_prompt;
         if (apiToken !== undefined) updateData.apiToken = apiToken;
+        if (googleSheetUrl !== undefined) updateData.googleSheetUrl = googleSheetUrl;
+        if (googleSheetColumns !== undefined) updateData.googleSheetColumns = googleSheetColumns;
+        if (googleCalendarId !== undefined) updateData.googleCalendarId = googleCalendarId;
+        if (bitrixWebhookUrl !== undefined) updateData.bitrixWebhookUrl = bitrixWebhookUrl;
+        if (bitrixFields !== undefined) updateData.bitrixFields = bitrixFields;
 
         const bot = await prisma.bot.update({
             where: { id: Number(req.params.id), user_id: req.session.userId },
@@ -248,11 +253,33 @@ router.delete('/bot/:id', requireAuth, async (req, res) => {
 router.get('/bot/:id/channels', requireAuth, async (req, res) => {
     try {
         const prisma = getPrisma()
+        const botId = Number(req.params.id)
+        
+        const bot = await prisma.bot.findUnique({ where: { id: botId, user_id: req.session.userId } })
+        if (!bot) return res.status(404).json({ error: 'Bot not found' })
+        
         const channels = await prisma.channel.findMany({
-            where: { botId: Number(req.params.id) },
+            where: { botId },
             orderBy: { createdAt: 'asc' }
         })
-        res.json(channels)
+        
+        // Don't add the base-bot entry if a real Channel record already exists for the same platform
+        // This prevents duplicate WhatsApp/Telegram/Instagram cards
+        const hasChannelForBotPlatform = channels.some(c => c.platform === bot.platform)
+        
+        const allChannels = [
+            ...(hasChannelForBotPlatform ? [] : [{
+                id: 'base-' + bot.id,
+                platform: bot.platform,
+                isActive: bot.isActive,
+                slug: bot.slug,
+                botId: bot.id,
+                isBaseChannel: true
+            }]),
+            ...channels
+        ]
+        
+        res.json(allChannels)
     } catch (e) { res.status(500).json({ error: e.message }) }
 })
 
@@ -548,10 +575,14 @@ router.get('/bot/:id/chats', async (req, res) => {
         })
         const contactMap = new Map()
         const realJidMap = new Map()
+        const contactStatusMap = new Map()
+        const unreadCountMap = new Map()
         contacts.forEach(c => {
             if (c.name && c.name !== 'Contact') {
                 contactMap.set(c.chatId, c.name)
             }
+            contactStatusMap.set(c.chatId, c.status || 'Все')
+            unreadCountMap.set(c.chatId, c.unreadCount || 0)
             if (c.realJid) {
                 realJidMap.set(c.chatId, c.realJid)
                 // Transfer name to JID so it isn't lost if messages moved to JID
@@ -560,7 +591,21 @@ router.get('/bot/:id/chats', async (req, res) => {
                         contactMap.set(c.realJid, c.name)
                     }
                 }
+                if (!contactStatusMap.has(c.realJid)) {
+                    contactStatusMap.set(c.realJid, c.status || 'Все')
+                }
+                if (!unreadCountMap.has(c.realJid)) {
+                    unreadCountMap.set(c.realJid, c.unreadCount || 0)
+                }
             }
+        })
+
+        const analytics = await prisma.chatAnalytics.findMany({
+            where: { botId }
+        })
+        const analyticsMap = new Map()
+        analytics.forEach(a => {
+            analyticsMap.set(a.chatId, a.funnelStage || 'Лид')
         })
 
         // Group by chatId
@@ -589,7 +634,10 @@ router.get('/bot/:id/chats', async (req, res) => {
                 name: contactMap.get(rawId) || '',
                 realJid: realJidMap.get(rawId) || null,
                 platform,
-                channelId: msg.channelId || null
+                channelId: msg.channelId || null,
+                status: contactStatusMap.get(rawId) || 'Все',
+                unreadCount: unreadCountMap.get(rawId) || 0,
+                funnelStage: analyticsMap.get(rawId) || (realJidMap.has(rawId) ? analyticsMap.get(realJidMap.get(rawId)) : undefined) || 'Лид'
             })
         }
 
@@ -1264,7 +1312,15 @@ router.post('/webhook/telegram/:slug', async (req, res) => {
             take: 20
         })
         
-        const systemInstruction = `${bot.system_prompt || ''}\n\nCRITICAL: Follow the system instructions exactly. Pay extreme attention to any [Correction] or [IMPORTANT CORRECTION] tags at the end of the instructions.`;
+        let systemInstruction = `${bot.system_prompt || ''}\n\nCRITICAL: Follow the system instructions exactly. Pay extreme attention to any [Correction] or [IMPORTANT CORRECTION] tags at the end of the instructions.`;
+
+        // Setup integration config
+        const integrationConfig = {
+            googleSheetUrl: bot.googleSheetUrl,
+            googleSheetColumns: bot.googleSheetColumns,
+            bitrixWebhookUrl: bot.bitrixWebhookUrl,
+            googleCalendarId: bot.googleCalendarId
+        };
         const ragContext = bot.data_prompt || '';
 
         const reversed = [...recentMessages].reverse()
@@ -1279,10 +1335,37 @@ router.post('/webhook/telegram/:slug', async (req, res) => {
         let outputTokens = 0;
 
         try {
-            const geminiResult = await generateGeminiResponse(userMessage, history, systemInstruction, ragContext, telegramAudioBuffer, mimeType);
+            const geminiResult = await generateGeminiResponse(
+                userMessage, 
+                history, 
+                systemInstruction, 
+                ragContext, 
+                telegramAudioBuffer, 
+                mimeType,
+                integrationConfig
+            );
             aiResponseText = geminiResult.text;
             inputTokens = geminiResult.inputTokens;
             outputTokens = geminiResult.outputTokens;
+            
+            if (geminiResult.shouldPauseChat) {
+                let pausedChats = bot.pausedChats || [];
+                if (!pausedChats.includes(telegramChatId)) {
+                    pausedChats.push(telegramChatId);
+                    await prisma.bot.update({
+                        where: { id: bot.id },
+                        data: { pausedChats }
+                    });
+                }
+                try {
+                    const contact = await prisma.contact.update({
+                        where: { botId_chatId: { botId: bot.id, chatId: telegramChatId } },
+                        data: { status: 'Нужен ответ' }
+                    });
+                    io.emit(`contact-update-${bot.id}`, contact);
+                    io.emit(`bot-update-${bot.id}`, { pausedChats });
+                } catch(e) {}
+            }
 
             // 5. Track usage
             await trackUsage({
@@ -1515,11 +1598,45 @@ router.post('/webhook/instagram', async (req, res) => {
                 let aiResponseText = 'Извините, AI временно недоступен.';
                 let inputTokens = 0, outputTokens = 0;
                 try {
-                    const sysInstruction = `${bot.system_prompt || ''}\n\nCRITICAL: Follow the system instructions exactly. Pay extreme attention to any [Correction] or [IMPORTANT CORRECTION] tags at the end of the instructions.`;
-                    const geminiResult = await generateGeminiResponse(userMessage, history, sysInstruction, bot.data_prompt || '');
+                    let sysInstruction = `${bot.system_prompt || ''}\n\nCRITICAL: Follow the system instructions exactly. Pay extreme attention to any [Correction] or [IMPORTANT CORRECTION] tags at the end of the instructions.`;
+
+                    const integrationConfig = {
+                        googleSheetUrl: bot.googleSheetUrl,
+                        googleSheetColumns: bot.googleSheetColumns,
+                        bitrixWebhookUrl: bot.bitrixWebhookUrl,
+                        googleCalendarId: bot.googleCalendarId
+                    };
+                    const geminiResult = await generateGeminiResponse(
+                        userMessage, 
+                        history, 
+                        sysInstruction, 
+                        bot.data_prompt || '', 
+                        null, 
+                        null, 
+                        integrationConfig
+                    );
                     aiResponseText = geminiResult.text;
                     inputTokens = geminiResult.inputTokens;
                     outputTokens = geminiResult.outputTokens;
+                    
+                    if (geminiResult.shouldPauseChat) {
+                        let pausedChats = bot.pausedChats || [];
+                        if (!pausedChats.includes(senderId)) {
+                            pausedChats.push(senderId);
+                            await prisma.bot.update({
+                                where: { id: bot.id },
+                                data: { pausedChats }
+                            });
+                        }
+                        try {
+                            const contact = await prisma.contact.update({
+                                where: { botId_chatId: { botId: bot.id, chatId: senderId } },
+                                data: { status: 'Нужен ответ' }
+                            });
+                            io.emit(`contact-update-${bot.id}`, contact);
+                            io.emit(`bot-update-${bot.id}`, { pausedChats });
+                        } catch(e) {}
+                    }
 
                     await trackUsage({
                         userId: bot.user_id, botId: bot.id,
@@ -1632,7 +1749,6 @@ Respond with a JSON object ONLY, in this exact format:
   "new_system_prompt": "The complete updated system prompt",
   "new_data_prompt": "The complete updated data prompt"
 }
-}
 
 CRITICAL RULES FOR new_system_prompt:
 1. When the user asks you to change how the bot behaves or speaks, you MUST append this instruction clearly at the end of the new_system_prompt. 
@@ -1640,7 +1756,9 @@ CRITICAL RULES FOR new_system_prompt:
 3. PRESERVE ALL existing instructions in the system_prompt, just add the new ones at the end. DO NOT replace the whole prompt with just the new rule.
 
 CRITICAL RULES FOR new_data_prompt:
-You MUST format new_data_prompt EXACTLY like this with these specific headers, otherwise the system will break:
+You MUST format new_data_prompt EXACTLY like this with these specific headers, otherwise the system will break.
+IMPORTANT: If you do not have real information for a section (e.g., no real links, no real FAQ, no real manager contact), leave it completely blank. DO NOT hallucinate fake data, fake links (like example.com), or fake phone numbers.
+
 Компания:
 [Name]
 
@@ -1654,17 +1772,19 @@ You MUST format new_data_prompt EXACTLY like this with these specific headers, o
 [Pricing]
 
 FAQ:
-В: [Question]
-О: [Answer]
+[Leave blank if no real FAQ provided by user]
 
 Полезные ссылки:
-[Title]: [URL]
+[Leave blank if no real links provided]
 
 Контакт менеджера:
-[Contact]
+[Leave blank if no real contact provided]
 
-Do not change or omit the headers!
-Ensure the output is strictly valid JSON. Do not add markdown blocks around JSON.`;
+Дополнительная информация:
+[Append any large unstructured text, rules, or knowledge provided by the user here exactly as they provided it. DO NOT omit any details they pasted!]
+
+Ensure the output is strictly valid JSON. Do not add markdown blocks around JSON.
+CRITICAL: If the user pastes a huge text with company details or prices, you MUST include ALL of it under the "Дополнительная информация" or appropriate sections. Do not summarize it too shortly. Preserve the details.`;
 
         const geminiHistory = [];
         if (history) {

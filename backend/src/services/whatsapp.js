@@ -3,6 +3,7 @@ import pino from 'pino'
 import { Boom } from '@hapi/boom'
 import { trackUsage, hasEnoughMessages } from './usage-tracker.js'
 import { generateGeminiResponse } from './GeminiService.js';
+import { sendManagerNotification } from './emailService.js';
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
@@ -309,6 +310,14 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
                 }
             } else if (connection === 'open') {
                 console.log(`[WhatsApp Session ${sessionId}] Connected!`)
+                if (channel) {
+                    try {
+                        await prisma.channel.update({
+                            where: { id: channel.id },
+                            data: { isActive: true }
+                        });
+                    } catch(e) {}
+                }
                 io.emit(`status-${botId}`, 'connected')
             }
         } catch (err) {
@@ -561,7 +570,18 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
 
         // Prepare AI prompt using Gemini
         // GeminiService handles greeting logic automatically based on history presence
-        const systemInstruction = `${currentBotState.system_prompt || ''}\n\nCRITICAL: Follow the system instructions exactly. Pay extreme attention to any [Correction] or [IMPORTANT CORRECTION] tags at the end of the instructions.`;
+        const realPhone = senderNumber.split('@')[0];
+        let systemInstruction = `${currentBotState.system_prompt || ''}\n\n[СИСТЕМНАЯ ИНФОРМАЦИЯ]:\nНомер телефона клиента, с которым вы сейчас общаетесь: +${realPhone}\nЕсли клиент просит записать его на "этот номер" или "мой номер", вы обязаны использовать именно этот номер (+${realPhone}) в инструментах!\n\nCRITICAL: Follow the system instructions exactly. Pay extreme attention to any [Correction] or [IMPORTANT CORRECTION] tags at the end of the instructions.`;
+        
+        // Setup integration config
+        const integrationConfig = {
+            googleSheetUrl: currentBotState.googleSheetUrl,
+            googleSheetColumns: currentBotState.googleSheetColumns,
+            bitrixWebhookUrl: currentBotState.bitrixWebhookUrl,
+            bitrixFields: currentBotState.bitrixFields,
+            googleCalendarId: currentBotState.googleCalendarId
+        };
+
         const ragContext = currentBotState.data_prompt || '';
 
         const history = recentMessages.slice(0, -1).map(msg => ({
@@ -580,9 +600,55 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
                 return;
             }
 
-            // Call Gemini
-            const geminiResult = await generateGeminiResponse(userMessage, history, systemInstruction, ragContext, audioBuffer, audioMimeType);
-            const aiResponseText = geminiResult.text;
+            // Call Gemini with function calling enabled
+            const geminiResult = await generateGeminiResponse(
+                userMessage, 
+                history, 
+                systemInstruction, 
+                ragContext, 
+                audioBuffer, 
+                audioMimeType, 
+                integrationConfig
+            );
+            
+            let aiResponseText = geminiResult.text;
+
+            if (geminiResult.shouldPauseChat) {
+                let pausedChats = currentBotState.pausedChats || [];
+                if (!pausedChats.includes(senderNumber)) {
+                    pausedChats.push(senderNumber);
+                    await prisma.bot.update({
+                        where: { id: botId },
+                        data: { pausedChats }
+                    });
+                }
+                try {
+                    const contact = await prisma.contact.update({
+                        where: { botId_chatId: { botId, chatId: senderNumber } },
+                        data: { status: 'Нужен ответ' }
+                    });
+                    io.emit(`contact-update-${botId}`, contact);
+                    io.emit(`bot-update-${botId}`, { pausedChats });
+
+                    // Notify bot owner by email
+                    const ownerUser = await prisma.user.findUnique({
+                        where: { id: currentBotState.user_id },
+                        select: { email: true, name: true }
+                    });
+                    if (ownerUser?.email) {
+                        const contactName = contact.name || senderNumber.split('@')[0];
+                        sendManagerNotification(ownerUser.email, contactName, currentBotState.name || `Bot #${botId}`);
+                    }
+                } catch(e) { console.error('[WA] Error notifying manager:', e); }
+            } else if (geminiResult.achievedGoal) {
+                try {
+                    const contact = await prisma.contact.update({
+                        where: { botId_chatId: { botId, chatId: senderNumber } },
+                        data: { status: 'Успех', funnelStage: 'Успешно' }
+                    });
+                    io.emit(`contact-update-${botId}`, contact);
+                } catch(e) {}
+            }
 
             // Track usage with existing trackUsage function
             await trackUsage({
@@ -597,7 +663,11 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
             console.log(`[WhatsApp Bot ${botId}] Answering: ${aiResponseText}`);
 
             // Reply on WhatsApp (messages.upsert will automatically trigger and save the echo to DB)
-            await sock.sendMessage(senderNumber, { text: aiResponseText })
+            if (aiResponseText && aiResponseText.trim()) {
+                await sock.sendMessage(senderNumber, { text: aiResponseText });
+            } else {
+                console.log(`[WhatsApp Bot ${botId}] Empty AI response ignored. No message sent to ${senderNumber}`);
+            }
 
         } catch (error) {
             console.error(`[WhatsApp Bot ${botId}] AI Error:`, error.message)

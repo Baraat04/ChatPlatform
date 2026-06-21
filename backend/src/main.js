@@ -30,7 +30,10 @@ const { default: authRouter } = await import('./routes/auth-routes.js')
 const { default: platformAIRouter } = await import('./routes/platform-ai-routes.js')
 const { default: statisticsRouter, setStatisticsPrisma } = await import('./routes/statistics-routes.js')
 const { default: paymentRouter } = await import('./routes/payment-routes.js')
+const { default: analyticsRouter } = await import('./routes/analytics-routes.js')
+const { default: adminRoutes } = await import('./routes/admin-routes.js')
 const { setTrackerPrisma } = await import('./services/usage-tracker.js')
+const { startCompletionChecker } = await import('./services/completion-checker.js')
 
 const app = express()
 const httpServer = createServer(app)
@@ -42,7 +45,7 @@ const corsOptions = {
     origin: ['http://72.62.117.32:3000','https://up-chat.com', 'https://www.up-chat.com', 'http://localhost:3000'],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    allowedHeaders: ['Content-Type', 'Authorization']
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-pass']
 };
 
 const io = new Server(httpServer, {
@@ -117,7 +120,9 @@ app.use('/api/auth', authRouter)
 app.use('/api/platform-ai', platformAIRouter)
 app.use('/api/statistics', statisticsRouter)
 app.use('/api/payments', paymentRouter)
+app.use('/api', analyticsRouter)
 app.use('/api', botRouter)
+app.use('/api/admin', adminRoutes)
 
 // Initialize services with the shared prisma instance
 const prismaInstance = getPrisma()
@@ -187,6 +192,15 @@ httpServer.listen(PORT, async () => {
         }
         
         for (const bot of activeBots) {
+            // Skip legacy bot restore if a proper WhatsApp Channel already exists for this bot
+            // (to avoid duplicate sessions and dual-card UI bug)
+            const hasWaChannel = await prisma.channel.findFirst({
+                where: { botId: bot.id, platform: 'WHATSAPP', isActive: true }
+            });
+            if (hasWaChannel) {
+                console.log(`[Boot] Skipping legacy WhatsApp Bot ${bot.id} — active Channel ${hasWaChannel.id} exists.`);
+                continue;
+            }
             console.log(`[Boot] Restoring WhatsApp Bot ${bot.id}...`)
             startWhatsAppBot(bot, prisma, io)
         }
@@ -246,5 +260,12 @@ httpServer.listen(PORT, async () => {
         }
     } catch (err) {
         console.error("Error restoring bots on boot:", err)
+    }
+
+    // Start the auto-completion checker (runs every 15 minutes)
+    try {
+        startCompletionChecker(prismaInstance, io, 15)
+    } catch (ccErr) {
+        console.error('[Boot] Failed to start CompletionChecker:', ccErr.message)
     }
 })

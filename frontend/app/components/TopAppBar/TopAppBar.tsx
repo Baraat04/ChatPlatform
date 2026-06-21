@@ -39,7 +39,21 @@ export default function TopAppBar({ onMenuClick }: TopAppBarProps) {
         <span className={styles.brandMobile}>UP-CHAT</span>
       </div>
 
-
+      {user && user.messagesRemaining <= 20 && (
+        <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
+          <div style={{ 
+            background: 'var(--error)', 
+            color: 'var(--on-error)', 
+            padding: '4px 12px', 
+            borderRadius: '16px', 
+            fontSize: '12px', 
+            fontWeight: '600',
+            animation: 'pulse 2s infinite'
+          }}>
+            Осталось сообщений: {user.messagesRemaining}
+          </div>
+        </div>
+      )}
 
       <div className={styles.langSelectorWrapper} onClick={() => setIsLangOpen(!isLangOpen)} ref={langRef}>
         <Globe size={16} className={styles.langIcon} />
