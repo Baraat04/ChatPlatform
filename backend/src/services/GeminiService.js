@@ -66,7 +66,7 @@ export async function generateGeminiResponse(userMessage, history = [], systemIn
     try {
         // 1. Sliding Window History: last 8 messages (4 turns)
         let limitedHistory = history.slice(-8).map(h => ({
-            role: h.role === 'bot' || h.role === 'assistant' ? 'model' : 'user',
+            role: h.role === 'bot' || h.role === 'assistant' || h.role === 'model' ? 'model' : 'user',
             parts: [{ text: sanitizeInput(h.parts?.[0]?.text || h.text || '') }]
         }));
 
