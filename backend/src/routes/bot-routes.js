@@ -274,11 +274,12 @@ router.get('/bot/:id/channels', requireAuth, async (req, res) => {
         // This prevents duplicate WhatsApp/Telegram/Instagram cards
         const hasChannelForBotPlatform = channels.some(c => c.platform === bot.platform)
         
-        // A base channel is "deleted" if it has no active credentials and its status reflects intentional disconnection
-        const isTelegramDeleted = bot.platform === 'TELEGRAM' && !bot.apiToken;
-        const isInstagramDeleted = bot.platform === 'INSTAGRAM' && !bot.apiToken;
-        const isWhatsappDeleted = bot.platform === 'WHATSAPP' && bot.waStatus === 'DISCONNECTED';
-        const isBaseChannelDeleted = isTelegramDeleted || isInstagramDeleted || isWhatsappDeleted;
+        // Hide base channel only for Telegram/Instagram bots that have no token configured.
+        // WhatsApp base channels are NEVER hidden here — they always exist as long as the bot exists.
+        // Deletion logic is handled separately via the DELETE route.
+        const isBaseChannelDeleted =
+            (bot.platform === 'TELEGRAM' && !bot.apiToken) ||
+            (bot.platform === 'INSTAGRAM' && !bot.apiToken);
         
         const allChannels = [
             ...((hasChannelForBotPlatform || isBaseChannelDeleted) ? [] : [{
@@ -408,7 +409,7 @@ router.delete('/bot/:id/channels/:channelId', requireAuth, async (req, res) => {
             }
             await prisma.bot.update({
                 where: { id: botId },
-                data: { isActive: false, apiToken: null, waAuthData: null, waStatus: 'DISCONNECTED', waQrCode: null }
+                data: { isActive: false, apiToken: null }
             })
             return res.json({ success: true })
         }
