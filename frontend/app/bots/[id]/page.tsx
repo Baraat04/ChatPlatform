@@ -788,11 +788,14 @@ export default function BotDetails() {
 
     socket.on(`status-${botId}`, (status: string) => {
       if (status === 'connected') { 
-        setQrCode(null); 
-        fetchBot(); 
-        fetchChats(); 
-        fetchChannels();
+        setQrCode(null);
         setIsAddingChannel(false);
+        // Small delay to let backend finish updating DB before we re-fetch
+        setTimeout(() => {
+          fetchBot();
+          fetchChats();
+          fetchChannels();
+        }, 800);
       }
     });
 
