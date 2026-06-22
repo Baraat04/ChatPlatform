@@ -193,15 +193,22 @@ router.put('/bot/:id', requireAuth, async (req, res) => {
         const prisma = getPrisma()
         const { system_prompt, data_prompt, apiToken, googleSheetUrl, googleSheetColumns, googleCalendarId, bitrixWebhookUrl, bitrixFields } = req.body
         
+        const user = await prisma.user.findUnique({ where: { id: req.session.userId } });
+        const isPremium = ['PRO', 'GROWTH'].includes(user.subscriptionPlan);
+
         const updateData = {};
         if (system_prompt !== undefined) updateData.system_prompt = system_prompt;
         if (data_prompt !== undefined) updateData.data_prompt = data_prompt;
         if (apiToken !== undefined) updateData.apiToken = apiToken;
-        if (googleSheetUrl !== undefined) updateData.googleSheetUrl = googleSheetUrl;
-        if (googleSheetColumns !== undefined) updateData.googleSheetColumns = googleSheetColumns;
-        if (googleCalendarId !== undefined) updateData.googleCalendarId = googleCalendarId;
-        if (bitrixWebhookUrl !== undefined) updateData.bitrixWebhookUrl = bitrixWebhookUrl;
-        if (bitrixFields !== undefined) updateData.bitrixFields = bitrixFields;
+        
+        // Only allow updating integration fields if the user has a premium subscription
+        if (isPremium) {
+            if (googleSheetUrl !== undefined) updateData.googleSheetUrl = googleSheetUrl;
+            if (googleSheetColumns !== undefined) updateData.googleSheetColumns = googleSheetColumns;
+            if (googleCalendarId !== undefined) updateData.googleCalendarId = googleCalendarId;
+            if (bitrixWebhookUrl !== undefined) updateData.bitrixWebhookUrl = bitrixWebhookUrl;
+            if (bitrixFields !== undefined) updateData.bitrixFields = bitrixFields;
+        }
 
         const bot = await prisma.bot.update({
             where: { id: Number(req.params.id), user_id: req.session.userId },
@@ -267,8 +274,14 @@ router.get('/bot/:id/channels', requireAuth, async (req, res) => {
         // This prevents duplicate WhatsApp/Telegram/Instagram cards
         const hasChannelForBotPlatform = channels.some(c => c.platform === bot.platform)
         
+        // A base channel is "deleted" if it has no active credentials and its status reflects intentional disconnection
+        const isTelegramDeleted = bot.platform === 'TELEGRAM' && !bot.apiToken;
+        const isInstagramDeleted = bot.platform === 'INSTAGRAM' && !bot.apiToken;
+        const isWhatsappDeleted = bot.platform === 'WHATSAPP' && bot.waStatus === 'DISCONNECTED';
+        const isBaseChannelDeleted = isTelegramDeleted || isInstagramDeleted || isWhatsappDeleted;
+        
         const allChannels = [
-            ...(hasChannelForBotPlatform ? [] : [{
+            ...((hasChannelForBotPlatform || isBaseChannelDeleted) ? [] : [{
                 id: 'base-' + bot.id,
                 platform: bot.platform,
                 isActive: bot.isActive,
@@ -376,12 +389,31 @@ router.delete('/bot/:id/channels/:channelId', requireAuth, async (req, res) => {
     try {
         const prisma = getPrisma()
         const botId = Number(req.params.id)
-        const channelId = Number(req.params.channelId)
+        const channelIdParam = req.params.channelId
 
         // Verify ownership via bot
         const bot = await prisma.bot.findUnique({ where: { id: botId, user_id: req.session.userId } })
         if (!bot) return res.status(404).json({ error: 'Bot not found' })
 
+        if (channelIdParam.startsWith('base-')) {
+            // It's a base bot channel. We can't delete the bot, but we can stop it and clear token.
+            if (bot.platform === 'TELEGRAM' && bot.apiToken) {
+                try { await callTelegramAPI('deleteWebhook', bot.apiToken, {}) } catch (e) {}
+            }
+            if (bot.platform === 'WHATSAPP') {
+                try {
+                    const { stopWhatsAppBot } = await import('../services/whatsapp.js')
+                    await stopWhatsAppBot(botId, true)
+                } catch (e) {}
+            }
+            await prisma.bot.update({
+                where: { id: botId },
+                data: { isActive: false, apiToken: null, waAuthData: null, waStatus: 'DISCONNECTED', waQrCode: null }
+            })
+            return res.json({ success: true })
+        }
+
+        const channelId = Number(channelIdParam)
         const channel = await prisma.channel.findUnique({ where: { id: channelId, botId } })
         if (!channel) return res.status(404).json({ error: 'Channel not found' })
 
@@ -392,7 +424,7 @@ router.delete('/bot/:id/channels/:channelId', requireAuth, async (req, res) => {
         if (channel.platform === 'WHATSAPP') {
             try {
                 const { stopWhatsAppChannel } = await import('../services/whatsapp.js')
-                await stopWhatsAppChannel(channelId)
+                await stopWhatsAppChannel(channelId, true)
             } catch (e) {}
         }
 
@@ -407,11 +439,39 @@ router.post('/bot/:id/channels/:channelId/toggle', requireAuth, async (req, res)
         const prisma = getPrisma()
         const io = req.app.get('io')
         const botId = Number(req.params.id)
-        const channelId = Number(req.params.channelId)
+        const channelIdParam = req.params.channelId
 
         const bot = await prisma.bot.findUnique({ where: { id: botId, user_id: req.session.userId } })
         if (!bot) return res.status(404).json({ error: 'Bot not found' })
 
+        if (channelIdParam.startsWith('base-')) {
+            const updated = await prisma.bot.update({
+                where: { id: botId },
+                data: { isActive: !bot.isActive }
+            })
+            
+            if (!bot.isActive) {
+                if (bot.platform === 'WHATSAPP') {
+                    const { startWhatsAppBot } = await import('../services/whatsapp.js')
+                    startWhatsAppBot(updated, getPrisma(), io).catch(e => {})
+                } else if (bot.platform === 'TELEGRAM' && bot.apiToken) {
+                    try {
+                        let baseUrl = process.env.BASE_URL || process.env.APP_URL || 'https://yourdomain.com';
+                        baseUrl = baseUrl.replace(/\/+$/, '');
+                        const webhookUrl = `${baseUrl}/api/webhook/telegram/${bot.slug}`;
+                        await callTelegramAPI('setWebhook', bot.apiToken, { url: webhookUrl });
+                    } catch (err) {}
+                }
+            } else {
+                if (bot.platform === 'WHATSAPP') {
+                    const { stopWhatsAppBot } = await import('../services/whatsapp.js')
+                    await stopWhatsAppBot(botId, false).catch(e => {})
+                }
+            }
+            return res.json(updated)
+        }
+
+        const channelId = Number(channelIdParam)
         const channel = await prisma.channel.findUnique({ where: { id: channelId, botId } })
         if (!channel) return res.status(404).json({ error: 'Channel not found' })
 
@@ -423,6 +483,9 @@ router.post('/bot/:id/channels/:channelId/toggle', requireAuth, async (req, res)
         if (!channel.isActive && channel.platform === 'WHATSAPP') {
             const { startWhatsAppChannel } = await import('../services/whatsapp.js')
             startWhatsAppChannel(channel, bot, getPrisma(), io).catch(e => {})
+        } else if (channel.isActive && channel.platform === 'WHATSAPP') {
+            const { stopWhatsAppChannel } = await import('../services/whatsapp.js')
+            await stopWhatsAppChannel(channelId).catch(e => {})
         }
 
         res.json(updated)

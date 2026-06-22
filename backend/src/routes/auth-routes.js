@@ -134,7 +134,7 @@ router.post('/login', async (req, res) => {
         }
 
         req.session.userId = user.id;
-        res.json({ user: { id: user.id, name: user.name, email: user.email } });
+        res.json({ user: { id: user.id, name: user.name, email: user.email, messagesRemaining: user.messagesRemaining, totalMessagesUsed: user.totalMessagesUsed, subscriptionPlan: user.subscriptionPlan } });
     } catch (e) {
         console.error('Login error:', e);
         res.status(500).json({ error: 'Internal server error' });
@@ -215,7 +215,7 @@ router.post('/google', async (req, res) => {
         }
 
         req.session.userId = user.id;
-        res.json({ user: { id: user.id, name: user.name, email: user.email } });
+        res.json({ user: { id: user.id, name: user.name, email: user.email, messagesRemaining: user.messagesRemaining, totalMessagesUsed: user.totalMessagesUsed, subscriptionPlan: user.subscriptionPlan } });
     } catch (e) {
         console.error('[Google Auth] FULL ERROR:', e.message);
         res.status(401).json({ error: `Google token error: ${e.message}` });

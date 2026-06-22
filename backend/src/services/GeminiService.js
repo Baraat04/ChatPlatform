@@ -326,8 +326,16 @@ ${hasHistory
                 finalResponseText = finalResponseText.replace(/\*/g, '');
                 
                 // Fallback if AI still returns empty text after a successful tool call
-                if (!finalResponseText.trim() && achievedGoal) {
-                    finalResponseText = "Отлично! Я всё сохранил и зафиксировал ваши данные. Чем могу помочь ещё?";
+                if (!finalResponseText.trim()) {
+                    if (achievedGoal) {
+                        finalResponseText = "Отлично! Я всё сохранил и зафиксировал ваши данные. Чем могу помочь ещё?";
+                    } else if (shouldPauseChat) {
+                        finalResponseText = "Передаю диалог специалисту. Пожалуйста, ожидайте, скоро он подключится.";
+                    } else if (functionCallParts.length > 0) {
+                        finalResponseText = "Действие выполнено успешно. Могу ли я еще чем-то помочь?";
+                    } else {
+                        finalResponseText = "Извините, я не могу обработать этот запрос в данный момент. Пожалуйста, переформулируйте или задайте другой вопрос.";
+                    }
                 }
                 
                 break;
