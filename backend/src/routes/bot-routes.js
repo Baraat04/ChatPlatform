@@ -274,12 +274,25 @@ router.get('/bot/:id/channels', requireAuth, async (req, res) => {
         // This prevents duplicate WhatsApp/Telegram/Instagram cards
         const hasChannelForBotPlatform = channels.some(c => c.platform === bot.platform)
         
-        // Hide base channel only for Telegram/Instagram bots that have no token configured.
-        // WhatsApp base channels are NEVER hidden here — they always exist as long as the bot exists.
-        // Deletion logic is handled separately via the DELETE route.
-        const isBaseChannelDeleted =
-            (bot.platform === 'TELEGRAM' && !bot.apiToken) ||
-            (bot.platform === 'INSTAGRAM' && !bot.apiToken);
+        // Determine if the base channel was intentionally deleted/disconnected:
+        // - Telegram/Instagram: no apiToken = disconnected
+        // - WhatsApp: check if session directory exists on disk (proof of active auth)
+        let isBaseChannelDeleted = false;
+        if (bot.platform === 'TELEGRAM' && !bot.apiToken) {
+            isBaseChannelDeleted = true;
+        } else if (bot.platform === 'INSTAGRAM' && !bot.apiToken) {
+            isBaseChannelDeleted = true;
+        } else if (bot.platform === 'WHATSAPP' && !bot.isActive) {
+            // Only hide if the session directory was also deleted (meaning it was explicitly disconnected)
+            const { default: fs } = await import('fs');
+            const { default: path } = await import('path');
+            const { fileURLToPath } = await import('url');
+            const __dirnameTmp = path.dirname(fileURLToPath(import.meta.url));
+            const sessionDir = path.join(__dirnameTmp, `../../sessions/session_${botId}`);
+            if (!fs.existsSync(sessionDir)) {
+                isBaseChannelDeleted = true;
+            }
+        }
         
         const allChannels = [
             ...((hasChannelForBotPlatform || isBaseChannelDeleted) ? [] : [{
@@ -406,6 +419,20 @@ router.delete('/bot/:id/channels/:channelId', requireAuth, async (req, res) => {
                     const { stopWhatsAppBot } = await import('../services/whatsapp.js')
                     await stopWhatsAppBot(botId, true)
                 } catch (e) {}
+                // Delete session directory so the channel card disappears on next page load
+                try {
+                    const fsModule = await import('fs');
+                    const pathModule = await import('path');
+                    const urlModule = await import('url');
+                    const __dirnameTmp = pathModule.default.dirname(urlModule.fileURLToPath(import.meta.url));
+                    const sessionDir = pathModule.default.join(__dirnameTmp, `../../sessions/session_${botId}`);
+                    if (fsModule.default.existsSync(sessionDir)) {
+                        fsModule.default.rmSync(sessionDir, { recursive: true, force: true });
+                        console.log(`[WhatsApp Base Bot ${botId}] Session directory deleted.`);
+                    }
+                } catch (e) {
+                    console.error(`[WhatsApp Base Bot ${botId}] Failed to delete session dir:`, e.message);
+                }
             }
             await prisma.bot.update({
                 where: { id: botId },
