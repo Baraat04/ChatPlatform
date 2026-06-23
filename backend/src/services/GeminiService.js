@@ -34,10 +34,10 @@ process.env.GOOGLE_APPLICATION_CREDENTIALS = keyPath;
 const ai = new GoogleGenAI({
     vertexai: true,
     project: projectId,
-    location: 'global', // gemini-2.0-flash-lite is available in 'global'
+    location: 'global', // gemini-3.1-flash-lite is available in 'global'
 });
 
-const MODEL_NAME = 'gemini-2.0-flash-lite';
+const MODEL_NAME = 'gemini-3.1-flash-lite';
 
 /**
  * Clean up text to reduce token usage.
@@ -368,4 +368,5 @@ ${hasHistory
         throw new Error('Failed to communicate with Vertex AI');
     }
 }
+
 

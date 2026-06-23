@@ -376,7 +376,7 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
     sock.ev.on('messages.upsert', async (m) => {
         // CRITICAL: Only process real-time incoming messages.
         // 'append' = historical sync on reconnect вЂ” must NOT trigger AI responses!
-        if (m.type !== 'notify') return;
+        if (m.type === 'append') return; // Skip history sync
 
         // Process ALL messages in the batch (not just [0])
         // Baileys can batch multiple messages in one event
@@ -385,7 +385,7 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
 
             let senderNumber = msg.key.remoteJid
             // РРіРЅРѕСЂРёСЂСѓРµРј С‚РµС…РЅРёС‡РµСЃРєРёРµ СЂР°СЃСЃС‹Р»РєРё СЃС‚Р°С‚СѓСЃРѕРІ
-            if (senderNumber === 'status@broadcast') return
+            if (senderNumber === 'status@broadcast') continue
 
             // Resolve LID to real phone number if possible
             if (senderNumber.includes('@lid')) {
@@ -785,4 +785,6 @@ export const stopWhatsAppBot = async (sessionId, logoutAndDestroy = false) => {
 
 export const startWhatsAppChannel = async (channel, bot, prisma, io) => startWhatsAppBot(bot, prisma, io, channel);
 export const stopWhatsAppChannel = async (channelId, logoutAndDestroy = false) => stopWhatsAppBot(`ch_${channelId}`, logoutAndDestroy);
+
+
 
