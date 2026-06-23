@@ -1055,27 +1055,45 @@ router.post('/bot/:id/broadcast', upload.single('file'), async (req, res) => {
 
         if (bot.platform === 'WHATSAPP') {
             const { getWhatsAppSession } = await import('../services/whatsapp.js')
+            const { safeSendMessage, broadcastDelay, shuffleArray, isActiveHour, BROADCAST_CONFIG } = await import('../services/whatsapp-antiban.js')
             const sock = getWhatsAppSession(botId)
             if (!sock) return res.status(503).json({ error: 'WhatsApp session not active' })
 
-            for (const rawId of parsedChatIds) {
+            // Anti-ban: shuffle recipient order so pattern is unpredictable
+            const shuffledIds = shuffleArray([...parsedChatIds]);
+
+            // Anti-ban: warn if outside active hours
+            if (!isActiveHour()) {
+                console.warn(`[AntiBan] ⚠️  Broadcast started outside active hours (${new Date().getHours()}:00). Proceeding with caution.`);
+            }
+
+            let msgIndex = 0;
+            for (const rawId of shuffledIds) {
+                if (msgIndex >= BROADCAST_CONFIG.sessionLimit) {
+                    console.warn(`[AntiBan] 🛑 Session limit of ${BROADCAST_CONFIG.sessionLimit} reached. Stopping broadcast.`);
+                    results.push({ chatId: rawId, success: false, error: 'Session limit reached (anti-ban)' });
+                    continue;
+                }
+
                 try {
                     const jid = rawId.includes('@') ? rawId : `${rawId}@s.whatsapp.net`
                     
+                    let content;
                     if (req.file && mediaType === 'image') {
-                        await sock.sendMessage(jid, { image: req.file.buffer, caption: text || '' });
+                        content = { image: req.file.buffer, caption: text || '' };
                     } else if (req.file && mediaType === 'audio') {
-                        await sock.sendMessage(jid, { audio: req.file.buffer, mimetype: 'audio/mp4', ptt: true, ptv: false });
+                        content = { audio: req.file.buffer, mimetype: 'audio/mp4', ptt: true, ptv: false };
                     } else if (req.file && mediaType === 'document') {
-                        await sock.sendMessage(jid, { 
-                            document: req.file.buffer, 
-                            mimetype: req.file.mimetype, 
-                            fileName: originalNameUtf8,
-                            caption: text || ''
-                        });
+                        content = { document: req.file.buffer, mimetype: req.file.mimetype, fileName: originalNameUtf8, caption: text || '' };
                     } else {
-                        await sock.sendMessage(jid, { text: text || '' });
+                        content = { text: text || '' };
                     }
+
+                    // Anti-ban: use safeSendMessage (typing indicator + read receipt + random delays)
+                    await safeSendMessage(sock, jid, content, {
+                        showTyping: !req.file, // typing only for text messages
+                        typingText: text || ''
+                    });
 
                     let textToSave = text || (req.file ? originalNameUtf8 : '');
                     if (mediaType === 'audio' && !text) textToSave = '';
@@ -1085,7 +1103,12 @@ router.post('/bot/:id/broadcast', upload.single('file'), async (req, res) => {
                     io.emit(`chat-${botId}`, savedMsg)
                     results.push({ chatId: jid, success: true })
 
-                    await new Promise(r => setTimeout(r, 1000))
+                    msgIndex++;
+                    // Anti-ban: wait between messages (8-25s normal, 1-3min every 15 msgs)
+                    const delay = broadcastDelay(msgIndex);
+                    console.log(`[AntiBan] 🕒 Waiting ${Math.round(delay/1000)}s before next recipient...`);
+                    await new Promise(r => setTimeout(r, delay));
+
                 } catch (err) {
                     results.push({ chatId: rawId, success: false, error: err.message })
                 }

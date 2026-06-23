@@ -1,9 +1,10 @@
-﻿import { makeWASocket, useMultiFileAuthState, DisconnectReason, Browsers } from '@whiskeysockets/baileys'
+import { makeWASocket, useMultiFileAuthState, DisconnectReason, Browsers } from '@whiskeysockets/baileys'
 import pino from 'pino'
 import { Boom } from '@hapi/boom'
 import { trackUsage, hasEnoughMessages } from './usage-tracker.js'
 import { generateGeminiResponse } from './GeminiService.js';
 import { sendManagerNotification } from './emailService.js';
+import { safeSendMessage } from './whatsapp-antiban.js';
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
@@ -728,7 +729,12 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
 
             // Reply on WhatsApp
             if (aiResponseText && aiResponseText.trim()) {
-                await sock.sendMessage(senderNumber, { text: aiResponseText });
+                // Anti-ban: show typing indicator before replying (human-like)
+                await safeSendMessage(sock, senderNumber, { text: aiResponseText }, {
+                    showTyping: true,
+                    typingText: aiResponseText,
+                    sendReadReceipt: false // already saw the message
+                });
             } else {
                 console.log(`[WhatsApp Bot ${botId}] Empty AI response ignored. No message sent to ${senderNumber}`);
             }
