@@ -345,19 +345,20 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
 
             if (connection === 'close') {
                 const statusCode = (lastDisconnect?.error instanceof Boom) ? lastDisconnect.error.output?.statusCode : undefined;
-                const shouldReconnect = !sock._intentionallyStopped && statusCode !== DisconnectReason.loggedOut && statusCode !== 405;
+                const isQrTimeout = lastDisconnect?.error?.message === 'QR refs attempts ended';
+                const shouldReconnect = !sock._intentionallyStopped && statusCode !== DisconnectReason.loggedOut && statusCode !== 405 && !isQrTimeout;
                 
-                console.log(`[WhatsApp Session ${sessionId}] connection closed due to`, lastDisconnect?.error, ', reconnecting:', shouldReconnect)
+                console.log(`[WhatsApp Session ${sessionId}] connection closed due to`, lastDisconnect?.error?.message || lastDisconnect?.error, ', reconnecting:', shouldReconnect)
                 
                 sessions.delete(sessionId)
                 
                 if (shouldReconnect) {
                     setTimeout(() => startWhatsAppBot(bot, prisma, io, channel).catch(console.error), 3000)
-                } else if (statusCode === DisconnectReason.loggedOut || statusCode === 405) {
-                    console.log(`[WhatsApp Session ${sessionId}] Logged out. Notifying UI.`)
+                } else if (statusCode === DisconnectReason.loggedOut || statusCode === 405 || isQrTimeout) {
+                    console.log(`[WhatsApp Session ${sessionId}] Logged out or QR timeout. Notifying UI.`)
                     io.emit(`status-${botId}`, 'logged_out')
                 } else {
-                    // Intentionally stopped вЂ” no reconnect, no QR
+                    // Intentionally stopped — no reconnect, no QR
                     io.emit(`status-${botId}`, 'disconnected')
                 }
             } else if (connection === 'open') {
