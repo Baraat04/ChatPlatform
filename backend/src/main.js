@@ -20,9 +20,13 @@ const gracefulShutdown = async () => {
     console.log('Received kill signal, shutting down gracefully...');
     try {
         const { closeAllSessions } = await import('./services/whatsapp.js');
-        closeAllSessions();
+        await closeAllSessions();
     } catch (e) {}
-    process.exit(0);
+    
+    // Give OS 500ms to finish any pending IO streams before hard exit
+    setTimeout(() => {
+        process.exit(0);
+    }, 500);
 };
 process.on('SIGTERM', gracefulShutdown);
 process.on('SIGINT', gracefulShutdown);

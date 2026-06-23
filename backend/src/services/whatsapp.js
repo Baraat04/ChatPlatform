@@ -88,6 +88,7 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
     })
 
     sessions.set(sessionId, sock)
+    sock._saveCreds = saveCreds // Store saveCreds to forcefully flush on shutdown
     
     // Flag to prevent auto-reconnect when intentionally stopped/deleted
     let intentionallyStopped = false;
@@ -801,12 +802,17 @@ export const stopWhatsAppBot = async (sessionId, logoutAndDestroy = false) => {
 export const startWhatsAppChannel = async (channel, bot, prisma, io) => startWhatsAppBot(bot, prisma, io, channel);
 export const stopWhatsAppChannel = async (channelId, logoutAndDestroy = false) => stopWhatsAppBot(`ch_${channelId}`, logoutAndDestroy);
 
-export const closeAllSessions = () => {
+export const closeAllSessions = async () => {
     for (const [sessionId, sock] of sessions.entries()) {
         try {
+            if (sock._saveCreds) {
+                await sock._saveCreds(); // Force flush all pending keys to disk
+            }
             sock.ws.close();
             console.log(`[WhatsApp Session ${sessionId}] Closed gracefully on server shutdown.`);
-        } catch (e) {}
+        } catch (e) {
+            console.error(`[WhatsApp Session ${sessionId}] Error closing:`, e.message);
+        }
     }
 };
 
