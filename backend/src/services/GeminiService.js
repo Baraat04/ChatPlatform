@@ -269,6 +269,25 @@ ${hasHistory
         let shouldPauseChat = false;
         let achievedGoal = false;
 
+        // Helper: call Vertex AI with retry on 429 / RESOURCE_EXHAUSTED
+        const generateWithRetry = async (params, maxRetries = 3) => {
+            for (let attempt = 0; attempt < maxRetries; attempt++) {
+                try {
+                    return await ai.models.generateContent(params);
+                } catch (err) {
+                    const msg = err.message || '';
+                    const isRateLimit = msg.includes('429') || msg.includes('quota') || msg.includes('RESOURCE_EXHAUSTED') || msg.includes('Too Many Requests');
+                    if (isRateLimit && attempt < maxRetries - 1) {
+                        const delay = (attempt + 1) * 3000; // 3s, 6s
+                        console.warn(`[GeminiService] Rate limit hit (attempt ${attempt + 1}/${maxRetries}). Retrying in ${delay}ms...`);
+                        await new Promise(r => setTimeout(r, delay));
+                        continue;
+                    }
+                    throw err;
+                }
+            }
+        };
+
         // 5. Generate content loop (for function calling)
         let MAX_TURNS = 3;
         for (let turn = 0; turn < MAX_TURNS; turn++) {
@@ -282,7 +301,7 @@ ${hasHistory
                 configObj.tools = tools;
             }
 
-            const response = await ai.models.generateContent({
+            const response = await generateWithRetry({
                 model: MODEL_NAME,
                 contents,
                 config: configObj

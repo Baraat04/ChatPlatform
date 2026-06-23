@@ -1384,7 +1384,10 @@ router.post('/webhook/telegram/:slug', async (req, res) => {
         io.emit(`chat-${bot.id}`, { ...userMsg, platform: 'TELEGRAM' })
 
         // If bot is paused for this chat, don't reply
-        if ((bot.pausedChats || []).includes(telegramChatId)) return
+        // Re-read from DB to get the freshest pausedChats (avoid stale data from parallel requests)
+        const freshBotState = await prisma.bot.findUnique({ where: { id: bot.id }, select: { isActive: true, pausedChats: true } });
+        if (!freshBotState?.isActive) return;
+        if ((freshBotState.pausedChats || []).includes(telegramChatId)) return;
 
         // 3. Check if user has messages remaining
         const canProceed = await hasEnoughMessages(bot.user_id)

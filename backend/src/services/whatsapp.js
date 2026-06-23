@@ -14,6 +14,50 @@ const __dirname = path.dirname(__filename)
 
 const sessions = new Map() // botId -> socket
 
+// ─── GLOBAL AI CONCURRENCY QUEUE ─────────────────────────────────────────────
+// Limits how many simultaneous Gemini AI calls run at once.
+// Excess calls wait in queue — they are NOT dropped.
+// This prevents Vertex AI rate limit (429) when many users write simultaneously.
+const MAX_CONCURRENT_AI = 6; // max parallel Gemini calls
+let _activeAiCalls = 0;
+const _aiQueue = []; // Array of { fn: async () => any, resolve, reject }
+
+/**
+ * Runs fn() immediately if a concurrency slot is free.
+ * Otherwise queues it and runs when a slot opens up.
+ * Guarantees every call eventually runs — nothing is dropped.
+ */
+function scheduleAiCall(fn) {
+    return new Promise((resolve, reject) => {
+        const execute = async () => {
+            _activeAiCalls++;
+            try {
+                resolve(await fn());
+            } catch (err) {
+                reject(err);
+            } finally {
+                _activeAiCalls--;
+                // Kick off next queued item if any
+                if (_aiQueue.length > 0) {
+                    const next = _aiQueue.shift();
+                    next();
+                }
+            }
+        };
+
+        if (_activeAiCalls < MAX_CONCURRENT_AI) {
+            execute(); // slot free — run immediately
+        } else {
+            _aiQueue.push(execute); // no slot — queue for later
+            console.log(`[AI Queue] Queued. Active: ${_activeAiCalls}/${MAX_CONCURRENT_AI}, Waiting: ${_aiQueue.length}`);
+        }
+    });
+}
+
+// Per-chat processing lock: prevent SAME CHAT from being processed twice simultaneously
+const chatProcessingLock = new Map(); // lockKey -> true
+// ─────────────────────────────────────────────────────────────────────────────
+
 export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
     const botId = bot.id
     const sessionId = channel ? `ch_${channel.id}` : botId;
@@ -326,9 +370,14 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
     })
 
     sock.ev.on('messages.upsert', async (m) => {
-        try {
-            const msg = m.messages[0]
-            if (!msg.message) return // Ignore empty
+        // CRITICAL: Only process real-time incoming messages.
+        // 'append' = historical sync on reconnect — must NOT trigger AI responses!
+        if (m.type !== 'notify') return;
+
+        // Process ALL messages in the batch (not just [0])
+        // Baileys can batch multiple messages in one event
+        for (const msg of m.messages) {
+        if (!msg.message) continue // Ignore empty
 
             let senderNumber = msg.key.remoteJid
             // Игнорируем технические рассылки статусов
@@ -553,14 +602,21 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
             } catch (dbErr) { console.error('DB Error saving msg:', dbErr) }
 
             // Если сообщение отправлено нами (с телефона), ИИ не должен на него отвечать самому себе!
-            if (isFromMe) return
+            if (isFromMe) continue
 
             // Fetch latest bot state to check if AI is paused for this chat
             const currentBotState = await prisma.bot.findUnique({ where: { id: botId } });
-            if (!currentBotState || !currentBotState.isActive) return;
-            if ((currentBotState.pausedChats || []).includes(senderNumber)) return;
+            if (!currentBotState || !currentBotState.isActive) continue;
+            if ((currentBotState.pausedChats || []).includes(senderNumber)) continue;
 
-        // Fetch last 20 messages for context history (10 user + 10 bot)
+            // Per-chat lock: prevent parallel processing of the same chat (race condition guard)
+            const lockKey = `${sessionId}:${senderNumber}`;
+            if (chatProcessingLock.get(lockKey)) {
+                console.log(`[WhatsApp Bot ${botId}] Chat ${senderNumber} is already being processed. Skipping duplicate.`);
+                continue;
+            }
+            chatProcessingLock.set(lockKey, true);
+
         const recentMessages = await prisma.message.findMany({
             where: { botId, chatId: senderNumber },
             orderBy: { createdAt: 'desc' },
@@ -596,9 +652,13 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
             const userId = currentBotState.user_id;
             const canProceed = await hasEnoughMessages(userId);
             if (!canProceed) {
-                await sock.sendMessage(senderNumber, { text: "Баланс сообщений исчерпан. Пополните баланс в панели управления." });
-                return;
+                try { await sock.sendMessage(senderNumber, { text: "Баланс сообщений исчерпан. Пополните баланс в панели управления." }); } catch(e) {}
+                continue;
             }
+
+            // Wrap entire AI processing in the global concurrency queue
+            // This ensures all users get responses — excess requests WAIT, not dropped
+            await scheduleAiCall(async () => {
 
             // Call Gemini with function calling enabled
             const geminiResult = await generateGeminiResponse(
@@ -660,23 +720,34 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
                 model: geminiResult.model,
             });
             console.log(`[WhatsApp Bot ${botId}] Gemini usage: in=${geminiResult.inputTokens} out=${geminiResult.outputTokens}`);
-            console.log(`[WhatsApp Bot ${botId}] Answering: ${aiResponseText}`);
+            console.log(`[WhatsApp Bot ${botId}] Answering ${senderNumber}: ${aiResponseText?.substring(0, 60)}...`);
 
-            // Reply on WhatsApp (messages.upsert will automatically trigger and save the echo to DB)
+            // Reply on WhatsApp
             if (aiResponseText && aiResponseText.trim()) {
                 await sock.sendMessage(senderNumber, { text: aiResponseText });
             } else {
                 console.log(`[WhatsApp Bot ${botId}] Empty AI response ignored. No message sent to ${senderNumber}`);
             }
 
+            }); // end scheduleAiCall
+
         } catch (error) {
-            console.error(`[WhatsApp Bot ${botId}] AI Error:`, error.message)
-            await sock.sendMessage(senderNumber, { text: "Error connecting to AI. Gemini integration is temporarily unavailable." })
+            console.error(`[WhatsApp Bot ${botId}] AI Error for ${senderNumber}:`, error.message)
+            const isRateLimit = (error.message || '').includes('429') || (error.message || '').includes('RESOURCE_EXHAUSTED') || (error.message || '').includes('quota');
+            if (isRateLimit) {
+                console.error(`[WhatsApp Bot ${botId}] ⚠️ All retries exhausted for ${senderNumber}. Sending retry notice.`);
+                try { await sock.sendMessage(senderNumber, { text: "Извините, сервер перегружен. Пожалуйста, повторите запрос через несколько секунд." }); } catch(e) {}
+            } else {
+                try { await sock.sendMessage(senderNumber, { text: "Произошла ошибка. Пожалуйста, попробуйте ещё раз." }); } catch(e) {}
+            }
+        } finally {
+            // ALWAYS release the per-chat lock — no matter what happened
+            chatProcessingLock.delete(lockKey);
         }
-    } catch (err) {
-        console.error(`[WhatsApp Bot ${botId}] messages.upsert error:`, err)
-    }
-})
+
+        } // end for (const msg of m.messages)
+    }) // end messages.upsert
+
 
     return sock
 }
