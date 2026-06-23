@@ -451,10 +451,10 @@ router.delete('/bot/:id/channels/:channelId', requireAuth, async (req, res) => {
         }
         if (channel.platform === 'WHATSAPP') {
             try {
-                const { stopWhatsAppChannel, stopWhatsAppBot } = await import('../services/whatsapp.js')
+                const { stopWhatsAppChannel } = await import('../services/whatsapp.js')
                 await stopWhatsAppChannel(channelId, true)
-                // Fix ghost channel bug: also aggressively destroy any legacy bot session
-                await stopWhatsAppBot(botId, true).catch(e => {})
+                // NOTE: Do NOT call stopWhatsAppBot here - it would destroy the base bot session
+                // and cause a double-deletion effect. Only stop the specific channel session.
             } catch (e) {}
         }
 

@@ -91,10 +91,10 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
 
     sessions.set(sessionId, sock)
     sock._saveCreds = saveCreds // Store saveCreds to forcefully flush on shutdown
-    
+
     // Flag to prevent auto-reconnect when intentionally stopped/deleted
     let intentionallyStopped = false;
-    
+
     let lidToJid = new Map()
     try {
         const contactsWithLid = await prisma.contact.findMany({
@@ -102,7 +102,7 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
         })
         contactsWithLid.forEach(c => lidToJid.set(c.chatId, c.realJid))
         console.log(`[WhatsApp Bot ${botId}] Loaded ${lidToJid.size} LID mappings from DB`)
-    } catch (e) {}
+    } catch (e) { }
 
     sock.ev.on('creds.update', saveCreds)
 
@@ -173,7 +173,7 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
                             strategy = 'Session File (100% Reliable)';
                         }
                     }
-                } catch(e) {}
+                } catch (e) { }
             }
 
             // 1. VCard Check
@@ -189,20 +189,20 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
                     if (res && res[0] && res[0].jid && res[0].jid.includes('@s.whatsapp.net')) {
                         jid = res[0].jid; strategy = 'onWhatsApp';
                     }
-                } catch (e) {}
+                } catch (e) { }
             }
 
             // 3. Hack with pushName (chat.name equivalent)
             if (!jid && msgContext?.pushName) {
                 const possiblePhone = msgContext.pushName.replace(/\D/g, '');
                 if (possiblePhone && possiblePhone.length >= 10 && possiblePhone.length <= 15) {
-                     try {
-                         const verify = await sock.onWhatsApp(possiblePhone);
-                         if (verify && verify[0] && verify[0].exists) {
-                             jid = `${possiblePhone}@s.whatsapp.net`;
-                             strategy = 'pushName Hack';
-                         }
-                     } catch(e) {}
+                    try {
+                        const verify = await sock.onWhatsApp(possiblePhone);
+                        if (verify && verify[0] && verify[0].exists) {
+                            jid = `${possiblePhone}@s.whatsapp.net`;
+                            strategy = 'pushName Hack';
+                        }
+                    } catch (e) { }
                 }
             }
 
@@ -211,21 +211,21 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
                 try {
                     const res = await sock.getContactLidAndPhone([lid]);
                     if (res && res[lid]) { jid = res[lid]; strategy = 'getContactLidAndPhone'; }
-                } catch(e) {}
+                } catch (e) { }
             }
             if (!jid && typeof sock.getContactById === 'function') {
                 try {
                     const contact = await sock.getContactById(lid);
                     if (contact && contact.number) { jid = `${contact.number}@s.whatsapp.net`; strategy = 'getContactById'; }
-                } catch(e) {}
+                } catch (e) { }
             }
 
             // 5. Triggers to force server update
             if (!jid) {
-                try { await sock.profilePictureUrl(lid); } catch(e) {}
+                try { await sock.profilePictureUrl(lid); } catch (e) { }
                 await new Promise(r => setTimeout(r, 500));
-                try { await sock.fetchStatus(lid); } catch(e) {}
-                
+                try { await sock.fetchStatus(lid); } catch (e) { }
+
                 // Re-check cache in case a background event resolved it
                 if (resolveCache.has(lid)) {
                     jid = resolveCache.get(lid).jid;
@@ -266,7 +266,7 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
                     where: { botId, chatId: lid },
                     data: { chatId: jid }
                 });
-                
+
                 // Fetch to prevent duplicate error
                 const existing = await prisma.contact.findUnique({ where: { botId_chatId: { botId, chatId: lid } } });
                 let updatedContact = null;
@@ -357,17 +357,16 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
 
             if (connection === 'close') {
                 const statusCode = (lastDisconnect?.error instanceof Boom) ? lastDisconnect.error.output?.statusCode : undefined;
-                const isQrTimeout = lastDisconnect?.error?.message === 'QR refs attempts ended';
-                const shouldReconnect = !sock._intentionallyStopped && statusCode !== DisconnectReason.loggedOut && statusCode !== 405 && !isQrTimeout;
-                
-                console.log(`[WhatsApp Session ${sessionId}] connection closed due to`, lastDisconnect?.error?.message || lastDisconnect?.error, ', reconnecting:', shouldReconnect)
-                
+                const shouldReconnect = !sock._intentionallyStopped && statusCode !== DisconnectReason.loggedOut && statusCode !== 405;
+
+                console.log(`[WhatsApp Session ${sessionId}] connection closed due to`, lastDisconnect?.error, ', reconnecting:', shouldReconnect)
+
                 sessions.delete(sessionId)
-                
+
                 if (shouldReconnect) {
                     setTimeout(() => startWhatsAppBot(bot, prisma, io, channel).catch(console.error), 3000)
-                } else if (statusCode === DisconnectReason.loggedOut || statusCode === 405 || isQrTimeout) {
-                    console.log(`[WhatsApp Session ${sessionId}] Logged out or QR timeout. Notifying UI.`)
+                } else if (statusCode === DisconnectReason.loggedOut || statusCode === 405) {
+                    console.log(`[WhatsApp Session ${sessionId}] Logged out. Notifying UI.`)
                     io.emit(`status-${botId}`, 'logged_out')
                     try {
                         if (channel) {
@@ -379,18 +378,25 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
                         console.error(`[WhatsApp Bot ${botId}] Error updating DB on logout:`, e);
                     }
                 } else {
-                    // Intentionally stopped — no reconnect, no QR
+                    // Intentionally stopped вЂ” no reconnect, no QR
                     io.emit(`status-${botId}`, 'disconnected')
                 }
             } else if (connection === 'open') {
                 console.log(`[WhatsApp Session ${sessionId}] Connected!`)
+                // CRITICAL FIX: Always mark bot as active so AI starts responding
+                try {
+                    await prisma.bot.update({
+                        where: { id: botId },
+                        data: { isActive: true }
+                    });
+                } catch (e) { console.error('[WA] Failed to set bot isActive=true:', e); }
                 if (channel) {
                     try {
                         await prisma.channel.update({
                             where: { id: channel.id },
                             data: { isActive: true }
                         });
-                    } catch(e) {}
+                    } catch (e) { }
                 }
                 io.emit(`status-${botId}`, 'connected')
             }
@@ -407,7 +413,7 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
         // Process ALL messages in the batch (not just [0])
         // Baileys can batch multiple messages in one event
         for (const msg of m.messages) {
-        if (!msg.message) continue // Ignore empty
+            if (!msg.message) continue // Ignore empty
 
             let senderNumber = msg.key.remoteJid
             // РРіРЅРѕСЂРёСЂСѓРµРј С‚РµС…РЅРёС‡РµСЃРєРёРµ СЂР°СЃСЃС‹Р»РєРё СЃС‚Р°С‚СѓСЃРѕРІ
@@ -420,7 +426,7 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
                     const oldLid = senderNumber
                     lidToJid.set(oldLid, possibleJid)
                     senderNumber = possibleJid
-                    
+
                     try {
                         await prisma.message.updateMany({
                             where: { botId, chatId: oldLid },
@@ -431,7 +437,7 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
                             update: { realJid: possibleJid },
                             create: { botId, chatId: oldLid, realJid: possibleJid, name: msg.pushName || 'Contact' }
                         })
-                    } catch (e) {}
+                    } catch (e) { }
                 } else if (lidToJid.has(senderNumber)) {
                     const mappedJid = lidToJid.get(senderNumber)
                     console.log(`[LID MATCH] Mapping LID ${senderNumber} to JID ${mappedJid}`)
@@ -445,21 +451,21 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
                             senderNumber = dbContact.realJid;
                         } else {
                             console.log(`[LID MISS] No mapping found for LID ${senderNumber}. Running resolution hook...`);
-                            
+
                             // AUTO RESOLVE USING THE NEW HOOK
                             const oldLid = senderNumber;
                             const newJid = await resolvePhoneFromLid(sock, oldLid, msg);
-                            
+
                             if (newJid && newJid.includes('@s.whatsapp.net')) {
                                 lidToJid.set(oldLid, newJid);
                                 senderNumber = newJid;
-                                
+
                                 // Move all existing messages to the real JID
                                 await prisma.message.updateMany({
                                     where: { botId, chatId: oldLid },
                                     data: { chatId: newJid }
                                 });
-                                
+
                                 // Update the LID contact to point to the real JID
                                 const existingContact = await prisma.contact.findUnique({ where: { botId_chatId: { botId, chatId: oldLid } } });
                                 let updatedContact = null;
@@ -476,7 +482,7 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
                                 if (updatedContact) io.emit(`contact-update-${botId}`, updatedContact);
                             }
                         }
-                    } catch(e) {
+                    } catch (e) {
                         console.log(`[LID MISS] Error looking up/resolving LID ${senderNumber}:`, e)
                     }
                 }
@@ -504,13 +510,13 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
                             create: { botId, chatId: senderNumber, name: pushName }
                         })
                     }
-                } catch (e) {}
+                } catch (e) { }
             }
 
             if (isFromMe && senderNumber.includes('@s.whatsapp.net')) {
                 console.log(`[JID OUTGOING DEBUG] Sent message to ${senderNumber}. Full object:`, JSON.stringify(msg, (key, value) => key === 'message' ? undefined : value, 2))
                 console.log(`[JID OUTGOING DEBUG] Context Info:`, JSON.stringify(msg.message?.extendedTextMessage?.contextInfo || msg.message?.conversation || 'No context', null, 2))
-                
+
                 const contextParticipant = msg.message?.extendedTextMessage?.contextInfo?.participant;
                 if (contextParticipant && contextParticipant.includes('@lid')) {
                     const lid = contextParticipant;
@@ -527,7 +533,7 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
                             update: { realJid: jid },
                             create: { botId, chatId: lid, realJid: jid, name: 'Contact' }
                         })
-                    } catch(e) {}
+                    } catch (e) { }
                 }
             }
 
@@ -544,10 +550,10 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
                     audioBuffer = await downloadMediaMessage(msg, 'buffer', {}, { logger: pino({ level: 'silent' }) });
                     audioMimeType = mediaMsg.mimetype || 'audio/ogg';
                     const ext = audioMimeType.includes('mp4') ? 'mp4' : 'ogg';
-                    const filename = `wa_audio_${Date.now()}_${Math.floor(Math.random()*1000)}.${ext}`;
+                    const filename = `wa_audio_${Date.now()}_${Math.floor(Math.random() * 1000)}.${ext}`;
                     const filepath = path.join(__dirname, '../../uploads', filename);
                     fs.writeFileSync(filepath, audioBuffer);
-                    
+
                     mediaUrl = `/uploads/${filename}`;
                     mediaType = 'audio';
                     const audioTag = `[AUDIO]/uploads/${filename}`;
@@ -563,10 +569,10 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
                     const buffer = await downloadMediaMessage(msg, 'buffer', {}, { logger: pino({ level: 'silent' }) });
                     const mimetype = mediaMsg.mimetype || 'image/jpeg';
                     const ext = mimetype.split('/')[1] || 'jpg';
-                    const filename = `wa_image_${Date.now()}_${Math.floor(Math.random()*1000)}.${ext}`;
+                    const filename = `wa_image_${Date.now()}_${Math.floor(Math.random() * 1000)}.${ext}`;
                     const filepath = path.join(__dirname, '../../uploads', filename);
                     fs.writeFileSync(filepath, buffer);
-                    
+
                     mediaUrl = `/uploads/${filename}`;
                     mediaType = 'image';
                     textMessage = mediaMsg.caption || textMessage || '';
@@ -580,7 +586,7 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
                     const { downloadMediaMessage } = await import('@whiskeysockets/baileys');
                     const buffer = await downloadMediaMessage(msg, 'buffer', {}, { logger: pino({ level: 'silent' }) });
                     const mimetype = mediaMsg.mimetype || 'application/octet-stream';
-                    
+
                     let originalName = mediaMsg.fileName || 'document';
                     let ext = path.extname(originalName) || '';
                     if (!ext) {
@@ -591,7 +597,7 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
                     const filename = `wa_doc_${Date.now()}_${cleanBaseName}${ext}`;
                     const filepath = path.join(__dirname, '../../uploads', filename);
                     fs.writeFileSync(filepath, buffer);
-                    
+
                     mediaUrl = `/uploads/${filename}`;
                     mediaType = 'document';
                     textMessage = mediaMsg.caption || originalName;
@@ -600,7 +606,7 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
                     console.error(`[WhatsApp Bot ${botId}] Error downloading document:`, e);
                 }
             }
-            
+
             if (!textMessage && !audioBuffer && !mediaUrl) return
 
             console.log(`[WhatsApp Bot ${botId}] ${isFromMe ? 'Sent to' : 'Received from'} ${senderNumber}: ${textMessage}`)
@@ -618,7 +624,7 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
                         // Р­С‚Рѕ РґСѓР±Р»РёРєР°С‚ СЃРѕРѕР±С‰РµРЅРёСЏ, РєРѕС‚РѕСЂРѕРµ РР С‚РѕР»СЊРєРѕ С‡С‚Рѕ СЃРѕС…СЂР°РЅРёР» РІ Р±Р°Р·Сѓ. РРіРЅРѕСЂРёСЂСѓРµРј.
                         return;
                     }
-                } catch (e) {}
+                } catch (e) { }
             }
 
             // РЎРѕС…СЂР°РЅСЏРµРј СЃРѕРѕР±С‰РµРЅРёРµ РІ Р±Р°Р·Сѓ
@@ -647,147 +653,147 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
             }
             chatProcessingLock.set(lockKey, true);
 
-        const recentMessages = await prisma.message.findMany({
-            where: { botId, chatId: senderNumber },
-            orderBy: { createdAt: 'desc' },
-            take: 20
-        });
-        recentMessages.reverse();
-
-        // Prepare AI prompt using Gemini
-        // GeminiService handles greeting logic automatically based on history presence
-        const realPhone = senderNumber.split('@')[0];
-        let systemInstruction = `${currentBotState.system_prompt || ''}\n\n[РЎРРЎРўР•РњРќРђРЇ РРќР¤РћР РњРђР¦РРЇ]:\nРќРѕРјРµСЂ С‚РµР»РµС„РѕРЅР° РєР»РёРµРЅС‚Р°, СЃ РєРѕС‚РѕСЂС‹Рј РІС‹ СЃРµР№С‡Р°СЃ РѕР±С‰Р°РµС‚РµСЃСЊ: +${realPhone}\nР•СЃР»Рё РєР»РёРµРЅС‚ РїСЂРѕСЃРёС‚ Р·Р°РїРёСЃР°С‚СЊ РµРіРѕ РЅР° "СЌС‚РѕС‚ РЅРѕРјРµСЂ" РёР»Рё "РјРѕР№ РЅРѕРјРµСЂ", РІС‹ РѕР±СЏР·Р°РЅС‹ РёСЃРїРѕР»СЊР·РѕРІР°С‚СЊ РёРјРµРЅРЅРѕ СЌС‚РѕС‚ РЅРѕРјРµСЂ (+${realPhone}) РІ РёРЅСЃС‚СЂСѓРјРµРЅС‚Р°С…!\n\nCRITICAL: Follow the system instructions exactly. Pay extreme attention to any [Correction] or [IMPORTANT CORRECTION] tags at the end of the instructions.`;
-        
-        // Setup integration config
-        const integrationConfig = {
-            googleSheetUrl: currentBotState.googleSheetUrl,
-            googleSheetColumns: currentBotState.googleSheetColumns,
-            bitrixWebhookUrl: currentBotState.bitrixWebhookUrl,
-            bitrixFields: currentBotState.bitrixFields,
-            googleCalendarId: currentBotState.googleCalendarId
-        };
-
-        const ragContext = currentBotState.data_prompt || '';
-
-        const history = recentMessages.slice(0, -1).map(msg => ({
-            role: msg.sender === 'bot' ? 'model' : 'user',
-            parts: [{ text: (msg.text || '').replace(/\[AUDIO\]\/uploads\/[^\s\n]+/g, '').trim() }]
-        }));
-        let userMessage = recentMessages.length > 0 ? recentMessages[recentMessages.length - 1].text : '';
-        if (userMessage) userMessage = userMessage.replace(/\[AUDIO\]\/uploads\/[^\s\n]+/g, '').trim();
-
-        try {
-            // Check if user has messages
-            const userId = currentBotState.user_id;
-            const canProceed = await hasEnoughMessages(userId);
-            if (!canProceed) {
-                try { await sock.sendMessage(senderNumber, { text: "Р‘Р°Р»Р°РЅСЃ СЃРѕРѕР±С‰РµРЅРёР№ РёСЃС‡РµСЂРїР°РЅ. РџРѕРїРѕР»РЅРёС‚Рµ Р±Р°Р»Р°РЅСЃ РІ РїР°РЅРµР»Рё СѓРїСЂР°РІР»РµРЅРёСЏ." }); } catch(e) {}
-                continue;
-            }
-
-            // Wrap entire AI processing in the global concurrency queue
-            // This ensures all users get responses вЂ” excess requests WAIT, not dropped
-            await scheduleAiCall(async () => {
-
-            // Call Gemini with function calling enabled
-            const geminiResult = await generateGeminiResponse(
-                userMessage, 
-                history, 
-                systemInstruction, 
-                ragContext, 
-                audioBuffer, 
-                audioMimeType, 
-                integrationConfig
-            );
-            
-            let aiResponseText = geminiResult.text;
-
-            if (geminiResult.shouldPauseChat) {
-                let pausedChats = currentBotState.pausedChats || [];
-                if (!pausedChats.includes(senderNumber)) {
-                    pausedChats.push(senderNumber);
-                    await prisma.bot.update({
-                        where: { id: botId },
-                        data: { pausedChats }
-                    });
-                }
-                try {
-                    const contact = await prisma.contact.update({
-                        where: { botId_chatId: { botId, chatId: senderNumber } },
-                        data: { status: 'РќСѓР¶РµРЅ РѕС‚РІРµС‚' }
-                    });
-                    io.emit(`contact-update-${botId}`, contact);
-                    io.emit(`bot-update-${botId}`, { pausedChats });
-
-                    // Notify bot owner by email
-                    const ownerUser = await prisma.user.findUnique({
-                        where: { id: currentBotState.user_id },
-                        select: { email: true, name: true }
-                    });
-                    if (ownerUser?.email) {
-                        const contactName = contact.name || senderNumber.split('@')[0];
-                        sendManagerNotification(ownerUser.email, contactName, currentBotState.name || `Bot #${botId}`);
-                    }
-                } catch(e) { console.error('[WA] Error notifying manager:', e); }
-            } else if (geminiResult.achievedGoal) {
-                try {
-                    const contact = await prisma.contact.update({
-                        where: { botId_chatId: { botId, chatId: senderNumber } },
-                        data: { status: 'РЈСЃРїРµС…', funnelStage: 'РЈСЃРїРµС€РЅРѕ' }
-                    });
-                    io.emit(`contact-update-${botId}`, contact);
-                } catch(e) {}
-            }
-
-            // Track usage with existing trackUsage function
-            await trackUsage({
-                userId,
-                botId,
-                provider: 'vertex-ai',
-                inputTokens: geminiResult.inputTokens,
-                outputTokens: geminiResult.outputTokens,
-                model: geminiResult.model,
+            const recentMessages = await prisma.message.findMany({
+                where: { botId, chatId: senderNumber },
+                orderBy: { createdAt: 'desc' },
+                take: 20
             });
-            console.log(`[WhatsApp Bot ${botId}] Gemini usage: in=${geminiResult.inputTokens} out=${geminiResult.outputTokens}`);
-            console.log(`[WhatsApp Bot ${botId}] Answering ${senderNumber}: ${aiResponseText?.substring(0, 60)}...`);
+            recentMessages.reverse();
 
-            // Reply on WhatsApp
-            if (aiResponseText && aiResponseText.trim()) {
-                // Anti-ban: show typing indicator before replying (human-like)
-                await safeSendMessage(sock, senderNumber, { text: aiResponseText }, {
-                    showTyping: true,
-                    typingText: aiResponseText,
-                    sendReadReceipt: false // already saw the message
-                });
-                
-                // FIX: Save AI response to DB so it instantly shows up in the frontend panel
-                try {
-                    const savedAiMsg = await prisma.message.create({
-                        data: { botId, channelId: channel ? channel.id : null, platform: 'WHATSAPP', sender: 'bot', text: aiResponseText, chatId: senderNumber }
+            // Prepare AI prompt using Gemini
+            // GeminiService handles greeting logic automatically based on history presence
+            const realPhone = senderNumber.split('@')[0];
+            let systemInstruction = `${currentBotState.system_prompt || ''}\n\n[РЎРРЎРўР•РњРќРђРЇ РРќР¤РћР РњРђР¦РРЇ]:\nРќРѕРјРµСЂ С‚РµР»РµС„РѕРЅР° РєР»РёРµРЅС‚Р°, СЃ РєРѕС‚РѕСЂС‹Рј РІС‹ СЃРµР№С‡Р°СЃ РѕР±С‰Р°РµС‚РµСЃСЊ: +${realPhone}\nР•СЃР»Рё РєР»РёРµРЅС‚ РїСЂРѕСЃРёС‚ Р·Р°РїРёСЃР°С‚СЊ РµРіРѕ РЅР° "СЌС‚РѕС‚ РЅРѕРјРµСЂ" РёР»Рё "РјРѕР№ РЅРѕРјРµСЂ", РІС‹ РѕР±СЏР·Р°РЅС‹ РёСЃРїРѕР»СЊР·РѕРІР°С‚СЊ РёРјРµРЅРЅРѕ СЌС‚РѕС‚ РЅРѕРјРµСЂ (+${realPhone}) РІ РёРЅСЃС‚СЂСѓРјРµРЅС‚Р°С…!\n\nCRITICAL: Follow the system instructions exactly. Pay extreme attention to any [Correction] or [IMPORTANT CORRECTION] tags at the end of the instructions.`;
+
+            // Setup integration config
+            const integrationConfig = {
+                googleSheetUrl: currentBotState.googleSheetUrl,
+                googleSheetColumns: currentBotState.googleSheetColumns,
+                bitrixWebhookUrl: currentBotState.bitrixWebhookUrl,
+                bitrixFields: currentBotState.bitrixFields,
+                googleCalendarId: currentBotState.googleCalendarId
+            };
+
+            const ragContext = currentBotState.data_prompt || '';
+
+            const history = recentMessages.slice(0, -1).map(msg => ({
+                role: msg.sender === 'bot' ? 'model' : 'user',
+                parts: [{ text: (msg.text || '').replace(/\[AUDIO\]\/uploads\/[^\s\n]+/g, '').trim() }]
+            }));
+            let userMessage = recentMessages.length > 0 ? recentMessages[recentMessages.length - 1].text : '';
+            if (userMessage) userMessage = userMessage.replace(/\[AUDIO\]\/uploads\/[^\s\n]+/g, '').trim();
+
+            try {
+                // Check if user has messages
+                const userId = currentBotState.user_id;
+                const canProceed = await hasEnoughMessages(userId);
+                if (!canProceed) {
+                    try { await sock.sendMessage(senderNumber, { text: "Р‘Р°Р»Р°РЅСЃ СЃРѕРѕР±С‰РµРЅРёР№ РёСЃС‡РµСЂРїР°РЅ. РџРѕРїРѕР»РЅРёС‚Рµ Р±Р°Р»Р°РЅСЃ РІ РїР°РЅРµР»Рё СѓРїСЂР°РІР»РµРЅРёСЏ." }); } catch (e) { }
+                    continue;
+                }
+
+                // Wrap entire AI processing in the global concurrency queue
+                // This ensures all users get responses вЂ” excess requests WAIT, not dropped
+                await scheduleAiCall(async () => {
+
+                    // Call Gemini with function calling enabled
+                    const geminiResult = await generateGeminiResponse(
+                        userMessage,
+                        history,
+                        systemInstruction,
+                        ragContext,
+                        audioBuffer,
+                        audioMimeType,
+                        integrationConfig
+                    );
+
+                    let aiResponseText = geminiResult.text;
+
+                    if (geminiResult.shouldPauseChat) {
+                        let pausedChats = currentBotState.pausedChats || [];
+                        if (!pausedChats.includes(senderNumber)) {
+                            pausedChats.push(senderNumber);
+                            await prisma.bot.update({
+                                where: { id: botId },
+                                data: { pausedChats }
+                            });
+                        }
+                        try {
+                            const contact = await prisma.contact.update({
+                                where: { botId_chatId: { botId, chatId: senderNumber } },
+                                data: { status: 'РќСѓР¶РµРЅ РѕС‚РІРµС‚' }
+                            });
+                            io.emit(`contact-update-${botId}`, contact);
+                            io.emit(`bot-update-${botId}`, { pausedChats });
+
+                            // Notify bot owner by email
+                            const ownerUser = await prisma.user.findUnique({
+                                where: { id: currentBotState.user_id },
+                                select: { email: true, name: true }
+                            });
+                            if (ownerUser?.email) {
+                                const contactName = contact.name || senderNumber.split('@')[0];
+                                sendManagerNotification(ownerUser.email, contactName, currentBotState.name || `Bot #${botId}`);
+                            }
+                        } catch (e) { console.error('[WA] Error notifying manager:', e); }
+                    } else if (geminiResult.achievedGoal) {
+                        try {
+                            const contact = await prisma.contact.update({
+                                where: { botId_chatId: { botId, chatId: senderNumber } },
+                                data: { status: 'РЈСЃРїРµС…', funnelStage: 'РЈСЃРїРµС€РЅРѕ' }
+                            });
+                            io.emit(`contact-update-${botId}`, contact);
+                        } catch (e) { }
+                    }
+
+                    // Track usage with existing trackUsage function
+                    await trackUsage({
+                        userId,
+                        botId,
+                        provider: 'vertex-ai',
+                        inputTokens: geminiResult.inputTokens,
+                        outputTokens: geminiResult.outputTokens,
+                        model: geminiResult.model,
                     });
-                    io.emit(`chat-${botId}`, savedAiMsg);
-                } catch(e) { console.error('Failed to save AI message to DB:', e); }
+                    console.log(`[WhatsApp Bot ${botId}] Gemini usage: in=${geminiResult.inputTokens} out=${geminiResult.outputTokens}`);
+                    console.log(`[WhatsApp Bot ${botId}] Answering ${senderNumber}: ${aiResponseText?.substring(0, 60)}...`);
 
-            } else {
-                console.log(`[WhatsApp Bot ${botId}] Empty AI response ignored. No message sent to ${senderNumber}`);
+                    // Reply on WhatsApp
+                    if (aiResponseText && aiResponseText.trim()) {
+                        // Anti-ban: show typing indicator before replying (human-like)
+                        await safeSendMessage(sock, senderNumber, { text: aiResponseText }, {
+                            showTyping: true,
+                            typingText: aiResponseText,
+                            sendReadReceipt: false // already saw the message
+                        });
+
+                        // FIX: Save AI response to DB so it instantly shows up in the frontend panel
+                        try {
+                            const savedAiMsg = await prisma.message.create({
+                                data: { botId, channelId: channel ? channel.id : null, platform: 'WHATSAPP', sender: 'bot', text: aiResponseText, chatId: senderNumber }
+                            });
+                            io.emit(`chat-${botId}`, savedAiMsg);
+                        } catch (e) { console.error('Failed to save AI message to DB:', e); }
+
+                    } else {
+                        console.log(`[WhatsApp Bot ${botId}] Empty AI response ignored. No message sent to ${senderNumber}`);
+                    }
+
+                }); // end scheduleAiCall
+
+            } catch (error) {
+                console.error(`[WhatsApp Bot ${botId}] AI Error for ${senderNumber}:`, error.message)
+                const isRateLimit = (error.message || '').includes('429') || (error.message || '').includes('RESOURCE_EXHAUSTED') || (error.message || '').includes('quota');
+                if (isRateLimit) {
+                    console.error(`[WhatsApp Bot ${botId}] вљ пёЏ All retries exhausted for ${senderNumber}. Sending retry notice.`);
+                    try { await sock.sendMessage(senderNumber, { text: "РР·РІРёРЅРёС‚Рµ, СЃРµСЂРІРµСЂ РїРµСЂРµРіСЂСѓР¶РµРЅ. РџРѕР¶Р°Р»СѓР№СЃС‚Р°, РїРѕРІС‚РѕСЂРёС‚Рµ Р·Р°РїСЂРѕСЃ С‡РµСЂРµР· РЅРµСЃРєРѕР»СЊРєРѕ СЃРµРєСѓРЅРґ." }); } catch (e) { }
+                } else {
+                    try { await sock.sendMessage(senderNumber, { text: "РџСЂРѕРёР·РѕС€Р»Р° РѕС€РёР±РєР°. РџРѕР¶Р°Р»СѓР№СЃС‚Р°, РїРѕРїСЂРѕР±СѓР№С‚Рµ РµС‰С‘ СЂР°Р·." }); } catch (e) { }
+                }
+            } finally {
+                // ALWAYS release the per-chat lock вЂ” no matter what happened
+                chatProcessingLock.delete(lockKey);
             }
-
-            }); // end scheduleAiCall
-
-        } catch (error) {
-            console.error(`[WhatsApp Bot ${botId}] AI Error for ${senderNumber}:`, error.message)
-            const isRateLimit = (error.message || '').includes('429') || (error.message || '').includes('RESOURCE_EXHAUSTED') || (error.message || '').includes('quota');
-            if (isRateLimit) {
-                console.error(`[WhatsApp Bot ${botId}] вљ пёЏ All retries exhausted for ${senderNumber}. Sending retry notice.`);
-                try { await sock.sendMessage(senderNumber, { text: "РР·РІРёРЅРёС‚Рµ, СЃРµСЂРІРµСЂ РїРµСЂРµРіСЂСѓР¶РµРЅ. РџРѕР¶Р°Р»СѓР№СЃС‚Р°, РїРѕРІС‚РѕСЂРёС‚Рµ Р·Р°РїСЂРѕСЃ С‡РµСЂРµР· РЅРµСЃРєРѕР»СЊРєРѕ СЃРµРєСѓРЅРґ." }); } catch(e) {}
-            } else {
-                try { await sock.sendMessage(senderNumber, { text: "РџСЂРѕРёР·РѕС€Р»Р° РѕС€РёР±РєР°. РџРѕР¶Р°Р»СѓР№СЃС‚Р°, РїРѕРїСЂРѕР±СѓР№С‚Рµ РµС‰С‘ СЂР°Р·." }); } catch(e) {}
-            }
-        } finally {
-            // ALWAYS release the per-chat lock вЂ” no matter what happened
-            chatProcessingLock.delete(lockKey);
-        }
 
         } // end for (const msg of m.messages)
     }) // end messages.upsert
@@ -805,15 +811,15 @@ export const stopWhatsAppBot = async (sessionId, logoutAndDestroy = false) => {
     if (sock) {
         // Set flag on the socket to prevent auto-reconnect
         sock._intentionallyStopped = true;
-        try { 
+        try {
             sock.ev.removeAllListeners();
             if (logoutAndDestroy) {
-                try { await sock.logout(); } catch(e) {}
+                try { await sock.logout(); } catch (e) { }
                 // Delete session files so QR scan is needed on next connect
                 const sessionDir = path.join(path.dirname(fileURLToPath(import.meta.url)), `../../sessions/session_${sessionId}`)
-                try { fs.rmSync(sessionDir, { recursive: true, force: true }) } catch (e) {}
+                try { fs.rmSync(sessionDir, { recursive: true, force: true }) } catch (e) { }
             } else {
-                try { sock.ws.close(); } catch(e) {}
+                try { sock.ws.close(); } catch (e) { }
             }
         } catch (e) {
             console.error(`[WhatsApp Session ${sessionId}] Error stopping session:`, e)
