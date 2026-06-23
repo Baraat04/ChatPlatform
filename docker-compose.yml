@@ -40,8 +40,8 @@ services:
       ROBOKASSA_PASSWORD_2: C7rxrTQY5fHI4K48Uxcs  
       ROBOKASSA_IS_TEST: "true"
     volumes:
-      - ./backend/sessions:/app/sessions
-      - ./backend/uploads:/app/uploads
+      - /docker/shared/chatplatform/sessions:/app/sessions
+      - /docker/shared/chatplatform/uploads:/app/uploads
       - ./backend/google-key.json:/app/google-key.json
     labels:
       - "traefik.enable=true"
