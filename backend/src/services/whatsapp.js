@@ -1,4 +1,4 @@
-import { makeWASocket, useMultiFileAuthState, DisconnectReason, Browsers } from '@whiskeysockets/baileys'
+import { makeWASocket, useMultiFileAuthState, DisconnectReason, Browsers, fetchLatestBaileysVersion } from '@whiskeysockets/baileys'
 import pino from 'pino'
 import { Boom } from '@hapi/boom'
 import { trackUsage, hasEnoughMessages } from './usage-tracker.js'
@@ -74,12 +74,14 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
     }
 
     const { state, saveCreds } = await useMultiFileAuthState(sessionDir)
+    const { version, isLatest } = await fetchLatestBaileysVersion()
+    console.log(`[WhatsApp Bot ${botId}] Using WA v${version.join('.')}, isLatest: ${isLatest}`)
 
     const sock = makeWASocket({
         auth: state,
         printQRInTerminal: false,
         logger: pino({ level: 'silent' }), // change to 'debug' for detailed logs
-        version: [2, 3000, 1033893291],
+        version,
         browser: ["Chrome", "Windows", "10"],
         markOnlineOnConnect: false,
         syncFullHistory: false,
