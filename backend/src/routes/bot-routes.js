@@ -451,12 +451,21 @@ router.delete('/bot/:id/channels/:channelId', requireAuth, async (req, res) => {
         }
         if (channel.platform === 'WHATSAPP') {
             try {
-                const { stopWhatsAppChannel } = await import('../services/whatsapp.js')
+                const { stopWhatsAppChannel, stopWhatsAppBot } = await import('../services/whatsapp.js')
                 await stopWhatsAppChannel(channelId, true)
+                // Fix ghost channel bug: also aggressively destroy any legacy bot session
+                await stopWhatsAppBot(botId, true).catch(e => {})
             } catch (e) {}
         }
 
         await prisma.channel.delete({ where: { id: channelId } })
+        
+        // Fix ghost channel bug: if this was the last channel for this platform, mark base bot inactive
+        const remainingChannels = await prisma.channel.count({ where: { botId, platform: channel.platform } })
+        if (remainingChannels === 0) {
+            await prisma.bot.update({ where: { id: botId }, data: { isActive: false } })
+        }
+        
         res.json({ success: true })
     } catch (e) { res.status(500).json({ error: e.message }) }
 })

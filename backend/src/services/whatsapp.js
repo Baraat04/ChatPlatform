@@ -735,6 +735,15 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
                     typingText: aiResponseText,
                     sendReadReceipt: false // already saw the message
                 });
+                
+                // FIX: Save AI response to DB so it instantly shows up in the frontend panel
+                try {
+                    const savedAiMsg = await prisma.message.create({
+                        data: { botId, channelId: channel ? channel.id : null, platform: 'WHATSAPP', sender: 'bot', text: aiResponseText, chatId: senderNumber }
+                    });
+                    io.emit(`chat-${botId}`, savedAiMsg);
+                } catch(e) { console.error('Failed to save AI message to DB:', e); }
+
             } else {
                 console.log(`[WhatsApp Bot ${botId}] Empty AI response ignored. No message sent to ${senderNumber}`);
             }
@@ -791,6 +800,15 @@ export const stopWhatsAppBot = async (sessionId, logoutAndDestroy = false) => {
 
 export const startWhatsAppChannel = async (channel, bot, prisma, io) => startWhatsAppBot(bot, prisma, io, channel);
 export const stopWhatsAppChannel = async (channelId, logoutAndDestroy = false) => stopWhatsAppBot(`ch_${channelId}`, logoutAndDestroy);
+
+export const closeAllSessions = () => {
+    for (const [sessionId, sock] of sessions.entries()) {
+        try {
+            sock.ws.close();
+            console.log(`[WhatsApp Session ${sessionId}] Closed gracefully on server shutdown.`);
+        } catch (e) {}
+    }
+};
 
 
 

@@ -15,6 +15,18 @@ process.on('unhandledRejection', (reason, promise) => {
     console.error('UNHANDLED REJECTION at:', promise, 'reason:', reason)
 })
 
+// Graceful shutdown to prevent WhatsApp session corruption
+const gracefulShutdown = async () => {
+    console.log('Received kill signal, shutting down gracefully...');
+    try {
+        const { closeAllSessions } = await import('./services/whatsapp.js');
+        closeAllSessions();
+    } catch (e) {}
+    process.exit(0);
+};
+process.on('SIGTERM', gracefulShutdown);
+process.on('SIGINT', gracefulShutdown);
+
 import { createServer } from 'http'
 
 // Dynamic imports so env vars are available when these modules initialize
