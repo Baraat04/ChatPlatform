@@ -341,6 +341,18 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
                 // Convert to data URL to send to frontend
                 const qrDataUrl = await qrcode.toDataURL(qr)
                 io.emit(`qr-${botId}`, qrDataUrl)
+
+                // FIX: If QR code is generated, the session is not connected.
+                // We must update the DB to reflect this, so it doesn't show as a "zombie" connected channel.
+                try {
+                    if (channel) {
+                        await prisma.channel.update({ where: { id: channel.id }, data: { isActive: false } });
+                    } else {
+                        await prisma.bot.update({ where: { id: botId }, data: { isActive: false } });
+                    }
+                } catch(e) {
+                    console.error(`[WhatsApp Bot ${botId}] Error updating DB on QR:`, e);
+                }
             }
 
             if (connection === 'close') {
@@ -357,6 +369,15 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
                 } else if (statusCode === DisconnectReason.loggedOut || statusCode === 405 || isQrTimeout) {
                     console.log(`[WhatsApp Session ${sessionId}] Logged out or QR timeout. Notifying UI.`)
                     io.emit(`status-${botId}`, 'logged_out')
+                    try {
+                        if (channel) {
+                            await prisma.channel.update({ where: { id: channel.id }, data: { isActive: false } });
+                        } else {
+                            await prisma.bot.update({ where: { id: botId }, data: { isActive: false } });
+                        }
+                    } catch(e) {
+                        console.error(`[WhatsApp Bot ${botId}] Error updating DB on logout:`, e);
+                    }
                 } else {
                     // Intentionally stopped — no reconnect, no QR
                     io.emit(`status-${botId}`, 'disconnected')
