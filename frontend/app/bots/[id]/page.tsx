@@ -505,13 +505,14 @@ export default function BotDetails() {
       );
     }
     if (msg.mediaType === 'audio') {
+      const cleanText = msg.text ? msg.text.replace(/\[AUDIO\]\/uploads\/[^\s\n]+/g, '').replace(/^voice_message_.*\.webm$/, '').replace(/^wa_audio_.*$/, '').replace(/^tg_audio_.*$/, '').trim() : '';
       return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxWidth: '100%' }}>
           <audio controls style={{ height: '32px', minWidth: '180px', maxWidth: '100%', width: '240px', accentColor: 'var(--primary)' }}>
             <source src={`${API_BASE}${msg.mediaUrl}`} />
             {t.voiceMessage || 'Голосовое сообщение'}
           </audio>
-          {msg.text && !msg.text.startsWith('voice_message_') && !msg.text.startsWith('wa_audio_') && !msg.text.startsWith('tg_audio_') && <span style={{ whiteSpace: 'pre-wrap' }}>{msg.text}</span>}
+          {cleanText && <span style={{ whiteSpace: 'pre-wrap' }}>{cleanText}</span>}
         </div>
       );
     }

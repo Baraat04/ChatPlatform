@@ -177,13 +177,8 @@ router.post('/bot', requireAuth, async (req, res) => {
             }
         }
 
-        // Auto-start WhatsApp bot after creation
-        if (platform === 'WHATSAPP') {
-            const { startWhatsAppBot } = await import('../services/whatsapp.js')
-            startWhatsAppBot(bot, getPrisma(), io).catch(err => {
-                console.error(`[WhatsApp Bot ${bot.id}] Failed to start:`, err)
-            })
-        }
+        // Do NOT auto-start WhatsApp bot after creation to avoid background timeout overriding user actions
+        // Wait for the user to explicitly connect via the UI (Generate QR)
     } catch (e) { res.status(500).json({ error: e.message }) }
 })
 
@@ -284,13 +279,17 @@ router.get('/bot/:id/channels', requireAuth, async (req, res) => {
             isBaseChannelDeleted = true;
         } else if (bot.platform === 'WHATSAPP' && !bot.isActive) {
             // Only hide if the session directory was also deleted (meaning it was explicitly disconnected)
-            const { default: fs } = await import('fs');
-            const { default: path } = await import('path');
-            const { fileURLToPath } = await import('url');
-            const __dirnameTmp = path.dirname(fileURLToPath(import.meta.url));
-            const sessionDir = path.join(__dirnameTmp, `../../sessions/session_${botId}`);
-            if (!fs.existsSync(sessionDir)) {
-                isBaseChannelDeleted = true;
+            // BUT do not hide if the bot was just created (within the last 60 seconds)
+            const botAgeMs = Date.now() - new Date(bot.createdAt).getTime();
+            if (botAgeMs > 60000) {
+                const { default: fs } = await import('fs');
+                const { default: path } = await import('path');
+                const { fileURLToPath } = await import('url');
+                const __dirnameTmp = path.dirname(fileURLToPath(import.meta.url));
+                const sessionDir = path.join(__dirnameTmp, `../../sessions/session_${botId}`);
+                if (!fs.existsSync(sessionDir)) {
+                    isBaseChannelDeleted = true;
+                }
             }
         }
         
@@ -929,7 +928,7 @@ router.post('/bot/:id/send', upload.single('file'), async (req, res) => {
             if (req.file && mediaType === 'image') {
                 await sock.sendMessage(chatId, { image: req.file.buffer, caption: text || '' });
             } else if (req.file && mediaType === 'audio') {
-                await sock.sendMessage(chatId, { audio: req.file.buffer, mimetype: 'audio/mp4', ptt: true, ptv: false });
+                await sock.sendMessage(chatId, { audio: req.file.buffer, mimetype: req.file.mimetype, ptt: false });
             } else if (req.file && mediaType === 'document') {
                 await sock.sendMessage(chatId, { 
                     document: req.file.buffer, 
@@ -1091,7 +1090,7 @@ router.post('/bot/:id/broadcast', upload.single('file'), async (req, res) => {
                     if (req.file && mediaType === 'image') {
                         content = { image: req.file.buffer, caption: text || '' };
                     } else if (req.file && mediaType === 'audio') {
-                        content = { audio: req.file.buffer, mimetype: 'audio/mp4', ptt: true, ptv: false };
+                        content = { audio: req.file.buffer, mimetype: req.file.mimetype, ptt: false };
                     } else if (req.file && mediaType === 'document') {
                         content = { document: req.file.buffer, mimetype: req.file.mimetype, fileName: originalNameUtf8, caption: text || '' };
                     } else {

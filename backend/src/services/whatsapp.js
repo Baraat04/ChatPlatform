@@ -348,7 +348,10 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
                     if (channel) {
                         await prisma.channel.update({ where: { id: channel.id }, data: { isActive: false } });
                     } else {
-                        await prisma.bot.update({ where: { id: botId }, data: { isActive: false } });
+                        const activeChannels = await prisma.channel.count({ where: { botId, isActive: true } });
+                        if (activeChannels === 0) {
+                            await prisma.bot.update({ where: { id: botId }, data: { isActive: false } });
+                        }
                     }
                 } catch(e) {
                     console.error(`[WhatsApp Bot ${botId}] Error updating DB on QR:`, e);
@@ -372,7 +375,10 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
                         if (channel) {
                             await prisma.channel.update({ where: { id: channel.id }, data: { isActive: false } });
                         } else {
-                            await prisma.bot.update({ where: { id: botId }, data: { isActive: false } });
+                            const activeChannels = await prisma.channel.count({ where: { botId, isActive: true } });
+                            if (activeChannels === 0) {
+                                await prisma.bot.update({ where: { id: botId }, data: { isActive: false } });
+                            }
                         }
                     } catch(e) {
                         console.error(`[WhatsApp Bot ${botId}] Error updating DB on logout:`, e);
