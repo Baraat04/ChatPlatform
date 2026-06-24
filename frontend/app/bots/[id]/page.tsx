@@ -349,6 +349,7 @@ export default function BotDetails() {
   const [activeTab, setActiveTab] = useState<'chats' | 'agent' | 'settings' | 'broadcast' | 'channels' | 'integrations'>('chats');
   const [chatFilter, setChatFilter] = useState('Все');
   const [searchQuery, setSearchQuery] = useState('');
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
   
   const [isRecording, setIsRecording] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -870,25 +871,32 @@ export default function BotDetails() {
   }
 
   async function handleSend() {
-    if ((!replyText.trim() && !selectedFile) || !selectedChat) return;
+    if ((!replyText.trim() && !selectedFile) || !selectedChat || isSendingMessage) return;
     
-    const formData = new FormData();
-    formData.append('chatId', selectedChat);
-    if (replyText.trim()) formData.append('text', replyText);
-    if (selectedFile) formData.append('file', selectedFile);
+    setIsSendingMessage(true);
+    try {
+      const formData = new FormData();
+      formData.append('chatId', selectedChat);
+      if (replyText.trim()) formData.append('text', replyText);
+      if (selectedFile) formData.append('file', selectedFile);
 
-    const res = await fetch(`${API}/bot/${botId}/send`, {
-      method: 'POST',
-      body: formData,
-      credentials: 'include'
-    });
-    
-    if (res.ok) {
-      setReplyText('');
-      setSelectedFile(null);
-      setFilePreviewUrl(null);
-      setFileType(null);
-    } else alert((t.sendError || 'Failed to send: ') + (await res.json().catch(() => ({}))).error);
+      const res = await fetch(`${API}/bot/${botId}/send`, {
+        method: 'POST',
+        body: formData,
+        credentials: 'include'
+      });
+      
+      if (res.ok) {
+        setReplyText('');
+        setSelectedFile(null);
+        setFilePreviewUrl(null);
+        setFileType(null);
+      } else {
+        alert((t.sendError || 'Failed to send: ') + (await res.json().catch(() => ({}))).error);
+      }
+    } finally {
+      setIsSendingMessage(false);
+    }
   }
 
   async function handleToggleActive() {
@@ -2652,8 +2660,8 @@ export default function BotDetails() {
                         placeholder={t.takeOver}
                         style={{ flex: 1, borderRadius: '14px', padding: '0.8rem 1.2rem' }}
                       />
-                      <button onClick={handleSend} disabled={!replyText.trim() && !selectedFile} className="btn-primary" style={{ width: '48px', height: '48px', borderRadius: '14px', padding: 0, justifyContent: 'center' }}>
-                        <Send size={20} />
+                      <button onClick={handleSend} disabled={(!replyText.trim() && !selectedFile) || isSendingMessage} className="btn-primary" style={{ width: '48px', height: '48px', borderRadius: '14px', padding: 0, justifyContent: 'center' }}>
+                        {isSendingMessage ? <Loader2 size={20} style={{ animation: 'spin 1s linear infinite' }} /> : <Send size={20} />}
                       </button>
                     </div>
                   </div>

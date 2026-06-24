@@ -871,6 +871,17 @@ router.post('/bot/:id/send', upload.single('file'), async (req, res) => {
                 mediaType = 'image';
             } else if (req.file.mimetype.startsWith('audio/')) {
                 mediaType = 'audio';
+                try {
+                    const { execSync } = require('child_process');
+                    const outPath = filePath + '.opus.ogg';
+                    execSync(`ffmpeg -i "${filePath}" -c:a libopus -b:a 32k -vbr on "${outPath}" -y`, { stdio: 'ignore' });
+                    req.file.buffer = fs.readFileSync(outPath);
+                    req.file.mimetype = 'audio/ogg; codecs=opus';
+                    fs.unlinkSync(filePath);
+                    fs.renameSync(outPath, filePath);
+                } catch(err) {
+                    console.log('FFMPEG audio conversion failed (or ffmpeg not installed). Using original buffer.', err.message);
+                }
             } else {
                 mediaType = 'document';
             }
@@ -1054,6 +1065,17 @@ router.post('/bot/:id/broadcast', upload.single('file'), async (req, res) => {
                 mediaType = 'image';
             } else if (req.file.mimetype.startsWith('audio/')) {
                 mediaType = 'audio';
+                try {
+                    const { execSync } = require('child_process');
+                    const outPath = filePath + '.opus.ogg';
+                    execSync(`ffmpeg -i "${filePath}" -c:a libopus -b:a 32k -vbr on "${outPath}" -y`, { stdio: 'ignore' });
+                    req.file.buffer = fs.readFileSync(outPath);
+                    req.file.mimetype = 'audio/ogg; codecs=opus';
+                    fs.unlinkSync(filePath);
+                    fs.renameSync(outPath, filePath);
+                } catch(err) {
+                    console.log('FFMPEG audio conversion failed (or ffmpeg not installed). Using original buffer.', err.message);
+                }
             } else {
                 mediaType = 'document';
             }
