@@ -372,8 +372,8 @@ export default function BotDetails() {
         };
 
         mediaRecorder.onstop = () => {
-          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-          const audioFile = new File([audioBlob], `voice_message_${Date.now()}.webm`, { type: 'audio/webm' });
+          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/ogg; codecs=opus' });
+          const audioFile = new File([audioBlob], `voice_message_${Date.now()}.ogg`, { type: 'audio/ogg' });
           setSelectedFile(audioFile);
           setFileType('audio');
           setFilePreviewUrl(null);
@@ -505,7 +505,7 @@ export default function BotDetails() {
       );
     }
     if (msg.mediaType === 'audio') {
-      const cleanText = msg.text ? msg.text.replace(/\[AUDIO\]\/uploads\/[^\s\n]+/g, '').replace(/^voice_message_.*\.webm$/, '').replace(/^wa_audio_.*$/, '').replace(/^tg_audio_.*$/, '').trim() : '';
+      const cleanText = msg.text ? msg.text.replace(/\[AUDIO\]\/uploads\/[^\s\n]+/g, '').replace(/^voice_message_.*\.(webm|ogg)$/, '').replace(/^wa_audio_.*$/, '').replace(/^tg_audio_.*$/, '').trim() : '';
       return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxWidth: '100%' }}>
           <audio controls style={{ height: '32px', minWidth: '180px', maxWidth: '100%', width: '240px', accentColor: 'var(--primary)' }}>
@@ -840,7 +840,6 @@ export default function BotDetails() {
       setGoogleCalendarId(data.googleCalendarId || '');
       setBitrixWebhookUrl(data.bitrixWebhookUrl || '');
       setBitrixFields(data.bitrixFields || '');
-      setChannels(data.channels || []);
       if (data.agentHistory) {
         try {
           setAgentChatHistory(JSON.parse(data.agentHistory));

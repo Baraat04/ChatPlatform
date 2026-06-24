@@ -928,7 +928,7 @@ router.post('/bot/:id/send', upload.single('file'), async (req, res) => {
             if (req.file && mediaType === 'image') {
                 await sock.sendMessage(chatId, { image: req.file.buffer, caption: text || '' });
             } else if (req.file && mediaType === 'audio') {
-                await sock.sendMessage(chatId, { audio: req.file.buffer, mimetype: req.file.mimetype, ptt: false });
+                await sock.sendMessage(chatId, { audio: req.file.buffer, mimetype: req.file.mimetype, ptt: true });
             } else if (req.file && mediaType === 'document') {
                 await sock.sendMessage(chatId, { 
                     document: req.file.buffer, 
@@ -1090,7 +1090,7 @@ router.post('/bot/:id/broadcast', upload.single('file'), async (req, res) => {
                     if (req.file && mediaType === 'image') {
                         content = { image: req.file.buffer, caption: text || '' };
                     } else if (req.file && mediaType === 'audio') {
-                        content = { audio: req.file.buffer, mimetype: req.file.mimetype, ptt: false };
+                        content = { audio: req.file.buffer, mimetype: req.file.mimetype, ptt: true };
                     } else if (req.file && mediaType === 'document') {
                         content = { document: req.file.buffer, mimetype: req.file.mimetype, fileName: originalNameUtf8, caption: text || '' };
                     } else {
