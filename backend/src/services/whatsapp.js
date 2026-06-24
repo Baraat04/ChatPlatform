@@ -33,7 +33,8 @@ function scheduleAiCall(fn) {
         const execute = async () => {
             _activeAiCalls++;
             try {
-                resolve(await fn());
+                const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('AI Request Timeout')), 60000));
+                resolve(await Promise.race([fn(), timeoutPromise]));
             } catch (err) {
                 reject(err);
             } finally {
@@ -86,7 +87,8 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
         markOnlineOnConnect: false,
         syncFullHistory: false,
         connectTimeoutMs: 60000,
-        defaultQueryTimeoutMs: 60000
+        defaultQueryTimeoutMs: 60000,
+        keepAliveIntervalMs: 15000
     })
 
     sessions.set(sessionId, sock)

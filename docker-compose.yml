@@ -36,11 +36,9 @@ services:
       DATABASE_URL: postgresql://postgres:postgres@db:5432/ai-consultant?schema=public
       FRONTEND_URL: https://up-chat.com
       ROBOKASSA_MERCHANT_LOGIN: up-chat.com
-      ROBOKASSA_PASSWORD_1: uisXn74aOTqhLRa388uG
-      ROBOKASSA_PASSWORD_2: nPWN73ljjQcW3mq8M6Rk  
-      ROBOKASSA_IS_TEST: "false"
-      SMTP_USER: ashaprinc752@gmail.com
-      SMTP_PASS: awkkhbepousygcbd
+      ROBOKASSA_PASSWORD_1: g9uYlsGBTIB4xU8fL57X
+      ROBOKASSA_PASSWORD_2: C7rxrTQY5fHI4K48Uxcs  
+      ROBOKASSA_IS_TEST: "true"
     volumes:
       - /docker/shared/chatplatform/sessions:/app/sessions
       - /docker/shared/chatplatform/uploads:/app/uploads

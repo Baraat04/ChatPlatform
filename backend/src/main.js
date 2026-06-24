@@ -163,51 +163,40 @@ httpServer.listen(PORT, async () => {
             orderBy: { createdAt: 'desc' }
         })
         
-        let activeBots = [];
-        const userSeen = new Set();
-        
-        for (const b of allActiveBots) {
-            if (!userSeen.has(b.user_id)) {
-                userSeen.add(b.user_id);
-                activeBots.push(b);
-            } else {
-                console.log(`[Boot] Deactivating old ghost bot ${b.id} for user ${b.user_id}`);
-                await prisma.bot.update({ where: { id: b.id }, data: { isActive: false } });
-            }
-        }
-        
-        // AUTO-CLEANUP: Merge any remaining @lid duplicate messages
-        if (activeBots.length > 0) {
-            const latestBot = activeBots[0];
-            const lidContacts = await prisma.contact.findMany({
-                where: { botId: latestBot.id, chatId: { contains: '@lid' } }
-            });
-            for (const c of lidContacts) {
-                if (c.realJid) {
-                    await prisma.message.updateMany({
-                        where: { botId: latestBot.id, chatId: c.chatId },
-                        data: { chatId: c.realJid }
-                    });
-                    
-                    const existing = await prisma.contact.findUnique({
-                        where: { botId_chatId: { botId: latestBot.id, chatId: c.realJid } }
-                    });
-                    
-                    if (existing && c.name && c.name !== 'Contact') {
-                        await prisma.contact.update({
-                            where: { botId_chatId: { botId: latestBot.id, chatId: c.realJid } },
-                            data: { name: c.name }
+        for (const bot of allActiveBots) {
+            // AUTO-CLEANUP: Merge any remaining @lid duplicate messages
+            try {
+                const lidContacts = await prisma.contact.findMany({
+                    where: { botId: bot.id, chatId: { contains: '@lid' } }
+                });
+                for (const c of lidContacts) {
+                    if (c.realJid) {
+                        await prisma.message.updateMany({
+                            where: { botId: bot.id, chatId: c.chatId },
+                            data: { chatId: c.realJid }
+                        });
+                        
+                        const existing = await prisma.contact.findUnique({
+                            where: { botId_chatId: { botId: bot.id, chatId: c.realJid } }
+                        });
+                        
+                        if (existing && c.name && c.name !== 'Contact') {
+                            await prisma.contact.update({
+                                where: { botId_chatId: { botId: bot.id, chatId: c.realJid } },
+                                data: { name: c.name }
+                            });
+                        }
+                        
+                        await prisma.contact.delete({
+                            where: { botId_chatId: { botId: bot.id, chatId: c.chatId } }
                         });
                     }
-                    
-                    await prisma.contact.delete({
-                        where: { botId_chatId: { botId: latestBot.id, chatId: c.chatId } }
-                    });
                 }
+            } catch (e) {
+                console.error(`[Boot] LID cleanup error for bot ${bot.id}:`, e.message);
             }
-        }
         
-        for (const bot of activeBots) {
+
             // Skip legacy bot restore if a proper WhatsApp Channel already exists for this bot
             // (to avoid duplicate sessions and dual-card UI bug)
             const hasWaChannel = await prisma.channel.findFirst({
