@@ -15,9 +15,9 @@ const __dirname = path.dirname(__filename)
 
 const sessions = new Map() // botId -> socket
 
-// в”Ђв”Ђв”Ђ GLOBAL AI CONCURRENCY QUEUE в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+// ─── GLOBAL AI CONCURRENCY QUEUE ─────────────────────────────────────────────
 // Limits how many simultaneous Gemini AI calls run at once.
-// Excess calls wait in queue вЂ” they are NOT dropped.
+// Excess calls wait in queue — they are NOT dropped.
 // This prevents Vertex AI rate limit (429) when many users write simultaneously.
 const MAX_CONCURRENT_AI = 6; // max parallel Gemini calls
 let _activeAiCalls = 0;
@@ -26,7 +26,7 @@ const _aiQueue = []; // Array of { fn: async () => any, resolve, reject }
 /**
  * Runs fn() immediately if a concurrency slot is free.
  * Otherwise queues it and runs when a slot opens up.
- * Guarantees every call eventually runs вЂ” nothing is dropped.
+ * Guarantees every call eventually runs — nothing is dropped.
  */
 function scheduleAiCall(fn) {
     return new Promise((resolve, reject) => {
@@ -48,9 +48,9 @@ function scheduleAiCall(fn) {
         };
 
         if (_activeAiCalls < MAX_CONCURRENT_AI) {
-            execute(); // slot free вЂ” run immediately
+            execute(); // slot free — run immediately
         } else {
-            _aiQueue.push(execute); // no slot вЂ” queue for later
+            _aiQueue.push(execute); // no slot — queue for later
             console.log(`[AI Queue] Queued. Active: ${_activeAiCalls}/${MAX_CONCURRENT_AI}, Waiting: ${_aiQueue.length}`);
         }
     });
@@ -58,7 +58,7 @@ function scheduleAiCall(fn) {
 
 // Per-chat processing lock: prevent SAME CHAT from being processed twice simultaneously
 const chatProcessingLock = new Map(); // lockKey -> true
-// в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+// ─────────────────────────────────────────────────────────────────────────────
 
 export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
     const botId = bot.id
@@ -317,7 +317,7 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
         }
     })
 
-    // Р”РѕР±Р°РІР»СЏРµРј РѕР±СЂР°Р±РѕС‚РєСѓ РЅР°С‡Р°Р»СЊРЅРѕР№ РёСЃС‚РѕСЂРёРё
+    // Добавляем обработку начальной истории
     sock.ev.on('messaging-history.set', async ({ chats, contacts }) => {
         console.log(`[WhatsApp Bot ${botId}] Initial history: ${chats?.length || 0} chats, ${contacts?.length || 0} contacts`)
         if (contacts) {
@@ -386,7 +386,7 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
                         console.error(`[WhatsApp Bot ${botId}] Error updating DB on logout:`, e);
                     }
                 } else {
-                    // Intentionally stopped вЂ” no reconnect, no QR
+                    // Intentionally stopped — no reconnect, no QR
                     io.emit(`status-${botId}`, 'disconnected')
                 }
             } else if (connection === 'open') {
@@ -415,7 +415,7 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
 
     sock.ev.on('messages.upsert', async (m) => {
         // CRITICAL: Only process real-time incoming messages.
-        // 'append' = historical sync on reconnect вЂ” must NOT trigger AI responses!
+        // 'append' = historical sync on reconnect — must NOT trigger AI responses!
         if (m.type === 'append') return; // Skip history sync
 
         // Process ALL messages in the batch (not just [0])
@@ -424,7 +424,7 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
             if (!msg.message) continue // Ignore empty
 
             let senderNumber = msg.key.remoteJid
-            // РРіРЅРѕСЂРёСЂСѓРµРј С‚РµС…РЅРёС‡РµСЃРєРёРµ СЂР°СЃСЃС‹Р»РєРё СЃС‚Р°С‚СѓСЃРѕРІ
+            // РРіРЅРѕСЂРёСЂСѓРµРј технические рассылки статусов
             if (senderNumber === 'status@broadcast') continue
 
             // Resolve LID to real phone number if possible
@@ -504,8 +504,8 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
                 console.log(`[LID DEBUG] Received message from LID ${senderNumber}. Message object:`, JSON.stringify(msg, null, 2))
             }
 
-            // Р•СЃР»Рё РЅРѕРјРµСЂ РІ С„РѕСЂРјР°С‚Рµ @lid, РїРѕРїСЂРѕР±СѓРµРј РїРѕРёСЃРєР°С‚СЊ СЂРµР°Р»СЊРЅС‹Р№ JID РІ СЃРѕРѕР±С‰РµРЅРёРё (РёРЅРѕРіРґР° РѕРЅ РµСЃС‚СЊ РІ metadata)
-            // РќРѕ РїСЂРѕС‰Рµ РІСЃРµРіРѕ - РµСЃР»Рё Сѓ РЅР°СЃ РµСЃС‚СЊ РёРјСЏ, СЃРѕС…СЂР°РЅРёРј РµРіРѕ СЃСЂР°Р·Сѓ РІ Р±Р°Р·Сѓ РєРѕРЅС‚Р°РєС‚РѕРІ РµСЃР»Рё РµРіРѕ С‚Р°Рј РЅРµС‚
+            // Если номер в формате @lid, попробуем поискать реальный JID в сообщении (иногда он есть в metadata)
+            // Но проще всего - если у нас есть имя, сохраним его сразу в базу контактов если его там нет
             if (pushName) {
                 try {
                     const existingContact = await prisma.contact.findUnique({
@@ -619,7 +619,7 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
 
             console.log(`[WhatsApp Bot ${botId}] ${isFromMe ? 'Sent to' : 'Received from'} ${senderNumber}: ${textMessage}`)
 
-            // РџСЂРµРґРѕС‚РІСЂР°С‰Р°РµРј РґСѓР±Р»РёСЂРѕРІР°РЅРёРµ СЃРѕРѕР±С‰РµРЅРёР№ (РµСЃР»Рё СЌС‚Рѕ СЃРѕРѕР±С‰РµРЅРёРµ РѕС‚ РР, РєРѕС‚РѕСЂРѕРµ РІРѕР·РІСЂР°С‰Р°РµС‚СЃСЏ РЅР°Рј Р¶Рµ С‡РµСЂРµР· РІРµР±СЃРѕРєРµС‚ Baileys)
+            // Предотвращаем дублирование сообщений (если это сообщение от РР, которое возвращается нам же через вебсокет Baileys)
             if (isFromMe) {
                 try {
                     const lastMsg = await prisma.message.findFirst({
@@ -629,23 +629,23 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
                     const textMatch = lastMsg && lastMsg.text === textMessage;
                     const mediaMatch = lastMsg && lastMsg.mediaType && mediaType && lastMsg.mediaType === mediaType;
                     if (lastMsg && (textMatch || mediaMatch) && (new Date() - new Date(lastMsg.createdAt) < 60000)) {
-                        // Р­С‚Рѕ РґСѓР±Р»РёРєР°С‚ СЃРѕРѕР±С‰РµРЅРёСЏ, РєРѕС‚РѕСЂРѕРµ РР С‚РѕР»СЊРєРѕ С‡С‚Рѕ СЃРѕС…СЂР°РЅРёР» РІ Р±Р°Р·Сѓ. РРіРЅРѕСЂРёСЂСѓРµРј.
+                        // Это дубликат сообщения, которое РР только что сохранил в базу. РРіРЅРѕСЂРёСЂСѓРµРј.
                         return;
                     }
                 } catch (e) { }
             }
 
-            // РЎРѕС…СЂР°РЅСЏРµРј СЃРѕРѕР±С‰РµРЅРёРµ РІ Р±Р°Р·Сѓ
+            // Сохраняем сообщение в базу
             try {
                 const savedMsg = await prisma.message.create({
-                    // Р•СЃР»Рё fromMe === true, Р·РЅР°С‡РёС‚ РІР»Р°РґРµР»РµС† СЃР°Рј РѕС‚РІРµС‚РёР» СЃ С‚РµР»РµС„РѕРЅР°. РџРѕРјРµС‡Р°РµРј РєР°Рє 'bot', С‡С‚РѕР±С‹ РІ UI Р±С‹Р»Рѕ СЃРїСЂР°РІР°
+                    // Если fromMe === true, значит владелец сам ответил с телефона. Помечаем как 'bot', чтобы в UI было справа
                     data: { botId, channelId: channel ? channel.id : null, platform: 'WHATSAPP', sender: isFromMe ? 'bot' : 'user', text: textMessage, chatId: senderNumber, mediaUrl, mediaType }
                 })
-                // РћС‚РїСЂР°РІР»СЏРµРј СЃРѕРѕР±С‰РµРЅРёРµ + РёРјСЏ РєРѕРЅС‚Р°РєС‚Р° РґР»СЏ С„СЂРѕРЅС‚РµРЅРґР°
+                // Отправляем сообщение + имя контакта для фронтенда
                 io.emit(`chat-${botId}`, { ...savedMsg, contactName: pushName })
             } catch (dbErr) { console.error('DB Error saving msg:', dbErr) }
 
-            // Р•СЃР»Рё СЃРѕРѕР±С‰РµРЅРёРµ РѕС‚РїСЂР°РІР»РµРЅРѕ РЅР°РјРё (СЃ С‚РµР»РµС„РѕРЅР°), РР РЅРµ РґРѕР»Р¶РµРЅ РЅР° РЅРµРіРѕ РѕС‚РІРµС‡Р°С‚СЊ СЃР°РјРѕРјСѓ СЃРµР±Рµ!
+            // Если сообщение отправлено нами (с телефона), РР не должен на него отвечать самому себе!
             if (isFromMe) continue
 
             // Fetch latest bot state to check if AI is paused for this chat
@@ -671,7 +671,7 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
             // Prepare AI prompt using Gemini
             // GeminiService handles greeting logic automatically based on history presence
             const realPhone = senderNumber.split('@')[0];
-            let systemInstruction = `${currentBotState.system_prompt || ''}\n\n[РЎРРЎРўР•РњРќРђРЇ РРќР¤РћР РњРђР¦РРЇ]:\nРќРѕРјРµСЂ С‚РµР»РµС„РѕРЅР° РєР»РёРµРЅС‚Р°, СЃ РєРѕС‚РѕСЂС‹Рј РІС‹ СЃРµР№С‡Р°СЃ РѕР±С‰Р°РµС‚РµСЃСЊ: +${realPhone}\nР•СЃР»Рё РєР»РёРµРЅС‚ РїСЂРѕСЃРёС‚ Р·Р°РїРёСЃР°С‚СЊ РµРіРѕ РЅР° "СЌС‚РѕС‚ РЅРѕРјРµСЂ" РёР»Рё "РјРѕР№ РЅРѕРјРµСЂ", РІС‹ РѕР±СЏР·Р°РЅС‹ РёСЃРїРѕР»СЊР·РѕРІР°С‚СЊ РёРјРµРЅРЅРѕ СЌС‚РѕС‚ РЅРѕРјРµСЂ (+${realPhone}) РІ РёРЅСЃС‚СЂСѓРјРµРЅС‚Р°С…!\n\nCRITICAL: Follow the system instructions exactly. Pay extreme attention to any [Correction] or [IMPORTANT CORRECTION] tags at the end of the instructions.`;
+            let systemInstruction = `${currentBotState.system_prompt || ''}\n\n[РЎРРЎРўР•РњРќРђРЇ РРќР¤РћР РњРђР¦РРЇ]:\nНомер телефона клиента, с которым вы сейчас общаетесь: +${realPhone}\nЕсли клиент просит записать его на "этот номер" или "мой номер", вы обязаны использовать именно этот номер (+${realPhone}) в инструментах!\n\nCRITICAL: Follow the system instructions exactly. Pay extreme attention to any [Correction] or [IMPORTANT CORRECTION] tags at the end of the instructions.`;
 
             // Setup integration config
             const integrationConfig = {
@@ -696,12 +696,12 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
                 const userId = currentBotState.user_id;
                 const canProceed = await hasEnoughMessages(userId);
                 if (!canProceed) {
-                    try { await sock.sendMessage(senderNumber, { text: "Р‘Р°Р»Р°РЅСЃ СЃРѕРѕР±С‰РµРЅРёР№ РёСЃС‡РµСЂРїР°РЅ. РџРѕРїРѕР»РЅРёС‚Рµ Р±Р°Р»Р°РЅСЃ РІ РїР°РЅРµР»Рё СѓРїСЂР°РІР»РµРЅРёСЏ." }); } catch (e) { }
+                    try { await sock.sendMessage(senderNumber, { text: "Баланс сообщений исчерпан. Пополните баланс в панели управления.\n\nMessage balance exhausted. Please top up your balance in the dashboard.\n\nХабарламалар теңгерімі таусылды. Теңгерімді басқару тақтасында толтырыңыз." }); } catch (e) { }
                     continue;
                 }
 
                 // Wrap entire AI processing in the global concurrency queue
-                // This ensures all users get responses вЂ” excess requests WAIT, not dropped
+                // This ensures all users get responses — excess requests WAIT, not dropped
                 await scheduleAiCall(async () => {
 
                     // Call Gemini with function calling enabled
@@ -729,7 +729,7 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
                         try {
                             const contact = await prisma.contact.update({
                                 where: { botId_chatId: { botId, chatId: senderNumber } },
-                                data: { status: 'РќСѓР¶РµРЅ РѕС‚РІРµС‚' }
+                                data: { status: 'Нужен ответ' }
                             });
                             io.emit(`contact-update-${botId}`, contact);
                             io.emit(`bot-update-${botId}`, { pausedChats });
@@ -748,7 +748,7 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
                         try {
                             const contact = await prisma.contact.update({
                                 where: { botId_chatId: { botId, chatId: senderNumber } },
-                                data: { status: 'РЈСЃРїРµС…', funnelStage: 'РЈСЃРїРµС€РЅРѕ' }
+                                data: { status: 'Успех', funnelStage: 'Успешно' }
                             });
                             io.emit(`contact-update-${botId}`, contact);
                         } catch (e) { }
@@ -793,13 +793,13 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
                 console.error(`[WhatsApp Bot ${botId}] AI Error for ${senderNumber}:`, error.message)
                 const isRateLimit = (error.message || '').includes('429') || (error.message || '').includes('RESOURCE_EXHAUSTED') || (error.message || '').includes('quota');
                 if (isRateLimit) {
-                    console.error(`[WhatsApp Bot ${botId}] вљ пёЏ All retries exhausted for ${senderNumber}. Sending retry notice.`);
-                    try { await sock.sendMessage(senderNumber, { text: "РР·РІРёРЅРёС‚Рµ, СЃРµСЂРІРµСЂ РїРµСЂРµРіСЂСѓР¶РµРЅ. РџРѕР¶Р°Р»СѓР№СЃС‚Р°, РїРѕРІС‚РѕСЂРёС‚Рµ Р·Р°РїСЂРѕСЃ С‡РµСЂРµР· РЅРµСЃРєРѕР»СЊРєРѕ СЃРµРєСѓРЅРґ." }); } catch (e) { }
+                    console.error(`[WhatsApp Bot ${botId}] ⚠️ All retries exhausted for ${senderNumber}. Sending retry notice.`);
+                    try { await sock.sendMessage(senderNumber, { text: "РР·РІРёРЅРёС‚Рµ, сервер перегружен. Пожалуйста, повторите запрос через несколько секунд." }); } catch (e) { }
                 } else {
-                    try { await sock.sendMessage(senderNumber, { text: "РџСЂРѕРёР·РѕС€Р»Р° РѕС€РёР±РєР°. РџРѕР¶Р°Р»СѓР№СЃС‚Р°, РїРѕРїСЂРѕР±СѓР№С‚Рµ РµС‰С‘ СЂР°Р·." }); } catch (e) { }
+                    try { await sock.sendMessage(senderNumber, { text: "Произошла ошибка. Пожалуйста, попробуйте ещё раз.\n\nAn error occurred. Please try again.\n\nҚате пайда болды. Қайтадан байқап көріңіз." }); } catch (e) { }
                 }
             } finally {
-                // ALWAYS release the per-chat lock вЂ” no matter what happened
+                // ALWAYS release the per-chat lock — no matter what happened
                 chatProcessingLock.delete(lockKey);
             }
 
