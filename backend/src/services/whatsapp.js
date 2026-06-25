@@ -3,7 +3,7 @@ import pino from 'pino'
 import { Boom } from '@hapi/boom'
 import { trackUsage, hasEnoughMessages } from './usage-tracker.js'
 import { generateGeminiResponse } from './GeminiService.js';
-import { sendManagerNotification } from './emailService.js';
+import { sendManagerNotification, sendBalanceExhaustedEmail } from './emailService.js';
 import { safeSendMessage } from './whatsapp-antiban.js';
 import fs from 'fs'
 import path from 'path'
@@ -651,6 +651,12 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
             // Fetch latest bot state to check if AI is paused for this chat
             const currentBotState = await prisma.bot.findUnique({ where: { id: botId } });
             if (!currentBotState || !currentBotState.isActive) continue;
+
+            if (channel) {
+                const currentChannelState = await prisma.channel.findUnique({ where: { id: channel.id } });
+                if (!currentChannelState || !currentChannelState.isActive) continue;
+            }
+
             if ((currentBotState.pausedChats || []).includes(senderNumber)) continue;
 
             // Per-chat lock: prevent parallel processing of the same chat (race condition guard)
@@ -696,7 +702,23 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
                 const userId = currentBotState.user_id;
                 const canProceed = await hasEnoughMessages(userId);
                 if (!canProceed) {
-                    try { await sock.sendMessage(senderNumber, { text: "Баланс сообщений исчерпан. Пополните баланс в панели управления.\n\nMessage balance exhausted. Please top up your balance in the dashboard.\n\nХабарламалар теңгерімі таусылды. Теңгерімді басқару тақтасында толтырыңыз." }); } catch (e) { }
+                    try {
+                        const ownerUser = await prisma.user.findUnique({
+                            where: { id: userId },
+                            select: { email: true, name: true }
+                        });
+                        
+                        await prisma.bot.update({
+                            where: { id: botId },
+                            data: { isActive: false }
+                        });
+                        
+                        io.emit(`bot-update-${botId}`, { isActive: false });
+                        
+                        if (ownerUser?.email) {
+                            sendBalanceExhaustedEmail(ownerUser.email, ownerUser.name, currentBotState.name || `Bot #${botId}`);
+                        }
+                    } catch (e) { console.error('[WA] Error on balance exhausted:', e); }
                     continue;
                 }
 

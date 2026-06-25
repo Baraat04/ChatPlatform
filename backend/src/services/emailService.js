@@ -39,3 +39,19 @@ export async function sendManagerNotification(email, contactName, botName) {
         console.error('[EmailService] Failed to send manager notification email:', e);
     }
 }
+
+export async function sendBalanceExhaustedEmail(email, name, botName) {
+    if (!email) return;
+    try {
+        await transporter.sendMail({
+            from: `"AI Consultant" <${process.env.SMTP_USER}>`,
+            to: email,
+            subject: `Баланс исчерпан: ${botName}`,
+            html: `<p>Здравствуйте, ${name || 'клиент'}!</p>
+                   <p>На вашем балансе закончились сообщения. Ваш бот <b>${botName}</b> был автоматически поставлен на паузу.</p>
+                   <p>Пожалуйста, пополните баланс в панели управления, а затем снова запустите бота.</p>`
+        });
+    } catch (e) {
+        console.error('[EmailService] Failed to send balance exhausted email:', e);
+    }
+}

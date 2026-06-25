@@ -1440,15 +1440,29 @@ router.post('/webhook/telegram/:slug', async (req, res) => {
         // Re-read from DB to get the freshest pausedChats (avoid stale data from parallel requests)
         const freshBotState = await prisma.bot.findUnique({ where: { id: bot.id }, select: { isActive: true, pausedChats: true } });
         if (!freshBotState?.isActive) return;
+        
+        if (channel) {
+            const freshChannelState = await prisma.channel.findUnique({ where: { id: channel.id }, select: { isActive: true } });
+            if (!freshChannelState?.isActive) return;
+        }
+
         if ((freshBotState.pausedChats || []).includes(telegramChatId)) return;
 
         // 3. Check if user has messages remaining
         const canProceed = await hasEnoughMessages(bot.user_id)
         if (!canProceed) {
-            await callTelegramAPI('sendMessage', tokenToUse, {
-                chat_id: telegramChatId,
-                text: 'Баланс сообщений исчерпан. Пополните баланс в панели управления.'
-            })
+            try {
+                const ownerUser = await prisma.user.findUnique({
+                    where: { id: bot.user_id },
+                    select: { email: true, name: true }
+                });
+                await prisma.bot.update({ where: { id: bot.id }, data: { isActive: false } });
+                io.emit(`bot-update-${bot.id}`, { isActive: false });
+                if (ownerUser?.email) {
+                    const { sendBalanceExhaustedEmail } = await import('../services/emailService.js');
+                    await sendBalanceExhaustedEmail(ownerUser.email, ownerUser.name, bot.name || `Bot #${bot.id}`);
+                }
+            } catch (e) { console.error('Error on balance exhausted:', e); }
             return
         }
 
@@ -1724,7 +1738,18 @@ router.post('/webhook/instagram', async (req, res) => {
                 // 3. Check balance
                 const canProceed = await hasEnoughMessages(bot.user_id);
                 if (!canProceed) {
-                    await sendInstagramMessage(tokenToUse, senderId, 'Баланс сообщений исчерпан. Пополните баланс в панели управления.');
+                    try {
+                        const ownerUser = await prisma.user.findUnique({
+                            where: { id: bot.user_id },
+                            select: { email: true, name: true }
+                        });
+                        await prisma.bot.update({ where: { id: bot.id }, data: { isActive: false } });
+                        io.emit(`bot-update-${bot.id}`, { isActive: false });
+                        if (ownerUser?.email) {
+                            const { sendBalanceExhaustedEmail } = await import('../services/emailService.js');
+                            await sendBalanceExhaustedEmail(ownerUser.email, ownerUser.name, bot.name || `Bot #${bot.id}`);
+                        }
+                    } catch (e) { console.error('Error on balance exhausted:', e); }
                     continue;
                 }
 
