@@ -430,6 +430,21 @@ export default function BotDetails() {
     }
   };
 
+  const handlePrevTourStep = () => {
+    if (tourStep === 2) {
+      setTourStep(1);
+    } else if (tourStep === 3) {
+      setActiveTab('channels');
+      setTourStep(2);
+    } else if (tourStep === 4) {
+      setActiveTab('agent');
+      setTourStep(3);
+    } else if (tourStep === 5) {
+      setActiveTab('chats');
+      setTourStep(4);
+    }
+  };
+
   const handleSkipTour = () => {
     setTourStep(null);
     localStorage.setItem(`up_tour_done_${botId}`, 'true');
@@ -636,8 +651,8 @@ export default function BotDetails() {
     } else {
       setDataToCollect([]);
     }
-    const toneMatch = prompt.match(/Стиль общения:\n(.*)/);
-    if (toneMatch) setTone(toneMatch[1].trim());
+    const toneMatch = prompt.match(/(?:Стиль|Формат) общения:?\s*\n?(.*)/);
+    if (toneMatch) setTone(toneMatch[1].replace(/\.$/, '').trim());
     setRules({
       onlyKnowledgeBase: prompt.includes('Отвечай только на основе информации из базы знаний.'),
       noFabrication: prompt.includes('Не выдумывай информацию.'),
@@ -1660,29 +1675,6 @@ export default function BotDetails() {
                           <div style={{ display: 'flex', gap: '0.6rem' }}>
                             <button 
                               onClick={async () => {
-                                await fetch(`${API}/bot/${botId}/channels/${channel.id}/toggle`, { method: 'POST', credentials: 'include' });
-                                fetchChannels();
-                              }} 
-                              className={`btn-action`}
-                              style={{ 
-                                background: channel.isActive ? 'rgba(0,0,0,0.04)' : 'var(--primary-container)', 
-                                border: 'none', 
-                                color: channel.isActive ? 'var(--on-surface)' : 'var(--on-primary-container)', 
-                                cursor: 'pointer', 
-                                padding: '0.5rem 0.8rem', 
-                                borderRadius: '10px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '0.4rem',
-                                fontSize: '0.82rem',
-                                fontWeight: 600,
-                                transition: 'all 0.2s'
-                              }}
-                            >
-                              {channel.isActive ? <><Pause size={14} /> {t.paused || 'Pause'}</> : <><Play size={14} /> {t.startAgent || 'Start'}</>}
-                            </button>
-                            <button 
-                              onClick={async () => {
                                 if (!confirm(t.deleteChannelConfirm || 'Are you sure you want to disconnect and delete this communication channel?')) return;
                                 await fetch(`${API}/bot/${botId}/channels/${channel.id}`, { method: 'DELETE', credentials: 'include' });
                                 fetchChannels();
@@ -2210,6 +2202,15 @@ export default function BotDetails() {
                     </button>
                   ))}
                 </div>
+                
+                <div style={{ marginTop: '0.8rem', padding: '0.8rem', background: 'rgba(34, 158, 217, 0.05)', borderRadius: '12px', border: '1px solid rgba(34, 158, 217, 0.1)', fontSize: '0.75rem', color: 'var(--on-surface-variant)', lineHeight: '1.4' }}>
+                  <strong>{t.statusHelpTitle || 'Справка по статусам'}:</strong><br/>
+                  • <em>{t.statusLead || 'Лид'}</em>: {t.statusLeadDesc || 'Новый клиент, просто поздоровался.'}<br/>
+                  • <em>{t.statusQual || 'Квалификация'}</em>: {t.statusQualDesc || 'Бот выясняет потребности.'}<br/>
+                  • <em>{t.statusPres || 'Презентация'}</em>: {t.statusPresDesc || 'Бот рассказывает о продукте/ценах.'}<br/>
+                  • <em>{t.statusObj || 'Возражения'}</em>: {t.statusObjDesc || 'Клиент сомневается, бот их закрывает.'}<br/>
+                  • <em>{t.statusDeal || 'Сделка'}</em>: {t.statusDealDesc || 'Клиент готов купить или записаться.'}
+                </div>
               </div>
               
               <div style={{ flex: 1, overflowY: 'auto' }}>
@@ -2706,11 +2707,6 @@ export default function BotDetails() {
                   </div>
                 </div>
               ))}
-              {isAgentLoading && (
-                <div style={{ alignSelf: 'flex-start', background: 'var(--surface-container-lowest)', padding: '0.8rem 1.2rem', borderRadius: '16px', borderBottomLeftRadius: '2px', color: 'var(--on-surface-variant)', fontSize: '0.9rem' }}>
-                  {t.aiThinking || 'AI is thinking...'}
-                </div>
-              )}
             </div>
 
             <div style={{ padding: '1.5rem', background: 'var(--surface-container-lowest)', borderTop: '1px solid var(--outline-variant)', display: 'flex', gap: '1rem', alignItems: 'center' }}>
@@ -3446,21 +3442,41 @@ export default function BotDetails() {
               ))}
             </div>
 
-            <button 
-              onClick={handleNextTourStep}
-              className="btn-primary"
-              style={{
-                marginLeft: 'auto',
-                padding: '8px 16px',
-                borderRadius: '10px',
-                fontSize: '13px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px'
-              }}
-            >
-              {tourStep === 5 ? (t.tourFinish || "Завершить") : (t.tourNext || "Далее →")}
-            </button>
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
+              {tourStep !== null && tourStep > 1 && (
+                <button 
+                  onClick={handlePrevTourStep}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '10px',
+                    fontSize: '13px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    background: 'var(--surface-container-highest)',
+                    color: 'var(--on-surface)',
+                    border: 'none',
+                    cursor: 'pointer'
+                  }}
+                >
+                  ← {t.tourPrev || 'Назад'}
+                </button>
+              )}
+              <button 
+                onClick={handleNextTourStep}
+                className="btn-primary"
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '10px',
+                  fontSize: '13px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                {tourStep === 5 ? (t.tourFinish || "Завершить") : (t.tourNext || "Далее →")}
+              </button>
+            </div>
           </div>
         </div>
       )}

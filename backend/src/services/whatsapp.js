@@ -657,7 +657,7 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
                 if (!currentChannelState || !currentChannelState.isActive) continue;
             }
 
-            if ((currentBotState.pausedChats || []).includes(senderNumber)) continue;
+            if ((currentBotState.pausedChats || []).includes(senderNumber) || (currentBotState.pausedChats || []).includes(msg.key.remoteJid)) continue;
 
             // Per-chat lock: prevent parallel processing of the same chat (race condition guard)
             const lockKey = `${sessionId}:${senderNumber}`;

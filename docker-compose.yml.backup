@@ -1,0 +1,92 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: chatplatform_db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ai-consultant
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - chat_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: chatplatform_backend
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - ./backend/.env
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      SESSION_SECRET: your_secret_here
+      BASE_URL: https://api.up-chat.com
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/ai-consultant?schema=public
+      FRONTEND_URL: https://up-chat.com
+      SMTP_USER: your_smtp_user
+      SMTP_PASS: your_smtp_pass
+      ROBOKASSA_MERCHANT_LOGIN: up-chat.com
+      ROBOKASSA_PASSWORD_1: your_password_1
+      ROBOKASSA_PASSWORD_2: your_password_2
+      ROBOKASSA_IS_TEST: "false"
+    volumes:
+      - /docker/shared/chatplatform/sessions:/app/sessions
+      - /docker/shared/chatplatform/uploads:/app/uploads
+      - ./backend/google-key.json:/app/google-key.json
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik-proxy"
+      - "traefik.http.routers.upchat-api.rule=Host(`api.up-chat.com`)"
+      - "traefik.http.routers.upchat-api.entrypoints=websecure"
+      - "traefik.http.routers.upchat-api.tls.certresolver=letsencrypt"
+      - "traefik.http.services.upchat-api.loadbalancer.server.port=3001"
+    networks:
+      - chat_network
+      - traefik-proxy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: https://api.up-chat.com
+        NEXT_PUBLIC_GOOGLE_CLIENT_ID: your_google_client_id
+    container_name: chatplatform_frontend
+    restart: always
+    depends_on:
+      - backend
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: https://api.up-chat.com
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik-proxy"
+      - "traefik.http.routers.upchat-frontend.rule=Host(`up-chat.com`) || Host(`www.up-chat.com`)"
+      - "traefik.http.routers.upchat-frontend.entrypoints=websecure"
+      - "traefik.http.routers.upchat-frontend.tls.certresolver=letsencrypt"
+      - "traefik.http.services.upchat-frontend.loadbalancer.server.port=3000"
+    networks:
+      - chat_network
+      - traefik-proxy
+
+networks:
+  chat_network:
+    driver: bridge
+  traefik-proxy:
+    external: true
+
+volumes:
+  postgres_data:
+    name: chatplatform_postgres_data

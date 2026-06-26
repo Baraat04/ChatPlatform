@@ -278,18 +278,14 @@ router.get('/bot/:id/channels', requireAuth, async (req, res) => {
         } else if (bot.platform === 'INSTAGRAM' && !bot.apiToken) {
             isBaseChannelDeleted = true;
         } else if (bot.platform === 'WHATSAPP' && !bot.isActive) {
-            // Only hide if the session directory was also deleted (meaning it was explicitly disconnected)
-            // BUT do not hide if the bot was just created (within the last 60 seconds)
-            const botAgeMs = Date.now() - new Date(bot.createdAt).getTime();
-            if (botAgeMs > 60000) {
-                const { default: fs } = await import('fs');
-                const { default: path } = await import('path');
-                const { fileURLToPath } = await import('url');
-                const __dirnameTmp = path.dirname(fileURLToPath(import.meta.url));
-                const sessionDir = path.join(__dirnameTmp, `../../sessions/session_${botId}`);
-                if (!fs.existsSync(sessionDir)) {
-                    isBaseChannelDeleted = true;
-                }
+            // Only hide if the session directory does not exist on disk
+            const { default: fs } = await import('fs');
+            const { default: path } = await import('path');
+            const { fileURLToPath } = await import('url');
+            const __dirnameTmp = path.dirname(fileURLToPath(import.meta.url));
+            const sessionDir = path.join(__dirnameTmp, `../../sessions/session_${botId}`);
+            if (!fs.existsSync(sessionDir)) {
+                isBaseChannelDeleted = true;
             }
         }
         
