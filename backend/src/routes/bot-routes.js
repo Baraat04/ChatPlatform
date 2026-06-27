@@ -928,13 +928,18 @@ router.post('/bot/:id/send', upload.single('file'), async (req, res) => {
         let chatId = realChatId;
 
         if (platform === 'WHATSAPP') {
-            chatId = chatId.includes('@') ? chatId : `${chatId}@s.whatsapp.net`;
+            // Normalize: add @s.whatsapp.net ONLY if it's a plain phone number (no domain at all)
+            // IMPORTANT: @lid is NOT a valid delivery address — must resolve it first
+            if (!chatId.includes('@')) {
+                chatId = `${chatId}@s.whatsapp.net`;
+            }
+
             const { getWhatsAppSession, startWhatsAppBot, startWhatsAppChannel } = await import('../services/whatsapp.js');
             const { safeSendMessage } = await import('../services/whatsapp-antiban.js');
             const sessionId = channelId ? `ch_${channelId}` : botId;
             let sock = getWhatsAppSession(sessionId);
 
-            console.log(`[SendRoute] Bot=${botId}, sessionId=${sessionId}, chatId=${chatId}, sock=${sock ? 'FOUND' : 'NOT FOUND'}`);
+            console.log(`[SendRoute] Bot=${botId}, sessionId=${sessionId}, rawChatId=${rawChatId}, resolved chatId=${chatId}, sock=${sock ? 'FOUND' : 'NOT FOUND'}`);
             
             if (!sock) {
                 // Auto-reconnect: try to restart the session
@@ -961,9 +966,65 @@ router.post('/bot/:id/send', upload.single('file'), async (req, res) => {
             
             if (!sock) return res.status(503).json({ error: 'WhatsApp session not active. Please start the bot first and wait for it to connect.' });
 
+            // ── CRITICAL: If chatId is still @lid, resolve it via live socket ──────
+            // @lid = Linked Device ID. WhatsApp server ACCEPTS messages to LID but does NOT deliver to phone.
+            // We MUST resolve it to @s.whatsapp.net before sending.
+            if (chatId.includes('@lid')) {
+                console.log(`[SendRoute] chatId is still LID: ${chatId}. Attempting live resolution via sock...`);
+                let resolvedJid = null;
+
+                // Strategy 1: Try sock.onWhatsApp (Baileys built-in resolver)
+                try {
+                    const results = await sock.onWhatsApp(chatId);
+                    if (results && results[0] && results[0].jid && results[0].jid.includes('@s.whatsapp.net')) {
+                        resolvedJid = results[0].jid;
+                        console.log(`[SendRoute] LID resolved via onWhatsApp: ${chatId} → ${resolvedJid}`);
+                    }
+                } catch (e) {
+                    console.log(`[SendRoute] onWhatsApp failed for LID:`, e.message);
+                }
+
+                // Strategy 2: Look at messages in DB with this chatId to find what JID was used in AI replies
+                if (!resolvedJid) {
+                    try {
+                        const botSentMsg = await prisma.message.findFirst({
+                            where: { botId, sender: 'bot', chatId: { contains: '@s.whatsapp.net' } },
+                            orderBy: { createdAt: 'desc' }
+                        });
+                        // Check if any bot-sent messages exist for a related JID
+                        // Also search messages that have rawChatId in chatId (minus the @lid part)
+                        const lidPrefix = rawChatId.split('@')[0];
+                        const jidMsg = await prisma.message.findFirst({
+                            where: { botId, chatId: `${lidPrefix}@s.whatsapp.net` },
+                            orderBy: { createdAt: 'desc' }
+                        });
+                        if (jidMsg) {
+                            resolvedJid = jidMsg.chatId;
+                            console.log(`[SendRoute] LID resolved via message prefix match: ${chatId} → ${resolvedJid}`);
+                        }
+                    } catch (e) {}
+                }
+
+                if (resolvedJid) {
+                    // Save resolved mapping to DB for future use
+                    try {
+                        await prisma.contact.upsert({
+                            where: { botId_chatId: { botId, chatId: rawChatId } },
+                            update: { realJid: resolvedJid },
+                            create: { botId, chatId: rawChatId, realJid: resolvedJid, name: 'Contact' }
+                        });
+                    } catch (e) {}
+                    chatId = resolvedJid;
+                } else {
+                    console.error(`[SendRoute] ❌ CRITICAL: Cannot resolve LID ${chatId} to real JID. Aborting send.`);
+                    return res.status(400).json({ 
+                        error: `Cannot deliver to this contact. WhatsApp uses a privacy ID (LID) for this user and we cannot resolve their phone number. Try receiving a message from them first.`
+                    });
+                }
+            }
+
             // ── STEP 3: Send and VERIFY delivery ──────────────────────────────
             let sendResult = null;
-            let sendError = null;
             try {
                 if (req.file && mediaType === 'image') {
                     sendResult = await safeSendMessage(sock, chatId, { image: req.file.buffer, caption: text || '' }, { showTyping: true, sendReadReceipt: false });
@@ -986,10 +1047,10 @@ router.post('/bot/:id/send', upload.single('file'), async (req, res) => {
                     console.log(`[SendRoute] ✅ Message delivered to ${chatId}, msgId=${sendResult.key.id}`);
                 }
             } catch (err) {
-                sendError = err.message;
                 console.error(`[SendRoute] ❌ safeSendMessage FAILED for ${chatId}:`, err.message);
                 return res.status(500).json({ error: `WhatsApp send failed: ${err.message}` });
             }
+
 
         } else if (platform === 'TELEGRAM') {
             if (!apiToken) return res.status(503).json({ error: 'Telegram API token missing.' });
