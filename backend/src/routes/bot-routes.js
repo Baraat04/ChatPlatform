@@ -917,6 +917,23 @@ router.post('/bot/:id/send', upload.single('file'), async (req, res) => {
         let channelId = lastMsg?.channelId || null;
         let apiToken = bot.apiToken;
 
+        // CRITICAL FIX: If there is an active WA channel for this bot, we MUST use it.
+        // Otherwise, we might fall back to a legacy botId session which has stale encryption keys,
+        // causing WhatsApp to silently drop the message (decryption failure) even though 'typing' works.
+        if (platform === 'WHATSAPP') {
+            try {
+                const activeWaChannel = await prisma.channel.findFirst({
+                    where: { botId, platform: 'WHATSAPP', isActive: true },
+                    orderBy: { updatedAt: 'desc' }
+                });
+                if (activeWaChannel) {
+                    channelId = activeWaChannel.id;
+                }
+            } catch (e) {
+                console.error('[SendRoute] Error checking active channels:', e.message);
+            }
+        }
+
         if (channelId) {
             const channel = await prisma.channel.findUnique({ where: { id: channelId } });
             if (channel) {
@@ -932,6 +949,8 @@ router.post('/bot/:id/send', upload.single('file'), async (req, res) => {
             // IMPORTANT: @lid is NOT a valid delivery address — must resolve it first
             if (!chatId.includes('@')) {
                 chatId = `${chatId}@s.whatsapp.net`;
+            } else if (chatId.includes('@c.us')) {
+                chatId = chatId.replace('@c.us', '@s.whatsapp.net');
             }
 
             const { getWhatsAppSession, startWhatsAppBot, startWhatsAppChannel } = await import('../services/whatsapp.js');
