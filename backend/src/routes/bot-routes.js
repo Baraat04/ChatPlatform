@@ -900,16 +900,24 @@ router.post('/bot/:id/send', upload.single('file'), async (req, res) => {
             }
         }
 
+        // Map LID to realJid if available in Contact DB
         let chatId = rawChatId;
+        try {
+            const contact = await prisma.contact.findUnique({
+                where: { botId_chatId: { botId, chatId: rawChatId } }
+            });
+            if (contact && contact.realJid) {
+                chatId = contact.realJid;
+                console.log(`[SendRoute] Mapped rawChatId ${rawChatId} to realJid ${chatId}`);
+            }
+        } catch (e) {
+            console.error('[SendRoute] Error looking up contact for JID mapping:', e);
+        }
+
         if (platform === 'WHATSAPP') {
-            try {
-                const contact = await prisma.contact.findFirst({ where: { botId, chatId: rawChatId, realJid: { not: null } } });
-                if (contact && contact.realJid) {
-                    chatId = contact.realJid;
-                }
-            } catch (e) { }
             chatId = chatId.includes('@') ? chatId : `${chatId}@s.whatsapp.net`;
             const { getWhatsAppSession, startWhatsAppBot, startWhatsAppChannel } = await import('../services/whatsapp.js');
+            const { safeSendMessage } = await import('../services/whatsapp-antiban.js');
             const sessionId = channelId ? `ch_${channelId}` : botId;
             let sock = getWhatsAppSession(sessionId);
             
@@ -939,18 +947,18 @@ router.post('/bot/:id/send', upload.single('file'), async (req, res) => {
             if (!sock) return res.status(503).json({ error: 'WhatsApp session not active. Please start the bot first and wait for it to connect.' });
             
             if (req.file && mediaType === 'image') {
-                await sock.sendMessage(chatId, { image: req.file.buffer, caption: text || '' });
+                await safeSendMessage(sock, chatId, { image: req.file.buffer, caption: text || '' }, { showTyping: true, sendReadReceipt: false });
             } else if (req.file && mediaType === 'audio') {
-                await sock.sendMessage(chatId, { audio: req.file.buffer, mimetype: req.file.mimetype, ptt: true });
+                await safeSendMessage(sock, chatId, { audio: req.file.buffer, mimetype: req.file.mimetype, ptt: true }, { showTyping: true, sendReadReceipt: false });
             } else if (req.file && mediaType === 'document') {
-                await sock.sendMessage(chatId, { 
+                await safeSendMessage(sock, chatId, { 
                     document: req.file.buffer, 
                     mimetype: req.file.mimetype, 
                     fileName: originalNameUtf8,
                     caption: text || ''
-                });
+                }, { showTyping: true, sendReadReceipt: false });
             } else {
-                await sock.sendMessage(chatId, { text: text || '' });
+                await safeSendMessage(sock, chatId, { text: text || '' }, { showTyping: true, sendReadReceipt: false });
             }
         } else if (platform === 'TELEGRAM') {
             if (!apiToken) return res.status(503).json({ error: 'Telegram API token missing.' });
