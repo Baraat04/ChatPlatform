@@ -1067,7 +1067,23 @@ router.post('/bot/:id/send', upload.single('file'), async (req, res) => {
                 }
             } catch (err) {
                 console.error(`[SendRoute] ❌ safeSendMessage FAILED for ${chatId}:`, err.message);
-                return res.status(500).json({ error: `WhatsApp send failed: ${err.message}` });
+                // Fallback: try direct send without anti-ban wrapper
+                try {
+                    console.log(`[SendRoute] Attempting FALLBACK direct send to ${chatId}...`);
+                    if (req.file && mediaType === 'image') {
+                        sendResult = await sock.sendMessage(chatId, { image: req.file.buffer, caption: text || '' });
+                    } else if (req.file && mediaType === 'audio') {
+                        sendResult = await sock.sendMessage(chatId, { audio: req.file.buffer, mimetype: req.file.mimetype, ptt: true });
+                    } else if (req.file && mediaType === 'document') {
+                        sendResult = await sock.sendMessage(chatId, { document: req.file.buffer, mimetype: req.file.mimetype, fileName: originalNameUtf8, caption: text || '' });
+                    } else {
+                        sendResult = await sock.sendMessage(chatId, { text: text || '' });
+                    }
+                    console.log(`[SendRoute] FALLBACK direct send result:`, sendResult?.key?.id ? `OK msgId=${sendResult.key.id}` : 'NO KEY');
+                } catch (directErr) {
+                    console.error(`[SendRoute] ❌ FALLBACK direct send also FAILED:`, directErr.message);
+                    return res.status(500).json({ error: `WhatsApp send failed: ${directErr.message}` });
+                }
             }
 
 
