@@ -83,8 +83,8 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
         printQRInTerminal: false,
         logger: pino({ level: 'silent' }), // change to 'debug' for detailed logs
         version,
-        browser: ["Chrome", "Windows", "10"],
-        markOnlineOnConnect: false,
+        browser: Browsers.windows('Chrome'),
+        markOnlineOnConnect: true,
         syncFullHistory: false,
         connectTimeoutMs: 60000,
         defaultQueryTimeoutMs: 60000,
@@ -407,6 +407,8 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
                     } catch (e) { }
                 }
                 io.emit(`status-${botId}`, 'connected')
+                // Ensure session appears online so messages are delivered
+                try { await sock.sendPresenceUpdate('available'); } catch (_) {}
             }
         } catch (err) {
             console.error(`[WhatsApp Bot ${botId}] connection.update error:`, err)
@@ -790,14 +792,30 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
 
                     // Reply on WhatsApp
                     if (aiResponseText && aiResponseText.trim()) {
-                        // Anti-ban: show typing indicator before replying (human-like)
-                        await safeSendMessage(sock, senderNumber, { text: aiResponseText }, {
-                            showTyping: true,
-                            typingText: aiResponseText,
-                            sendReadReceipt: false // already saw the message
-                        });
+                        let waSendResult = null;
+                        try {
+                            // Ensure session is online before sending
+                            try { await sock.sendPresenceUpdate('available'); } catch (_) {}
+                            
+                            // Anti-ban: show typing indicator before replying (human-like)
+                            waSendResult = await safeSendMessage(sock, senderNumber, { text: aiResponseText }, {
+                                showTyping: true,
+                                typingText: aiResponseText,
+                                sendReadReceipt: false // already saw the message
+                            });
+                            console.log(`[WhatsApp Bot ${botId}] safeSendMessage result for ${senderNumber}:`, waSendResult?.key?.id ? `OK msgId=${waSendResult.key.id}` : 'NO KEY RETURNED');
+                        } catch (sendErr) {
+                            console.error(`[WhatsApp Bot ${botId}] safeSendMessage FAILED for ${senderNumber}:`, sendErr.message);
+                            // Fallback: try direct send without anti-ban wrapper
+                            try {
+                                waSendResult = await sock.sendMessage(senderNumber, { text: aiResponseText });
+                                console.log(`[WhatsApp Bot ${botId}] FALLBACK direct send result:`, waSendResult?.key?.id ? `OK msgId=${waSendResult.key.id}` : 'NO KEY');
+                            } catch (directErr) {
+                                console.error(`[WhatsApp Bot ${botId}] FALLBACK direct send also FAILED:`, directErr.message);
+                            }
+                        }
 
-                        // FIX: Save AI response to DB so it instantly shows up in the frontend panel
+                        // Save AI response to DB so it instantly shows up in the frontend panel
                         try {
                             const savedAiMsg = await prisma.message.create({
                                 data: { botId, channelId: channel ? channel.id : null, platform: 'WHATSAPP', sender: 'bot', text: aiResponseText, chatId: senderNumber }

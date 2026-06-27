@@ -70,6 +70,11 @@ export async function safeSendMessage(sock, jid, content, options = {}) {
     } = options;
 
     try {
+        // 0. Ensure we appear online (required for message delivery in newer WA protocol)
+        try {
+            await sock.sendPresenceUpdate('available');
+        } catch (_) { /* non-critical */ }
+
         // 1. Mark as read (looks like a real user reading before replying)
         if (sendReadReceipt) {
             try {
@@ -91,11 +96,17 @@ export async function safeSendMessage(sock, jid, content, options = {}) {
         // 4. Send the actual message
         const result = await sock.sendMessage(jid, content);
 
-        // 5. Short post-send pause (looks natural)
+        // 5. Verify send result
+        if (!result || !result.key || !result.key.id) {
+            console.warn(`[AntiBan] WARNING: sendMessage returned empty result for ${jid}. Message may not have been delivered.`);
+        }
+
+        // 6. Short post-send pause (looks natural)
         await randomDelay(300, 800);
 
         return result;
     } catch (err) {
+        console.error(`[AntiBan] safeSendMessage ERROR for ${jid}:`, err.message);
         throw err; // Re-throw so caller can handle
     }
 }
