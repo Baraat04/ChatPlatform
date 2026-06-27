@@ -902,7 +902,13 @@ router.post('/bot/:id/send', upload.single('file'), async (req, res) => {
 
         let chatId = rawChatId;
         if (platform === 'WHATSAPP') {
-            chatId = rawChatId.includes('@') ? rawChatId : `${rawChatId}@s.whatsapp.net`;
+            try {
+                const contact = await prisma.contact.findFirst({ where: { botId, chatId: rawChatId, realJid: { not: null } } });
+                if (contact && contact.realJid) {
+                    chatId = contact.realJid;
+                }
+            } catch (e) { }
+            chatId = chatId.includes('@') ? chatId : `${chatId}@s.whatsapp.net`;
             const { getWhatsAppSession, startWhatsAppBot, startWhatsAppChannel } = await import('../services/whatsapp.js');
             const sessionId = channelId ? `ch_${channelId}` : botId;
             let sock = getWhatsAppSession(sessionId);
@@ -1102,7 +1108,12 @@ router.post('/bot/:id/broadcast', upload.single('file'), async (req, res) => {
                 }
 
                 try {
-                    const jid = rawId.includes('@') ? rawId : `${rawId}@s.whatsapp.net`
+                    let jid = rawId;
+                    const contact = await prisma.contact.findFirst({ where: { botId, chatId: rawId, realJid: { not: null } } });
+                    if (contact && contact.realJid) {
+                        jid = contact.realJid;
+                    }
+                    jid = jid.includes('@') ? jid : `${jid}@s.whatsapp.net`
                     
                     let content;
                     if (req.file && mediaType === 'image') {

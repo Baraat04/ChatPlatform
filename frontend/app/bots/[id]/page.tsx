@@ -2203,14 +2203,19 @@ export default function BotDetails() {
                   ))}
                 </div>
                 
-                <div style={{ marginTop: '0.8rem', padding: '0.8rem', background: 'rgba(34, 158, 217, 0.05)', borderRadius: '12px', border: '1px solid rgba(34, 158, 217, 0.1)', fontSize: '0.75rem', color: 'var(--on-surface-variant)', lineHeight: '1.4' }}>
-                  <strong>{t.statusHelpTitle || 'Справка по статусам'}:</strong><br/>
-                  • <em>{t.statusLead || 'Лид'}</em>: {t.statusLeadDesc || 'Новый клиент, просто поздоровался.'}<br/>
-                  • <em>{t.statusQual || 'Квалификация'}</em>: {t.statusQualDesc || 'Бот выясняет потребности.'}<br/>
-                  • <em>{t.statusPres || 'Презентация'}</em>: {t.statusPresDesc || 'Бот рассказывает о продукте/ценах.'}<br/>
-                  • <em>{t.statusObj || 'Возражения'}</em>: {t.statusObjDesc || 'Клиент сомневается, бот их закрывает.'}<br/>
-                  • <em>{t.statusDeal || 'Сделка'}</em>: {t.statusDealDesc || 'Клиент готов купить или записаться.'}
-                </div>
+                <details style={{ marginTop: '0.8rem', padding: '0.8rem', background: 'rgba(34, 158, 217, 0.05)', borderRadius: '12px', border: '1px solid rgba(34, 158, 217, 0.1)', fontSize: '0.75rem', color: 'var(--on-surface-variant)', lineHeight: '1.4', cursor: 'pointer' }}>
+                  <summary style={{ fontWeight: 'bold', outline: 'none', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                    {t.statusHelpTitle || 'Справка по статусам'}
+                  </summary>
+                  <div style={{ marginTop: '0.6rem', cursor: 'default', paddingLeft: '1.2rem' }}>
+                    • <em>{t.statusLead || 'Лид'}</em>: {t.statusLeadDesc || 'Новый клиент, просто поздоровался.'}<br/>
+                    • <em>{t.statusQual || 'Квалификация'}</em>: {t.statusQualDesc || 'Бот выясняет потребности.'}<br/>
+                    • <em>{t.statusPres || 'Презентация'}</em>: {t.statusPresDesc || 'Бот рассказывает о продукте/ценах.'}<br/>
+                    • <em>{t.statusObj || 'Возражения'}</em>: {t.statusObjDesc || 'Клиент сомневается, бот их закрывает.'}<br/>
+                    • <em>{t.statusDeal || 'Сделка'}</em>: {t.statusDealDesc || 'Клиент готов купить или записаться.'}
+                  </div>
+                </details>
               </div>
               
               <div style={{ flex: 1, overflowY: 'auto' }}>
@@ -2369,7 +2374,7 @@ export default function BotDetails() {
                             )}
                             <div style={{ fontSize: '0.8rem', color: 'var(--on-surface-variant)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                               {chat.lastSender === 'bot' && <span style={{ color: 'var(--primary)', marginRight: '4px', fontWeight: 600 }}>AI:</span>}
-                              {chat.lastMessage}
+                              {chat.lastMessage ? chat.lastMessage.replace(/\[AUDIO\]\/uploads\/[^\s\n]+/g, '🎤 Аудио').replace(/^voice_message_.*\.(webm|ogg)$/, '🎤 Аудио').replace(/^wa_audio_.*$/, '🎤 Аудио').replace(/^tg_audio_.*$/, '🎤 Аудио').trim() : '🎤 Аудио'}
                             </div>
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
