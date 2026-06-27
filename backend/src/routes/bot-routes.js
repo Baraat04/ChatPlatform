@@ -883,11 +883,35 @@ router.post('/bot/:id/send', upload.single('file'), async (req, res) => {
             }
         }
 
-        // Find last message to determine channel and platform
+        // ── STEP 1: Resolve the real JID for this contact ─────────────────────
+        // Contact might be stored under LID (e.g. 12345@lid) with realJid pointing to the real number.
+        // Or it might be stored directly under realJid. Check both cases.
+        let realChatId = rawChatId;
+        try {
+            // First try: match by chatId (could be LID or realJid)
+            let contactRecord = await prisma.contact.findFirst({
+                where: { botId, chatId: rawChatId }
+            });
+            // Second try: maybe rawChatId IS the realJid and the contact record uses a LID as chatId
+            if (!contactRecord) {
+                contactRecord = await prisma.contact.findFirst({
+                    where: { botId, realJid: rawChatId }
+                });
+            }
+            if (contactRecord?.realJid) {
+                realChatId = contactRecord.realJid;
+                console.log(`[SendRoute] Resolved ${rawChatId} → realJid: ${realChatId}`);
+            }
+        } catch (e) {
+            console.error('[SendRoute] Error resolving contact realJid:', e.message);
+        }
+
+        // ── STEP 2: Find last message by BOTH rawChatId and realChatId ─────────
+        // This ensures we find channelId even if messages were saved under a different variant
         const lastMsg = await prisma.message.findFirst({
-            where: { botId, chatId: rawChatId },
+            where: { botId, chatId: { in: [...new Set([rawChatId, realChatId])] } },
             orderBy: { createdAt: 'desc' }
-        })
+        });
 
         const platform = lastMsg?.platform || bot.platform;
         let channelId = lastMsg?.channelId || null;
@@ -900,19 +924,8 @@ router.post('/bot/:id/send', upload.single('file'), async (req, res) => {
             }
         }
 
-        // Map LID to realJid if available in Contact DB
-        let chatId = rawChatId;
-        try {
-            const contact = await prisma.contact.findUnique({
-                where: { botId_chatId: { botId, chatId: rawChatId } }
-            });
-            if (contact && contact.realJid) {
-                chatId = contact.realJid;
-                console.log(`[SendRoute] Mapped rawChatId ${rawChatId} to realJid ${chatId}`);
-            }
-        } catch (e) {
-            console.error('[SendRoute] Error looking up contact for JID mapping:', e);
-        }
+        // Final resolved chatId to use for sending
+        let chatId = realChatId;
 
         if (platform === 'WHATSAPP') {
             chatId = chatId.includes('@') ? chatId : `${chatId}@s.whatsapp.net`;
@@ -920,6 +933,8 @@ router.post('/bot/:id/send', upload.single('file'), async (req, res) => {
             const { safeSendMessage } = await import('../services/whatsapp-antiban.js');
             const sessionId = channelId ? `ch_${channelId}` : botId;
             let sock = getWhatsAppSession(sessionId);
+
+            console.log(`[SendRoute] Bot=${botId}, sessionId=${sessionId}, chatId=${chatId}, sock=${sock ? 'FOUND' : 'NOT FOUND'}`);
             
             if (!sock) {
                 // Auto-reconnect: try to restart the session
@@ -945,21 +960,37 @@ router.post('/bot/:id/send', upload.single('file'), async (req, res) => {
             }
             
             if (!sock) return res.status(503).json({ error: 'WhatsApp session not active. Please start the bot first and wait for it to connect.' });
-            
-            if (req.file && mediaType === 'image') {
-                await safeSendMessage(sock, chatId, { image: req.file.buffer, caption: text || '' }, { showTyping: true, sendReadReceipt: false });
-            } else if (req.file && mediaType === 'audio') {
-                await safeSendMessage(sock, chatId, { audio: req.file.buffer, mimetype: req.file.mimetype, ptt: true }, { showTyping: true, sendReadReceipt: false });
-            } else if (req.file && mediaType === 'document') {
-                await safeSendMessage(sock, chatId, { 
-                    document: req.file.buffer, 
-                    mimetype: req.file.mimetype, 
-                    fileName: originalNameUtf8,
-                    caption: text || ''
-                }, { showTyping: true, sendReadReceipt: false });
-            } else {
-                await safeSendMessage(sock, chatId, { text: text || '' }, { showTyping: true, sendReadReceipt: false });
+
+            // ── STEP 3: Send and VERIFY delivery ──────────────────────────────
+            let sendResult = null;
+            let sendError = null;
+            try {
+                if (req.file && mediaType === 'image') {
+                    sendResult = await safeSendMessage(sock, chatId, { image: req.file.buffer, caption: text || '' }, { showTyping: true, sendReadReceipt: false });
+                } else if (req.file && mediaType === 'audio') {
+                    sendResult = await safeSendMessage(sock, chatId, { audio: req.file.buffer, mimetype: req.file.mimetype, ptt: true }, { showTyping: true, sendReadReceipt: false });
+                } else if (req.file && mediaType === 'document') {
+                    sendResult = await safeSendMessage(sock, chatId, { 
+                        document: req.file.buffer, 
+                        mimetype: req.file.mimetype, 
+                        fileName: originalNameUtf8,
+                        caption: text || ''
+                    }, { showTyping: true, sendReadReceipt: false });
+                } else {
+                    sendResult = await safeSendMessage(sock, chatId, { text: text || '' }, { showTyping: true, sendReadReceipt: false });
+                }
+
+                if (!sendResult?.key?.id) {
+                    console.warn(`[SendRoute] ⚠️ sendMessage returned no key.id for ${chatId}. Possible silent failure.`);
+                } else {
+                    console.log(`[SendRoute] ✅ Message delivered to ${chatId}, msgId=${sendResult.key.id}`);
+                }
+            } catch (err) {
+                sendError = err.message;
+                console.error(`[SendRoute] ❌ safeSendMessage FAILED for ${chatId}:`, err.message);
+                return res.status(500).json({ error: `WhatsApp send failed: ${err.message}` });
             }
+
         } else if (platform === 'TELEGRAM') {
             if (!apiToken) return res.status(503).json({ error: 'Telegram API token missing.' });
             
@@ -1020,7 +1051,7 @@ router.post('/bot/:id/send', upload.single('file'), async (req, res) => {
             }
         }
 
-        // Save sent message to DB
+        // Save sent message to DB — only reached if send succeeded (no early return above)
         let textToSave = text || (req.file ? originalNameUtf8 : '');
         if (mediaType === 'audio' && !text) textToSave = '';
         const savedMsg = await prisma.message.create({
@@ -1031,6 +1062,7 @@ router.post('/bot/:id/send', upload.single('file'), async (req, res) => {
         res.json({ success: true, message: savedMsg })
     } catch (e) { res.status(500).json({ error: e.message }) }
 })
+
 
 // POST broadcast to multiple numbers
 // Body: { text, chatIds: string[] }
