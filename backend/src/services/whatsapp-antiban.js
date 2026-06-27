@@ -91,6 +91,9 @@ export async function safeSendMessage(sock, jid, content, options = {}) {
                 await sock.sendPresenceUpdate('composing', jid);
             } catch (_) { /* non-critical */ }
             await new Promise(r => setTimeout(r, typingDelay(typingText)));
+            try {
+                await sock.sendPresenceUpdate('paused', jid);
+            } catch (_) { /* non-critical */ }
         }
 
         // 4. Send the actual message
