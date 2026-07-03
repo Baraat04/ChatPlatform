@@ -1,4 +1,4 @@
-﻿import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI } from '@google/genai';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
@@ -64,11 +64,21 @@ import { executeIntegrationFunction } from './IntegrationExecutor.js';
  */
 export async function generateGeminiResponse(userMessage, history = [], systemInstruction = '', ragContext = '', audioBuffer = null, audioMimeType = null, integrationConfig = {}) {
     try {
-        // 1. Sliding Window History: last 8 messages (4 turns)
-        let limitedHistory = history.slice(-8).map(h => ({
+        // 1. Sanitize history and merge consecutive roles to prevent Gemini 400 Bad Request
+        let rawHistory = history.map(h => ({
             role: h.role === 'bot' || h.role === 'assistant' || h.role === 'model' ? 'model' : 'user',
             parts: [{ text: sanitizeInput(h.parts?.[0]?.text || h.text || '') }]
-        }));
+        })).filter(h => h.parts[0].text !== '');
+
+        let mergedHistory = [];
+        for (const msg of rawHistory) {
+            if (mergedHistory.length > 0 && mergedHistory[mergedHistory.length - 1].role === msg.role) {
+                mergedHistory[mergedHistory.length - 1].parts[0].text += '\n\n' + msg.parts[0].text;
+            } else {
+                mergedHistory.push(msg);
+            }
+        }
+        let limitedHistory = mergedHistory.slice(-8); // keep last 4 full turns max
 
         // 2. Sanitize inputs
         const sanitizedSystem = sanitizeInput(systemInstruction);
@@ -172,10 +182,13 @@ ${hasHistory
             userParts.push({ text: '[Голосовое сообщение]' });
         }
 
-        const contents = [
-            ...limitedHistory,
-            { role: 'user', parts: userParts }
-        ];
+        // Merge the current user message into history if the last message was also from 'user'
+        const contents = [...limitedHistory];
+        if (contents.length > 0 && contents[contents.length - 1].role === 'user') {
+            contents[contents.length - 1].parts.push(...userParts);
+        } else {
+            contents.push({ role: 'user', parts: userParts });
+        }
 
         // 4. Tools Setup
         const tools = [];

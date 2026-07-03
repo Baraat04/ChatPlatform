@@ -391,21 +391,11 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
                 }
             } else if (connection === 'open') {
                 console.log(`[WhatsApp Session ${sessionId}] Connected!`)
-                // CRITICAL FIX: Always mark bot as active so AI starts responding
-                try {
-                    await prisma.bot.update({
-                        where: { id: botId },
-                        data: { isActive: true }
-                    });
-                } catch (e) { console.error('[WA] Failed to set bot isActive=true:', e); }
-                if (channel) {
-                    try {
-                        await prisma.channel.update({
-                            where: { id: channel.id },
-                            data: { isActive: true }
-                        });
-                    } catch (e) { }
-                }
+                
+                // FIX: We do NOT force isActive to true here anymore.
+                // If the user manually paused the bot, it should stay paused even if Baileys auto-reconnects.
+                // The bot's active state is solely controlled by the user via the frontend Start/Pause buttons.
+                
                 io.emit(`status-${botId}`, 'connected')
                 // Ensure session appears online so messages are delivered
                 try { await sock.sendPresenceUpdate('available'); } catch (_) {}
