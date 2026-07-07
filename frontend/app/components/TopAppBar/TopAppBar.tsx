@@ -107,7 +107,7 @@ export default function TopAppBar({ onMenuClick }: TopAppBarProps) {
         }}>
           <AlertCircle size={20} />
           <span style={{ fontWeight: 600, fontSize: '0.95rem', textAlign: 'center' }}>
-            {t.balanceExhaustedBanner || 'Ваш баланс токенов исчерпан! Все боты были приостановлены. Пожалуйста, пополните баланс.'}
+            {(t as any).balanceExhaustedBanner || 'Ваш баланс токенов исчерпан! Все боты были приостановлены. Пожалуйста, пополните баланс.'}
           </span>
           <Link href="/profile" style={{
             marginLeft: '8px',
@@ -120,7 +120,7 @@ export default function TopAppBar({ onMenuClick }: TopAppBarProps) {
             textDecoration: 'none',
             whiteSpace: 'nowrap'
           }}>
-            {t.topupBtn || 'Пополнить'}
+            {(t as any).topupBtn || 'Пополнить'}
           </Link>
         </div>
       )}
