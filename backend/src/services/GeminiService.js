@@ -272,6 +272,19 @@ ${hasHistory
             }
         });
 
+        functionDeclarations.push({
+            name: "send_file_to_client",
+            description: "Sends a file (e.g. PDF, Document) to the client. Use this when the client explicitly asks for a file, price list, or document that is available in your knowledge base. You MUST provide the exact file URL provided in the knowledge base.",
+            parameters: {
+                type: "OBJECT",
+                properties: {
+                    file_url: { type: "STRING", description: "The exact URL of the file to send (e.g. /uploads/bot_1_kb_12345.pdf)" },
+                    message: { type: "STRING", description: "An optional text message to accompany the file (e.g. 'Вот наш прайс-лист:')" }
+                },
+                required: ["file_url"]
+            }
+        });
+
         if (functionDeclarations.length > 0) {
             tools.push({ functionDeclarations });
         }
@@ -281,6 +294,7 @@ ${hasHistory
         let finalResponseText = '';
         let shouldPauseChat = false;
         let achievedGoal = false;
+        let filesToSend = [];
 
         // Helper: call Vertex AI with retry on 429 / RESOURCE_EXHAUSTED
         const generateWithRetry = async (params, maxRetries = 3) => {
@@ -332,11 +346,17 @@ ${hasHistory
                 const functionResponses = [];
                 for (const part of functionCallParts) {
                     const call = part.functionCall;
-                    const result = await executeIntegrationFunction(call.name, call.args, integrationConfig);
+                    let result;
                     
-                    if (result.pauseChat) shouldPauseChat = true;
-                    if (result.success && ['save_to_google_sheets', 'create_crm_lead', 'create_calendar_event'].includes(call.name)) {
-                        achievedGoal = true;
+                    if (call.name === 'send_file_to_client') {
+                        filesToSend.push(call.args.file_url);
+                        result = { success: true, message: 'File is being sent to the client. You can optionally add a short text response confirming it.' };
+                    } else {
+                        result = await executeIntegrationFunction(call.name, call.args, integrationConfig);
+                        if (result.pauseChat) shouldPauseChat = true;
+                        if (result.success && ['save_to_google_sheets', 'create_crm_lead', 'create_calendar_event'].includes(call.name)) {
+                            achievedGoal = true;
+                        }
                     }
                     
                     functionResponses.push({
@@ -374,7 +394,7 @@ ${hasHistory
             }
         }
 
-        return { text: finalResponseText, inputTokens: totalInputTokens, outputTokens: totalOutputTokens, model: MODEL_NAME, shouldPauseChat, achievedGoal };
+        return { text: finalResponseText, inputTokens: totalInputTokens, outputTokens: totalOutputTokens, model: MODEL_NAME, shouldPauseChat, achievedGoal, filesToSend };
 
     } catch (error) {
         console.error('GeminiService Error:', error?.message || error);

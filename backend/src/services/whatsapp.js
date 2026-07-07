@@ -838,6 +838,49 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
                         console.log(`[WhatsApp Bot ${botId}] Empty AI response ignored. No message sent to ${senderNumber}`);
                     }
 
+                    if (geminiResult.filesToSend && geminiResult.filesToSend.length > 0) {
+                        for (const fileUrl of geminiResult.filesToSend) {
+                            try {
+                                const fs = await import('fs');
+                                const path = await import('path');
+                                const { fileURLToPath } = await import('url');
+                                const __dirnameTmp = path.dirname(fileURLToPath(import.meta.url)).replace(/^\/([a-zA-Z]:)/, '$1');
+                                const filename = fileUrl.split('/').pop();
+                                const filePath = path.join(__dirnameTmp, '../../uploads', filename);
+                                
+                                if (fs.existsSync(filePath)) {
+                                    const buffer = fs.readFileSync(filePath);
+                                    let mimetype = 'application/pdf'; 
+                                    if (filename.endsWith('.jpg') || filename.endsWith('.jpeg')) mimetype = 'image/jpeg';
+                                    else if (filename.endsWith('.png')) mimetype = 'image/png';
+                                    else if (filename.endsWith('.mp4')) mimetype = 'video/mp4';
+                                    
+                                    let content = { document: buffer, mimetype, fileName: filename };
+                                    let mediaType = 'document';
+                                    if (mimetype.startsWith('image/')) {
+                                        content = { image: buffer };
+                                        mediaType = 'image';
+                                    } else if (mimetype.startsWith('video/')) {
+                                        content = { video: buffer, mimetype };
+                                        mediaType = 'video';
+                                    }
+                                    
+                                    await sock.sendMessage(senderNumber, content);
+                                    console.log(`[WhatsApp Bot ${botId}] Successfully sent file ${filename} to ${senderNumber}`);
+                                    
+                                    try {
+                                        const savedAiMsg = await prisma.message.create({
+                                            data: { botId, channelId: channel ? channel.id : null, platform: 'WHATSAPP', sender: 'bot', text: '', chatId: senderNumber, mediaUrl: fileUrl, mediaType }
+                                        });
+                                        io.emit(`chat-${botId}`, savedAiMsg);
+                                    } catch (e) {}
+                                }
+                            } catch (e) {
+                                console.error(`[WhatsApp Bot ${botId}] Error sending file ${fileUrl}:`, e);
+                            }
+                        }
+                    }
+
                 }); // end scheduleAiCall
 
             } catch (error) {

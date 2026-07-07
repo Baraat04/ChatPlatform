@@ -1747,23 +1747,86 @@ router.post('/webhook/telegram/:slug', async (req, res) => {
         }
 
         // 6. Send message back to Telegram
-        await callTelegramAPI('sendMessage', tokenToUse, {
-            chat_id: telegramChatId,
-            text: cleanTelegramText(aiResponseText)
-        })
+        if (aiResponseText && aiResponseText.trim()) {
+            await callTelegramAPI('sendMessage', tokenToUse, {
+                chat_id: telegramChatId,
+                text: cleanTelegramText(aiResponseText)
+            })
 
-        // 7. Save bot reply (with platform tag)
-        const botMsg = await prisma.message.create({
-            data: { 
-                botId: bot.id, 
-                channelId: channel?.id || null,
-                platform: 'TELEGRAM',
-                sender: 'bot', 
-                text: aiResponseText, 
-                chatId: telegramChatId 
+            // 7. Save bot reply (with platform tag)
+            const botMsg = await prisma.message.create({
+                data: { 
+                    botId: bot.id, 
+                    channelId: channel?.id || null,
+                    platform: 'TELEGRAM',
+                    sender: 'bot', 
+                    text: aiResponseText, 
+                    chatId: telegramChatId 
+                }
+            })
+            io.emit(`chat-${bot.id}`, { ...botMsg, platform: 'TELEGRAM' })
+        }
+
+        if (geminiResult && geminiResult.filesToSend && geminiResult.filesToSend.length > 0) {
+            for (const fileUrl of geminiResult.filesToSend) {
+                try {
+                    const fs = await import('fs');
+                    const path = await import('path');
+                    const { fileURLToPath } = await import('url');
+                    const __dirnameTmp = path.dirname(fileURLToPath(import.meta.url)).replace(/^\/([a-zA-Z]:)/, '$1');
+                    const filename = fileUrl.split('/').pop();
+                    const filePath = path.join(__dirnameTmp, '../../uploads', filename);
+                    
+                    if (fs.existsSync(filePath)) {
+                        const formData = new FormData();
+                        formData.append('chat_id', telegramChatId);
+                        
+                        let method = 'sendDocument';
+                        let fieldName = 'document';
+                        let mediaType = 'document';
+                        
+                        if (filename.endsWith('.jpg') || filename.endsWith('.jpeg') || filename.endsWith('.png')) {
+                            method = 'sendPhoto';
+                            fieldName = 'photo';
+                            mediaType = 'image';
+                        } else if (filename.endsWith('.mp4')) {
+                            method = 'sendVideo';
+                            fieldName = 'video';
+                            mediaType = 'video';
+                        }
+                        
+                        const fileData = typeof Blob !== 'undefined' 
+                            ? new Blob([fs.readFileSync(filePath)])
+                            : fs.createReadStream(filePath);
+                            
+                        formData.append(fieldName, fileData, filename);
+                        
+                        const response = await fetch(`https://api.telegram.org/bot${tokenToUse}/${method}`, {
+                            method: 'POST',
+                            body: formData
+                        });
+                        
+                        if (response.ok) {
+                            const botMsg = await prisma.message.create({
+                                data: { 
+                                    botId: bot.id, 
+                                    channelId: channel?.id || null,
+                                    platform: 'TELEGRAM',
+                                    sender: 'bot', 
+                                    text: '', 
+                                    chatId: telegramChatId,
+                                    mediaUrl: fileUrl,
+                                    mediaType
+                                }
+                            })
+                            io.emit(`chat-${bot.id}`, { ...botMsg, platform: 'TELEGRAM' })
+                        }
+                    }
+                } catch(e) {
+                    console.error(`[Telegram Bot ${bot.id}] Error sending file ${fileUrl}:`, e);
+                }
             }
-        })
-        io.emit(`chat-${bot.id}`, { ...botMsg, platform: 'TELEGRAM' })
+        }
 
     } catch (e) {
         console.error('Telegram webhook processing error:', e)
@@ -2093,9 +2156,22 @@ router.post('/bot/:id/instagram-subscribe', requireAuth, async (req, res) => {
 router.post('/bot/:id/upload-pdf', requireAuth, upload.single('file'), async (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'No file uploaded' })
+        const botId = req.params.id;
         const parser = new pdfParse.PDFParse(new Uint8Array(req.file.buffer))
         const result = await parser.getText()
-        res.json({ text: result.text })
+        
+        // Save file to disk so AI can send it later
+        const fs = await import('fs');
+        const path = await import('path');
+        const __dirnameTmp = path.dirname(new URL(import.meta.url).pathname).replace(/^\/([a-zA-Z]:)/, '$1');
+        const ext = path.extname(req.file.originalname) || '.pdf';
+        const cleanBaseName = path.basename(req.file.originalname, ext).replace(/[^a-zA-Z0-9_-]/g, '_');
+        const filename = `bot_${botId}_kb_${Date.now()}_${cleanBaseName}${ext}`;
+        const filePath = path.join(__dirnameTmp, '../../uploads', filename);
+        fs.writeFileSync(filePath, req.file.buffer);
+        const fileUrl = `/uploads/${filename}`;
+        
+        res.json({ text: result.text, fileUrl })
     } catch (e) { 
         console.error('PDF Upload Error:', e)
         res.status(500).json({ error: e.message }) 

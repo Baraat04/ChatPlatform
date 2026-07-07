@@ -1018,7 +1018,11 @@ export default function BotDetails() {
       });
       const data = await res.json();
       if (data.text) {
-        const appendedData = `\n\n--- ДАННЫЕ ИЗ PDF (${file.name}) ---\n${data.text}`;
+        let appendedData = `\n\n--- ДАННЫЕ ИЗ PDF (${file.name}) ---\n`;
+        if (data.fileUrl) {
+          appendedData += `ССЫЛКА НА ФАЙЛ ДЛЯ ОТПРАВКИ КЛИЕНТУ: ${data.fileUrl}\n(Если клиент просит этот файл, используй инструмент send_file_to_client с этой ссылкой)\n\n`;
+        }
+        appendedData += data.text;
         const newDataPrompt = dataPrompt + appendedData;
         setDataPrompt(newDataPrompt);
         
