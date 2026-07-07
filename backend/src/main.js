@@ -218,12 +218,13 @@ httpServer.listen(PORT, async () => {
                 include: { bot: true }
             })
             for (const channel of activeWaChannels) {
-                if (channel.bot && channel.bot.isActive) {
-                    console.log(`[Boot] Restoring WhatsApp Channel ${channel.id} for Bot ${channel.botId}...`)
-                    startWhatsAppChannel(channel, channel.bot, prisma, io).catch(err => {
-                        console.error(`[Boot] Failed to restore WhatsApp Channel ${channel.id}:`, err.message)
-                    })
-                }
+                if (!channel.bot) continue;
+                // Restore the channel session regardless of bot.isActive
+                // (bot.isActive may be incorrectly false due to a previous QR bug)
+                console.log(`[Boot] Restoring WhatsApp Channel ${channel.id} for Bot ${channel.botId}...`)
+                startWhatsAppChannel(channel, channel.bot, prisma, io).catch(err => {
+                    console.error(`[Boot] Failed to restore WhatsApp Channel ${channel.id}:`, err.message)
+                })
             }
         } catch (chanErr) {
             console.error('[Boot] Error restoring WhatsApp channels:', chanErr)

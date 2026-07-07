@@ -343,21 +343,9 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
                 // Convert to data URL to send to frontend
                 const qrDataUrl = await qrcode.toDataURL(qr)
                 io.emit(`qr-${botId}`, qrDataUrl)
-
-                // FIX: If QR code is generated, the session is not connected.
-                // We must update the DB to reflect this, so it doesn't show as a "zombie" connected channel.
-                try {
-                    if (channel) {
-                        await prisma.channel.update({ where: { id: channel.id }, data: { isActive: false } });
-                    } else {
-                        const activeChannels = await prisma.channel.count({ where: { botId, isActive: true } });
-                        if (activeChannels === 0) {
-                            await prisma.bot.update({ where: { id: botId }, data: { isActive: false } });
-                        }
-                    }
-                } catch(e) {
-                    console.error(`[WhatsApp Bot ${botId}] Error updating DB on QR:`, e);
-                }
+                // NOTE: We do NOT set isActive=false here.
+                // The channel/bot is in "connecting" state — not yet authenticated.
+                // Setting false here causes it to stay paused forever after QR scan.
             }
 
             if (connection === 'close') {
@@ -391,11 +379,26 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
                 }
             } else if (connection === 'open') {
                 console.log(`[WhatsApp Session ${sessionId}] Connected!`)
-                
-                // FIX: We do NOT force isActive to true here anymore.
-                // If the user manually paused the bot, it should stay paused even if Baileys auto-reconnects.
-                // The bot's active state is solely controlled by the user via the frontend Start/Pause buttons.
-                
+
+                // Activate the bot/channel in DB when connection is established.
+                // This is needed so that after QR scan the bot actually starts working.
+                // We check if the bot was deliberately paused — if intentionallyStopped flag
+                // is set, we do NOT activate (user paused it via UI).
+                if (!sock._intentionallyStopped) {
+                    try {
+                        if (channel) {
+                            await prisma.channel.update({ where: { id: channel.id }, data: { isActive: true } });
+                            // Also ensure the parent bot is active
+                            await prisma.bot.update({ where: { id: botId }, data: { isActive: true } });
+                        } else {
+                            await prisma.bot.update({ where: { id: botId }, data: { isActive: true } });
+                        }
+                        console.log(`[WhatsApp Session ${sessionId}] isActive set to true in DB.`);
+                    } catch(e) {
+                        console.error(`[WhatsApp Bot ${botId}] Error setting isActive on connect:`, e);
+                    }
+                }
+
                 io.emit(`status-${botId}`, 'connected')
                 // Ensure session appears online so messages are delivered
                 try { await sock.sendPresenceUpdate('available'); } catch (_) {}
