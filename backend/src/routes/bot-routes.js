@@ -284,10 +284,26 @@ router.get('/bot/:id/channels', requireAuth, async (req, res) => {
             const { fileURLToPath } = await import('url');
             const __dirnameTmp = path.dirname(fileURLToPath(import.meta.url));
             const sessionDir = path.join(__dirnameTmp, `../../sessions/session_${botId}`);
-            if (!fs.existsSync(sessionDir)) {
+            const credsFile = path.join(sessionDir, 'creds.json');
+            if (!fs.existsSync(credsFile)) {
                 isBaseChannelDeleted = true;
             }
         }
+        
+        // Filter out disconnected WhatsApp Channel records
+        const { default: fs } = await import('fs');
+        const { default: path } = await import('path');
+        const { fileURLToPath } = await import('url');
+        const __dirnameTmp = path.dirname(fileURLToPath(import.meta.url));
+        
+        const activeChannels = channels.filter(ch => {
+            if (ch.platform === 'WHATSAPP' && !ch.isActive) {
+                const sessionDir = path.join(__dirnameTmp, `../../sessions/session_ch_${ch.id}`);
+                const credsFile = path.join(sessionDir, 'creds.json');
+                if (!fs.existsSync(credsFile)) return false;
+            }
+            return true;
+        });
         
         const allChannels = [
             ...((hasChannelForBotPlatform || isBaseChannelDeleted) ? [] : [{
@@ -298,7 +314,7 @@ router.get('/bot/:id/channels', requireAuth, async (req, res) => {
                 botId: bot.id,
                 isBaseChannel: true
             }]),
-            ...channels
+            ...activeChannels
         ]
         
         res.json(allChannels)

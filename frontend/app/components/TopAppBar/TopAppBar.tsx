@@ -1,6 +1,6 @@
 'use client';
 
-import { Menu, Search, Bell, Globe, ChevronDown } from 'lucide-react';
+import { Menu, Search, Bell, Globe, ChevronDown, AlertCircle } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import styles from './TopAppBar.module.css';
@@ -31,7 +31,8 @@ export default function TopAppBar({ onMenuClick }: TopAppBarProps) {
   }, []);
 
   return (
-    <header className={styles.header}>
+    <>
+      <header className={styles.header}>
       <div className={styles.leftContainer}>
         <button className={styles.burgerButton} onClick={onMenuClick}>
           <Menu size={24} />
@@ -39,7 +40,7 @@ export default function TopAppBar({ onMenuClick }: TopAppBarProps) {
         <span className={styles.brandMobile}>UP-CHAT</span>
       </div>
 
-      {user && user.messagesRemaining <= 20 && (
+      {user && user.messagesRemaining <= 20 && user.messagesRemaining > 0 && (
         <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
           <div style={{ 
             background: 'var(--error)', 
@@ -88,6 +89,41 @@ export default function TopAppBar({ onMenuClick }: TopAppBarProps) {
           <InitialsAvatar name={user?.name} size={36} fontSize={14} border />
         </Link>
       </div>
-    </header>
+      </header>
+      {user && user.messagesRemaining <= 0 && (
+        <div style={{
+          width: '100%',
+          background: '#ef4444',
+          color: 'white',
+          padding: '12px 24px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '12px',
+          position: 'sticky',
+          top: '64px',
+          zIndex: 39,
+          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+        }}>
+          <AlertCircle size={20} />
+          <span style={{ fontWeight: 600, fontSize: '0.95rem', textAlign: 'center' }}>
+            {t.balanceExhaustedBanner || 'Ваш баланс токенов исчерпан! Все боты были приостановлены. Пожалуйста, пополните баланс.'}
+          </span>
+          <Link href="/profile" style={{
+            marginLeft: '8px',
+            background: 'white',
+            color: '#ef4444',
+            padding: '6px 16px',
+            borderRadius: '8px',
+            fontWeight: 700,
+            fontSize: '0.85rem',
+            textDecoration: 'none',
+            whiteSpace: 'nowrap'
+          }}>
+            {t.topupBtn || 'Пополнить'}
+          </Link>
+        </div>
+      )}
+    </>
   );
 }

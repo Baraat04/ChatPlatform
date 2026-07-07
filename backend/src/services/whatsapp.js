@@ -19,7 +19,7 @@ const sessions = new Map() // botId -> socket
 // Limits how many simultaneous Gemini AI calls run at once.
 // Excess calls wait in queue — they are NOT dropped.
 // This prevents Vertex AI rate limit (429) when many users write simultaneously.
-const MAX_CONCURRENT_AI = 6; // max parallel Gemini calls
+const MAX_CONCURRENT_AI = 50; // max parallel Gemini calls
 let _activeAiCalls = 0;
 const _aiQueue = []; // Array of { fn: async () => any, resolve, reject }
 
@@ -357,7 +357,15 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
                 sessions.delete(sessionId)
 
                 if (shouldReconnect) {
-                    setTimeout(() => startWhatsAppBot(bot, prisma, io, channel).catch(console.error), 3000)
+                    const reconnect = async (attempt) => {
+                        try {
+                            await startWhatsAppBot(bot, prisma, io, channel);
+                        } catch (err) {
+                            console.error(`[WhatsApp Session ${sessionId}] Reconnect failed (attempt ${attempt}):`, err);
+                            setTimeout(() => reconnect(attempt + 1), Math.min(3000 * Math.pow(1.5, attempt), 60000));
+                        }
+                    };
+                    setTimeout(() => reconnect(1), 3000);
                 } else if (statusCode === DisconnectReason.loggedOut || statusCode === 405) {
                     console.log(`[WhatsApp Session ${sessionId}] Logged out. Notifying UI.`)
                     io.emit(`status-${botId}`, 'logged_out')

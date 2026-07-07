@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, Save, Trash2, Send, Bot, User, Users, UserPlus, Pause, Play, Phone, MessageSquare, Radio, Edit2, Wand2, ChevronDown, Check, Plus, Database, BrainCircuit, FileUp, Image as LucideImage, FileAudio2, X, Mic, BarChart2, Activity, Settings, FileText, Loader2, Link as LinkIcon, Lock, CheckCircle2, Video } from 'lucide-react';
+import { ArrowLeft, Save, Trash2, Send, Bot, User, Users, UserPlus, Pause, Play, Phone, MessageSquare, Radio, Edit2, Wand2, ChevronDown, Check, Plus, Database, BrainCircuit, FileUp, Image as LucideImage, FileAudio2, X, Mic, BarChart2, Activity, Settings, FileText, Loader2, Link as LinkIcon, Lock, CheckCircle2, Video, MoreVertical } from 'lucide-react';
 import Link from 'next/link';
 import { io } from 'socket.io-client';
 import { useLanguage } from '../../contexts/LanguageContext';
@@ -350,6 +350,7 @@ export default function BotDetails() {
   const [chatFilter, setChatFilter] = useState('Все');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const [showMobileActions, setShowMobileActions] = useState(false);
   
   const [isRecording, setIsRecording] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -1401,6 +1402,7 @@ export default function BotDetails() {
 
         @media (min-width: 769px) {
           .mobile-only-btn { display: none !important; }
+          .mobile-actions { display: none !important; }
         }
 
         @media (max-width: 768px) {
@@ -1430,6 +1432,20 @@ export default function BotDetails() {
             width: 100vw;
             max-width: 100vw;
           }
+          body.hide-navbar-mobile .chat-view-container {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            height: 100dvh !important;
+            width: 100vw !important;
+            z-index: 9999 !important;
+          }
+          .qr-grid {
+            grid-template-columns: 1fr !important;
+            gap: 1.5rem !important;
+          }
+          .mobile-actions { display: block !important; }
+          .desktop-actions { display: none !important; }
           .mobile-hidden { display: none !important; }
           .mobile-only-btn { display: flex; align-items: center; justify-content: center; }
           .content-pad { padding: 1rem !important; }
@@ -2052,7 +2068,7 @@ export default function BotDetails() {
                           </button>
                         </div>
                       ) : (
-                        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '2.5rem', alignItems: 'center' }}>
+                        <div className="qr-grid" style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '2.5rem', alignItems: 'center' }}>
                           <div>
                             <h4 style={{ margin: '0 0 1rem 0', color: '#25d366', fontWeight: 700 }}>
                               {t.howToScanQr || 'How to scan QR code'}
@@ -2461,42 +2477,108 @@ export default function BotDetails() {
                             </div>
                           </div>
                         </div>
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
-                          <button 
-                            onClick={() => selectedChat && handleToggleChatPause(selectedChat)} 
-                            className="btn-action" 
-                            style={{ 
-                              padding: '0.5rem 0.8rem', 
-                              fontSize: '0.8rem', 
-                              background: bot?.pausedChats?.includes(selectedChat) ? '#fff8eb' : '#f0fdf4', 
-                              color: bot?.pausedChats?.includes(selectedChat) ? '#b45309' : '#15803d', 
-                              border: `1px solid ${bot?.pausedChats?.includes(selectedChat) ? '#fcd34d' : '#bbf7d0'}`
-                            }}
-                          >
-                            {bot?.pausedChats?.includes(selectedChat) ? <><Play size={14} /> {t.turnOnAi || 'Turn on AI'}</> : <><Pause size={14} /> {t.turnOffAi || 'Turn off AI'}</>}
-                          </button>
-                          <button
-                            onClick={async () => {
-                              if (!selectedChat) return;
-                              setIsRefreshingChatStatus(true);
-                              try {
-                                const encodedId = encodeURIComponent(selectedChat);
-                                await fetch(`${API}/bot/${botId}/refresh-status/${encodedId}`, { method: 'POST', credentials: 'include' });
-                                await fetchChats();
-                              } catch(e) { console.error(e); }
-                              finally { setIsRefreshingChatStatus(false); }
-                            }}
-                            disabled={isRefreshingChatStatus}
-                            title="Обновить статус этого диалога прямо сейчас"
-                            className="btn-action"
-                            style={{ padding: '0.5rem 0.8rem', fontSize: '0.8rem', background: '#f0f4ff', color: '#3b57eb', border: '1px solid #c7d2fe', display: 'flex', alignItems: 'center', gap: '0.3rem', opacity: isRefreshingChatStatus ? 0.6 : 1 }}
-                          >
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ animation: isRefreshingChatStatus ? 'spin 1s linear infinite' : 'none' }}><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-                            {isRefreshingChatStatus ? '...' : 'Статус'}
-                          </button>
-                          <button onClick={() => handleDeleteChat()} className="btn-action" style={{ padding: '0.5rem 0.8rem', fontSize: '0.8rem', background: '#fdf2f2', color: '#9b1c1c', border: '1px solid #fbd5d5' }}>
-                            <Trash2 size={14} /> {t.clearChat}
-                          </button>
+                        <div style={{ display: 'flex', gap: '0.5rem', position: 'relative' }}>
+                          <div className="desktop-actions" style={{ display: 'flex', gap: '0.5rem' }}>
+                            <button 
+                              onClick={() => selectedChat && handleToggleChatPause(selectedChat)} 
+                              className="btn-action" 
+                              style={{ 
+                                padding: '0.5rem 0.8rem', 
+                                fontSize: '0.8rem', 
+                                background: bot?.pausedChats?.includes(selectedChat) ? '#fff8eb' : '#f0fdf4', 
+                                color: bot?.pausedChats?.includes(selectedChat) ? '#b45309' : '#15803d', 
+                                border: `1px solid ${bot?.pausedChats?.includes(selectedChat) ? '#fcd34d' : '#bbf7d0'}`
+                              }}
+                            >
+                              {bot?.pausedChats?.includes(selectedChat) ? <><Play size={14} /> {t.turnOnAi || 'Turn on AI'}</> : <><Pause size={14} /> {t.turnOffAi || 'Turn off AI'}</>}
+                            </button>
+                            <button
+                              onClick={async () => {
+                                if (!selectedChat) return;
+                                setIsRefreshingChatStatus(true);
+                                try {
+                                  const encodedId = encodeURIComponent(selectedChat);
+                                  await fetch(`${API}/bot/${botId}/refresh-status/${encodedId}`, { method: 'POST', credentials: 'include' });
+                                  await fetchChats();
+                                } catch(e) { console.error(e); }
+                                finally { setIsRefreshingChatStatus(false); }
+                              }}
+                              disabled={isRefreshingChatStatus}
+                              title="Обновить статус этого диалога прямо сейчас"
+                              className="btn-action"
+                              style={{ padding: '0.5rem 0.8rem', fontSize: '0.8rem', background: '#f0f4ff', color: '#3b57eb', border: '1px solid #c7d2fe', display: 'flex', alignItems: 'center', gap: '0.3rem', opacity: isRefreshingChatStatus ? 0.6 : 1 }}
+                            >
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ animation: isRefreshingChatStatus ? 'spin 1s linear infinite' : 'none' }}><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                              {isRefreshingChatStatus ? '...' : 'Статус'}
+                            </button>
+                            <button onClick={() => handleDeleteChat()} className="btn-action" style={{ padding: '0.5rem 0.8rem', fontSize: '0.8rem', background: '#fdf2f2', color: '#9b1c1c', border: '1px solid #fbd5d5' }}>
+                              <Trash2 size={14} /> {t.clearChat}
+                            </button>
+                          </div>
+                          
+                          <div className="mobile-actions">
+                            <button 
+                              onClick={() => setShowMobileActions(!showMobileActions)} 
+                              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0.5rem', background: 'none', border: 'none', color: 'var(--on-surface)', cursor: 'pointer' }}
+                            >
+                              <MoreVertical size={20} />
+                            </button>
+                            {showMobileActions && (
+                              <div style={{ 
+                                position: 'absolute', 
+                                top: '100%', 
+                                right: 0, 
+                                marginTop: '0.5rem', 
+                                background: 'var(--surface-container-lowest)', 
+                                border: '1px solid var(--outline-variant)', 
+                                borderRadius: '12px', 
+                                padding: '0.5rem', 
+                                display: 'flex', 
+                                flexDirection: 'column', 
+                                gap: '0.5rem', 
+                                zIndex: 100,
+                                boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                                minWidth: '150px'
+                              }}>
+                                <button 
+                                  onClick={() => { selectedChat && handleToggleChatPause(selectedChat); setShowMobileActions(false); }} 
+                                  className="btn-action" 
+                                  style={{ 
+                                    padding: '0.6rem 0.8rem', 
+                                    fontSize: '0.8rem', 
+                                    background: bot?.pausedChats?.includes(selectedChat) ? '#fff8eb' : '#f0fdf4', 
+                                    color: bot?.pausedChats?.includes(selectedChat) ? '#b45309' : '#15803d', 
+                                    border: `1px solid ${bot?.pausedChats?.includes(selectedChat) ? '#fcd34d' : '#bbf7d0'}`,
+                                    justifyContent: 'flex-start'
+                                  }}
+                                >
+                                  {bot?.pausedChats?.includes(selectedChat) ? <><Play size={14} /> {t.turnOnAi || 'Turn on AI'}</> : <><Pause size={14} /> {t.turnOffAi || 'Turn off AI'}</>}
+                                </button>
+                                <button
+                                  onClick={async () => {
+                                    if (!selectedChat) return;
+                                    setIsRefreshingChatStatus(true);
+                                    setShowMobileActions(false);
+                                    try {
+                                      const encodedId = encodeURIComponent(selectedChat);
+                                      await fetch(`${API}/bot/${botId}/refresh-status/${encodedId}`, { method: 'POST', credentials: 'include' });
+                                      await fetchChats();
+                                    } catch(e) { console.error(e); }
+                                    finally { setIsRefreshingChatStatus(false); }
+                                  }}
+                                  disabled={isRefreshingChatStatus}
+                                  className="btn-action"
+                                  style={{ padding: '0.6rem 0.8rem', fontSize: '0.8rem', background: '#f0f4ff', color: '#3b57eb', border: '1px solid #c7d2fe', display: 'flex', alignItems: 'center', gap: '0.3rem', opacity: isRefreshingChatStatus ? 0.6 : 1, justifyContent: 'flex-start' }}
+                                >
+                                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ animation: isRefreshingChatStatus ? 'spin 1s linear infinite' : 'none' }}><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                                  {isRefreshingChatStatus ? '...' : 'Статус'}
+                                </button>
+                                <button onClick={() => { handleDeleteChat(); setShowMobileActions(false); }} className="btn-action" style={{ padding: '0.6rem 0.8rem', fontSize: '0.8rem', background: '#fdf2f2', color: '#9b1c1c', border: '1px solid #fbd5d5', justifyContent: 'flex-start' }}>
+                                  <Trash2 size={14} /> {t.clearChat}
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                     );
