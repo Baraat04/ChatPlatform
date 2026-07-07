@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, Save, Trash2, Send, Bot, User, Users, UserPlus, Pause, Play, Phone, MessageSquare, Radio, Edit2, Wand2, ChevronDown, Check, Plus, Database, BrainCircuit, FileUp, Image as LucideImage, FileAudio2, X, Mic, BarChart2, Activity, Settings, FileText, Loader2, Link as LinkIcon, Lock, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Save, Trash2, Send, Bot, User, Users, UserPlus, Pause, Play, Phone, MessageSquare, Radio, Edit2, Wand2, ChevronDown, Check, Plus, Database, BrainCircuit, FileUp, Image as LucideImage, FileAudio2, X, Mic, BarChart2, Activity, Settings, FileText, Loader2, Link as LinkIcon, Lock, CheckCircle2, Video } from 'lucide-react';
 import Link from 'next/link';
 import { io } from 'socket.io-client';
 import { useLanguage } from '../../contexts/LanguageContext';
@@ -345,7 +345,7 @@ export default function BotDetails() {
   const [replyText, setReplyText] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
-  const [fileType, setFileType] = useState<'image' | 'audio' | 'document' | null>(null);
+  const [fileType, setFileType] = useState<'image' | 'audio' | 'video' | 'document' | null>(null);
   const [activeTab, setActiveTab] = useState<'chats' | 'agent' | 'settings' | 'broadcast' | 'channels' | 'integrations'>('chats');
   const [chatFilter, setChatFilter] = useState('Все');
   const [searchQuery, setSearchQuery] = useState('');
@@ -529,6 +529,17 @@ export default function BotDetails() {
             {t.voiceMessage || 'Голосовое сообщение'}
           </audio>
           {cleanText && <span style={{ whiteSpace: 'pre-wrap' }}>{cleanText}</span>}
+        </div>
+      );
+    }
+    if (msg.mediaType === 'video') {
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <video controls style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '12px' }}>
+            <source src={`${API_BASE}${msg.mediaUrl}`} />
+            Видео
+          </video>
+          {msg.text && <span style={{ whiteSpace: 'pre-wrap' }}>{msg.text}</span>}
         </div>
       );
     }
@@ -2589,6 +2600,12 @@ export default function BotDetails() {
                             <span style={{ fontSize: '0.85rem', color: 'var(--on-surface)' }}>{selectedFile.name}</span>
                           </div>
                         )}
+                        {fileType === 'video' && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem' }}>
+                            <Video size={24} color="var(--primary)" />
+                            <span style={{ fontSize: '0.85rem', color: 'var(--on-surface)' }}>{selectedFile.name}</span>
+                          </div>
+                        )}
                         {fileType === 'document' && (
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem' }}>
                             <FileUp size={24} color="var(--primary)" />
@@ -2629,8 +2646,20 @@ export default function BotDetails() {
                         }} />
                       </label>
                       <label style={{ cursor: 'pointer', padding: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--on-surface-variant)', transition: 'color 0.2s' }}>
+                        <Video size={24} />
+                        <input type="file" accept="video/*,.mp4,.avi,.mov,.mkv,.webm,.3gp" style={{ display: 'none' }} onChange={e => {
+                          if (e.target.files && e.target.files[0]) {
+                            const file = e.target.files[0];
+                            setSelectedFile(file);
+                            setFileType('video');
+                            setFilePreviewUrl(null);
+                          }
+                          e.target.value = '';
+                        }} />
+                      </label>
+                      <label style={{ cursor: 'pointer', padding: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--on-surface-variant)', transition: 'color 0.2s' }}>
                         <FileUp size={24} />
-                        <input type="file" accept=".pdf,.docx,.txt,.doc,.xls,.xlsx,.ppt,.pptx" style={{ display: 'none' }} onChange={e => {
+                        <input type="file" accept=".pdf,.docx,.txt,.doc,.xls,.xlsx,.ppt,.pptx,.csv,.rtf,.odt,.ods,.odp,.zip,.rar,.7z,.tar,.gz,.json,.xml,.html,.css,.js,.ts,.py,.java,.cpp,.c,.apk,.svg,.webp,.gif,.bmp,.tiff,.epub,.djvu" style={{ display: 'none' }} onChange={e => {
                           if (e.target.files && e.target.files[0]) {
                             const file = e.target.files[0];
                             setSelectedFile(file);

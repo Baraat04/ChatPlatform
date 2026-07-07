@@ -580,6 +580,24 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
                 } catch (e) {
                     console.error(`[WhatsApp Bot ${botId}] Error downloading image:`, e);
                 }
+            } else if (msg.message.videoMessage) {
+                const mediaMsg = msg.message.videoMessage;
+                try {
+                    const { downloadMediaMessage } = await import('@whiskeysockets/baileys');
+                    const buffer = await downloadMediaMessage(msg, 'buffer', {}, { logger: pino({ level: 'silent' }) });
+                    const mimetype = mediaMsg.mimetype || 'video/mp4';
+                    const ext = mimetype.split('/')[1]?.split(';')[0] || 'mp4';
+                    const filename = `wa_video_${Date.now()}_${Math.floor(Math.random() * 1000)}.${ext}`;
+                    const filepath = path.join(__dirname, '../../uploads', filename);
+                    fs.writeFileSync(filepath, buffer);
+
+                    mediaUrl = `/uploads/${filename}`;
+                    mediaType = 'video';
+                    textMessage = mediaMsg.caption || textMessage || '';
+                    console.log(`[WhatsApp Bot ${botId}] Downloaded video to ${filename}`);
+                } catch (e) {
+                    console.error(`[WhatsApp Bot ${botId}] Error downloading video:`, e);
+                }
             } else if (msg.message.documentMessage) {
                 const mediaMsg = msg.message.documentMessage;
                 try {
