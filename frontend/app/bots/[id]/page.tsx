@@ -351,6 +351,8 @@ export default function BotDetails() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [showMobileActions, setShowMobileActions] = useState(false);
+  const [showDirectiveInput, setShowDirectiveInput] = useState(false);
+  const [showAttachMenu, setShowAttachMenu] = useState(false);
   
   const [isRecording, setIsRecording] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -1407,20 +1409,33 @@ export default function BotDetails() {
 
         @media (max-width: 768px) {
           .top-bar {
-            padding: 0.75rem 1rem;
-            gap: 0.75rem;
+            padding: 0.6rem 1rem;
+            gap: 0.5rem;
             flex-wrap: wrap;
           }
+          .top-bar > div:first-child + div {
+            display: none !important;
+          }
           .top-bar .btn-action {
-            padding: 0.4rem 0.8rem;
-            font-size: 0.75rem;
+            padding: 0.45rem 0.7rem;
+            font-size: 0.72rem;
+          }
+          .top-bar > div:last-child {
+            width: 100%;
+            justify-content: flex-start;
+            gap: 0.5rem;
           }
           .tab-bar {
-            padding: 0 1rem;
+            padding: 0 0.5rem;
+            -webkit-overflow-scrolling: touch;
+            scroll-snap-type: x mandatory;
           }
           .tab-btn {
-            padding: 0.75rem 1rem;
-            font-size: 0.8rem;
+            padding: 0.75rem 0.85rem;
+            font-size: 0.78rem;
+            flex-shrink: 0;
+            scroll-snap-align: start;
+            gap: 0.35rem;
           }
           .contacts-sidebar { width: 100%; border-right: none; }
           .chat-view-container { 
@@ -1443,6 +1458,30 @@ export default function BotDetails() {
           .qr-grid {
             grid-template-columns: 1fr !important;
             gap: 1.5rem !important;
+          }
+          .qr-image-wrapper {
+            max-width: 260px !important;
+            margin: 0 auto !important;
+          }
+          .qr-image-wrapper img {
+            width: 100% !important;
+            height: auto !important;
+          }
+          .channel-header {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            gap: 1rem !important;
+          }
+          .channel-header > button, .channel-header > a {
+            width: 100% !important;
+            justify-content: center !important;
+          }
+          .channels-content {
+            padding: 1.2rem 1rem !important;
+          }
+          .channels-grid {
+            grid-template-columns: 1fr !important;
+            gap: 1rem !important;
           }
           .mobile-actions { display: block !important; }
           .desktop-actions { display: none !important; }
@@ -1529,11 +1568,11 @@ export default function BotDetails() {
 
         {/* ══ CHANNELS TAB ══ */}
         {activeTab === 'channels' && (
-          <div style={{ padding: '2.5rem', flex: 1, overflowY: 'auto', background: 'radial-gradient(circle at top right, var(--surface-container-low) 0%, var(--surface-container-lowest) 100%)' }}>
+          <div style={{ padding: '2.5rem', flex: 1, overflowY: 'auto', background: 'radial-gradient(circle at top right, var(--surface-container-low) 0%, var(--surface-container-lowest) 100%)' }} className="channels-content">
             <div style={{ maxWidth: '850px', margin: '0 auto' }}>
               
               {/* Header section */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem', borderBottom: '1px solid var(--outline-variant)', paddingBottom: '1.5rem' }}>
+              <div className="channel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem', borderBottom: '1px solid var(--outline-variant)', paddingBottom: '1.5rem' }}>
                 <div>
                   <h2 style={{ margin: 0, fontSize: '1.8rem', fontWeight: 800, color: 'var(--on-surface)', letterSpacing: '-0.5px' }}>
                     {t.channelsTitle || 'Communication Channels'}
@@ -1603,7 +1642,7 @@ export default function BotDetails() {
 
               {/* Active Channels Grid */}
               {!isAddingChannel && channels.length > 0 && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))', gap: '1.8rem' }}>
+                <div className="channels-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.8rem' }}>
                   {channels.map(channel => {
                     const isTg = channel.platform === 'TELEGRAM';
                     const isIg = channel.platform === 'INSTAGRAM';
@@ -2109,7 +2148,7 @@ export default function BotDetails() {
                           </div>
                           
                           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                            <div style={{ 
+                            <div className="qr-image-wrapper" style={{ 
                               display: 'inline-block', 
                               background: 'white', 
                               padding: '1.2rem', 
@@ -2118,7 +2157,7 @@ export default function BotDetails() {
                               border: '3px solid #25d366',
                               position: 'relative'
                             }}>
-                              <img src={qrCode} alt="WhatsApp QR" style={{ width: '240px', height: '240px', display: 'block' }} />
+                              <img src={qrCode} alt="WhatsApp QR" style={{ width: '240px', height: '240px', display: 'block', maxWidth: '100%' }} />
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '1.5rem' }}>
                               <span style={{ 
@@ -2631,160 +2670,207 @@ export default function BotDetails() {
                     <div ref={messagesEndRef} />
                   </div>
 
-                  {/* Quick Correction & Input Area */}
+                  {/* Input Area — redesigned for mobile */}
                   <div className="input-area-mobile" style={{ 
-                    padding: '1.2rem 1.5rem', 
+                    padding: '0.75rem 0.75rem',
                     background: 'var(--surface-container-lowest)', 
                     borderTop: '1px solid var(--outline-variant)', 
                     display: 'flex', 
                     flexDirection: 'column', 
-                    gap: '1rem' 
+                    gap: '0.5rem' 
                   }}>
-                    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', background: 'var(--surface-container-low)', padding: '0.5rem 1rem', borderRadius: '12px', border: '1px solid var(--outline-variant)' }}>
-                      <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <Bot size={14} color="var(--on-primary)" />
-                      </div>
-                      <input
-                        type="text"
-                        style={{ 
-                          flex: 1,
-                          background: 'transparent',
-                          border: 'none',
-                          fontSize: '0.85rem',
-                          color: '#191c1e',
-                          padding: '0.2rem 0',
-                          outline: 'none',
-                          boxShadow: 'none'
-                        }}
-                        onFocus={(e) => e.target.style.boxShadow = 'none'}
-                        placeholder={t.directBot || "Direct the bot (e.g. 'Be more polite')"}
-                        onKeyDown={async (e) => {
-                          if (e.key === 'Enter' && e.currentTarget.value.trim()) {
-                            const newInstruction = e.currentTarget.value.trim();
-                            const updatedPrompt = systemPrompt + `\n\n=== IMPORTANT CORRECTION ===\n${newInstruction}`;
-                            setSystemPrompt(updatedPrompt);
-                            e.currentTarget.value = '';
-                            await fetch(`${API}/bot/${botId}`, {
-                              method: 'PUT',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ system_prompt: updatedPrompt, data_prompt: dataPrompt }),
-                              credentials: 'include'
-                            });
-                          }
-                        }}
-                      />
-                      <div style={{ fontSize: '0.7rem', color: '#565e74', fontWeight: 600, opacity: 0.5 }}>{t.enterToApply || 'ENTER TO APPLY'}</div>
-                    </div>
+
+                    {/* File preview row */}
                     {selectedFile && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem', background: 'var(--surface-container-low)', borderRadius: '12px', border: '1px solid var(--outline-variant)' }}>
                         {fileType === 'image' && filePreviewUrl && (
-                          <img src={filePreviewUrl} alt="Preview" style={{ height: '100px', borderRadius: '8px', objectFit: 'cover' }} />
+                          <img src={filePreviewUrl} alt="Preview" style={{ height: '60px', borderRadius: '8px', objectFit: 'cover' }} />
                         )}
                         {fileType === 'audio' && (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem' }}>
-                            <FileAudio2 size={24} color="var(--primary)" />
-                            <span style={{ fontSize: '0.85rem', color: 'var(--on-surface)' }}>{selectedFile.name}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <FileAudio2 size={20} color="var(--primary)" />
+                            <span style={{ fontSize: '0.8rem', color: 'var(--on-surface)' }}>{selectedFile.name}</span>
                           </div>
                         )}
                         {fileType === 'video' && (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem' }}>
-                            <Video size={24} color="var(--primary)" />
-                            <span style={{ fontSize: '0.85rem', color: 'var(--on-surface)' }}>{selectedFile.name}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <Video size={20} color="var(--primary)" />
+                            <span style={{ fontSize: '0.8rem', color: 'var(--on-surface)' }}>{selectedFile.name}</span>
                           </div>
                         )}
                         {fileType === 'document' && (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem' }}>
-                            <FileUp size={24} color="var(--primary)" />
-                            <span style={{ fontSize: '0.85rem', color: 'var(--on-surface)' }}>{selectedFile.name}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <FileUp size={20} color="var(--primary)" />
+                            <span style={{ fontSize: '0.8rem', color: 'var(--on-surface)' }}>{selectedFile.name}</span>
                           </div>
                         )}
                         <button 
                           onClick={() => { setSelectedFile(null); setFilePreviewUrl(null); setFileType(null); }}
-                          style={{ background: 'none', border: 'none', color: 'var(--error)', cursor: 'pointer', marginLeft: 'auto', padding: '0.5rem' }}
+                          style={{ background: 'none', border: 'none', color: 'var(--error)', cursor: 'pointer', marginLeft: 'auto', padding: '0.25rem' }}
                         >
-                          <X size={20} />
+                          <X size={18} />
                         </button>
                       </div>
                     )}
-                    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-                      <label style={{ cursor: 'pointer', padding: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--on-surface-variant)', transition: 'color 0.2s' }}>
-                        <LucideImage size={24} />
-                        <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => {
-                          if (e.target.files && e.target.files[0]) {
-                            const file = e.target.files[0];
-                            setSelectedFile(file);
-                            setFileType('image');
-                            setFilePreviewUrl(URL.createObjectURL(file));
-                          }
-                          e.target.value = '';
-                        }} />
-                      </label>
-                      <label style={{ cursor: 'pointer', padding: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--on-surface-variant)', transition: 'color 0.2s' }}>
-                        <FileAudio2 size={24} />
-                        <input type="file" accept="audio/*" style={{ display: 'none' }} onChange={e => {
-                          if (e.target.files && e.target.files[0]) {
-                            const file = e.target.files[0];
-                            setSelectedFile(file);
-                            setFileType('audio');
-                            setFilePreviewUrl(null);
-                          }
-                          e.target.value = '';
-                        }} />
-                      </label>
-                      <label style={{ cursor: 'pointer', padding: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--on-surface-variant)', transition: 'color 0.2s' }}>
-                        <Video size={24} />
-                        <input type="file" accept="video/*,.mp4,.avi,.mov,.mkv,.webm,.3gp" style={{ display: 'none' }} onChange={e => {
-                          if (e.target.files && e.target.files[0]) {
-                            const file = e.target.files[0];
-                            setSelectedFile(file);
-                            setFileType('video');
-                            setFilePreviewUrl(null);
-                          }
-                          e.target.value = '';
-                        }} />
-                      </label>
-                      <label style={{ cursor: 'pointer', padding: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--on-surface-variant)', transition: 'color 0.2s' }}>
-                        <FileUp size={24} />
-                        <input type="file" accept=".pdf,.docx,.txt,.doc,.xls,.xlsx,.ppt,.pptx,.csv,.rtf,.odt,.ods,.odp,.zip,.rar,.7z,.tar,.gz,.json,.xml,.html,.css,.js,.ts,.py,.java,.cpp,.c,.apk,.svg,.webp,.gif,.bmp,.tiff,.epub,.djvu" style={{ display: 'none' }} onChange={e => {
-                          if (e.target.files && e.target.files[0]) {
-                            const file = e.target.files[0];
-                            setSelectedFile(file);
-                            setFileType('document');
-                            setFilePreviewUrl(null);
-                          }
-                          e.target.value = '';
-                        }} />
-                      </label>
+
+                    {/* Bot directive input — collapsible */}
+                    {showDirectiveInput && (
+                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', background: 'var(--surface-container-low)', padding: '0.5rem 0.75rem', borderRadius: '12px', border: '1px solid var(--primary)', animation: 'chatPopIn 0.2s ease' }}>
+                        <Bot size={14} color="var(--primary)" style={{ flexShrink: 0 }} />
+                        <input
+                          type="text"
+                          autoFocus
+                          style={{ 
+                            flex: 1,
+                            background: 'transparent',
+                            border: 'none',
+                            fontSize: '0.88rem',
+                            color: 'var(--on-surface)',
+                            padding: '0.1rem 0',
+                            outline: 'none',
+                          }}
+                          placeholder={t.directBot || "Direct the bot (e.g. 'Be more polite')"}
+                          onKeyDown={async (e) => {
+                            if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                              const newInstruction = e.currentTarget.value.trim();
+                              const updatedPrompt = systemPrompt + `\n\n=== IMPORTANT CORRECTION ===\n${newInstruction}`;
+                              setSystemPrompt(updatedPrompt);
+                              e.currentTarget.value = '';
+                              setShowDirectiveInput(false);
+                              await fetch(`${API}/bot/${botId}`, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ system_prompt: updatedPrompt, data_prompt: dataPrompt }),
+                                credentials: 'include'
+                              });
+                            }
+                            if (e.key === 'Escape') setShowDirectiveInput(false);
+                          }}
+                        />
+                        <span style={{ fontSize: '0.65rem', color: 'var(--primary)', fontWeight: 700, opacity: 0.7, flexShrink: 0 }}>ENTER</span>
+                        <button onClick={() => setShowDirectiveInput(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--on-surface-variant)', padding: '0.1rem', flexShrink: 0 }}><X size={14} /></button>
+                      </div>
+                    )}
+
+                    {/* Attach menu — pops up above */}
+                    {showAttachMenu && (
+                      <div style={{ display: 'flex', gap: '0.5rem', padding: '0.4rem 0', overflowX: 'auto', animation: 'chatPopIn 0.15s ease' }}>
+                        <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', minWidth: '52px' }}>
+                          <div style={{ width: '44px', height: '44px', borderRadius: '50%', background: '#e8f5e9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <LucideImage size={20} color="#2e7d32" />
+                          </div>
+                          <span style={{ fontSize: '0.65rem', color: 'var(--on-surface-variant)' }}>Photo</span>
+                          <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => {
+                            if (e.target.files?.[0]) { setSelectedFile(e.target.files[0]); setFileType('image'); setFilePreviewUrl(URL.createObjectURL(e.target.files[0])); }
+                            e.target.value = ''; setShowAttachMenu(false);
+                          }} />
+                        </label>
+                        <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', minWidth: '52px' }}>
+                          <div style={{ width: '44px', height: '44px', borderRadius: '50%', background: '#e3f2fd', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <FileAudio2 size={20} color="#1565c0" />
+                          </div>
+                          <span style={{ fontSize: '0.65rem', color: 'var(--on-surface-variant)' }}>Audio</span>
+                          <input type="file" accept="audio/*" style={{ display: 'none' }} onChange={e => {
+                            if (e.target.files?.[0]) { setSelectedFile(e.target.files[0]); setFileType('audio'); setFilePreviewUrl(null); }
+                            e.target.value = ''; setShowAttachMenu(false);
+                          }} />
+                        </label>
+                        <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', minWidth: '52px' }}>
+                          <div style={{ width: '44px', height: '44px', borderRadius: '50%', background: '#fff3e0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <Video size={20} color="#e65100" />
+                          </div>
+                          <span style={{ fontSize: '0.65rem', color: 'var(--on-surface-variant)' }}>Video</span>
+                          <input type="file" accept="video/*,.mp4,.avi,.mov,.mkv,.webm,.3gp" style={{ display: 'none' }} onChange={e => {
+                            if (e.target.files?.[0]) { setSelectedFile(e.target.files[0]); setFileType('video'); setFilePreviewUrl(null); }
+                            e.target.value = ''; setShowAttachMenu(false);
+                          }} />
+                        </label>
+                        <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', minWidth: '52px' }}>
+                          <div style={{ width: '44px', height: '44px', borderRadius: '50%', background: '#fce4ec', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <FileUp size={20} color="#c62828" />
+                          </div>
+                          <span style={{ fontSize: '0.65rem', color: 'var(--on-surface-variant)' }}>Doc</span>
+                          <input type="file" accept=".pdf,.docx,.txt,.doc,.xls,.xlsx,.ppt,.pptx,.csv,.rtf,.zip,.rar" style={{ display: 'none' }} onChange={e => {
+                            if (e.target.files?.[0]) { setSelectedFile(e.target.files[0]); setFileType('document'); setFilePreviewUrl(null); }
+                            e.target.value = ''; setShowAttachMenu(false);
+                          }} />
+                        </label>
+                      </div>
+                    )}
+
+                    {/* Main input row */}
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                      
+                      {/* Bot directive toggle */}
                       <button
-                        onClick={toggleRecording}
+                        onClick={() => { setShowDirectiveInput(v => !v); setShowAttachMenu(false); }}
+                        title={t.directBot || 'Direct the bot'}
                         style={{
-                          background: 'none',
-                          border: 'none',
-                          cursor: 'pointer',
-                          padding: '0.5rem',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: isRecording ? 'var(--error)' : 'var(--on-surface-variant)',
+                          width: '40px', height: '40px', flexShrink: 0,
+                          borderRadius: '50%',
+                          background: showDirectiveInput ? 'var(--primary)' : 'var(--surface-container-high)',
+                          border: 'none', cursor: 'pointer',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
                           transition: 'all 0.2s',
-                          animation: isRecording ? 'pulse 1.5s infinite' : 'none'
+                          color: showDirectiveInput ? 'var(--on-primary)' : 'var(--on-surface-variant)'
                         }}
                       >
-                        {isRecording ? <div style={{ width: 12, height: 12, background: 'var(--error)', borderRadius: 2 }} /> : <Mic size={24} />}
+                        <Bot size={18} />
                       </button>
+
+                      {/* Attach button */}
+                      <button
+                        onClick={() => { setShowAttachMenu(v => !v); setShowDirectiveInput(false); }}
+                        style={{
+                          width: '40px', height: '40px', flexShrink: 0,
+                          borderRadius: '50%',
+                          background: showAttachMenu ? 'var(--primary)' : 'var(--surface-container-high)',
+                          border: 'none', cursor: 'pointer',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          transition: 'all 0.2s',
+                          color: showAttachMenu ? 'var(--on-primary)' : 'var(--on-surface-variant)',
+                          transform: showAttachMenu ? 'rotate(45deg)' : 'rotate(0)',
+                          fontSize: '1.4rem', fontWeight: 300, lineHeight: 1
+                        }}
+                      >
+                        <Plus size={20} />
+                      </button>
+
+                      {/* Text input */}
                       <input
                         type="text"
                         className="premium-input"
                         value={replyText}
                         onChange={e => setReplyText(e.target.value)}
                         onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
-                        placeholder={t.takeOver}
-                        style={{ flex: 1, borderRadius: '14px', padding: '0.8rem 1.2rem' }}
+                        placeholder={t.takeOver || 'Write a message...'}
+                        style={{ flex: 1, borderRadius: '22px', padding: '0.7rem 1.1rem', fontSize: '0.95rem', minWidth: 0 }}
                       />
-                      <button onClick={handleSend} disabled={(!replyText.trim() && !selectedFile) || isSendingMessage} className="btn-primary" style={{ width: '48px', height: '48px', borderRadius: '14px', padding: 0, justifyContent: 'center' }}>
-                        {isSendingMessage ? <Loader2 size={20} style={{ animation: 'spin 1s linear infinite' }} /> : <Send size={20} />}
-                      </button>
+
+                      {/* Mic or Send */}
+                      {replyText.trim() || selectedFile ? (
+                        <button onClick={handleSend} disabled={isSendingMessage} className="btn-primary" style={{ width: '44px', height: '44px', flexShrink: 0, borderRadius: '50%', padding: 0, justifyContent: 'center' }}>
+                          {isSendingMessage ? <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> : <Send size={18} />}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={toggleRecording}
+                          style={{
+                            width: '44px', height: '44px', flexShrink: 0,
+                            borderRadius: '50%',
+                            background: isRecording ? 'var(--error)' : 'var(--surface-container-high)',
+                            border: 'none', cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            color: isRecording ? 'white' : 'var(--on-surface-variant)',
+                            animation: isRecording ? 'pulse 1.5s infinite' : 'none',
+                            transition: 'all 0.2s'
+                          }}
+                        >
+                          {isRecording ? <div style={{ width: 12, height: 12, background: 'white', borderRadius: 2 }} /> : <Mic size={20} />}
+                        </button>
+                      )}
                     </div>
+
                   </div>
                 </>
               )}
