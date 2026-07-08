@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { API_URL as API } from '../config';
 import { ShieldAlert, Users, Trash2, ArrowUpCircle, CheckCircle2, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
@@ -11,6 +12,7 @@ export default function AdminPage() {
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const router = useRouter();
   
   const [newEmail, setNewEmail] = useState('');
   const [newPass, setNewPass] = useState('');
@@ -30,6 +32,7 @@ export default function AdminPage() {
         setUsers(data);
         setIsAuthenticated(true);
         setError('');
+        sessionStorage.setItem('adminPass', pass);
       } else {
         setError('Неверный пароль');
         setIsAuthenticated(false);
@@ -183,7 +186,13 @@ export default function AdminPage() {
             </thead>
             <tbody>
               {users.map(u => (
-                <tr key={u.id} style={{ borderBottom: '1px solid #f1f5f9', transition: 'background 0.2s' }}>
+                <tr 
+                  key={u.id} 
+                  style={{ borderBottom: '1px solid #f1f5f9', transition: 'background 0.2s', cursor: 'pointer' }}
+                  onClick={() => router.push(`/adminbrouzi/user/${u.id}`)}
+                  onMouseEnter={(e) => e.currentTarget.style.background = '#f8fafc'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                >
                   <td style={{ padding: '1rem 1.5rem', color: '#64748b', fontSize: '0.9rem' }}>
                     <div style={{ fontWeight: 700, color: '#0f172a' }}>#{u.id}</div>
                     {new Date(u.createdAt).toLocaleDateString('ru-RU')}
@@ -214,7 +223,7 @@ export default function AdminPage() {
                     </div>
                   </td>
                   <td style={{ padding: '1rem 1.5rem', textAlign: 'right' }}>
-                    <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', flexWrap: 'wrap' }} onClick={(e) => e.stopPropagation()}>
                       <button 
                         onClick={() => handleChangePlan(u.id, 'STARTER')}
                         style={{ padding: '0.4rem 0.8rem', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }}>

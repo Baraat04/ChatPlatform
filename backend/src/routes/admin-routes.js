@@ -35,6 +35,70 @@ router.get('/users', requireAdminPass, async (req, res) => {
     }
 })
 
+// GET detailed user stats
+router.get('/users/:id', requireAdminPass, async (req, res) => {
+    try {
+        const prisma = getPrisma()
+        const userId = Number(req.params.id)
+
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            include: {
+                bots: {
+                    select: {
+                        id: true,
+                        slug: true,
+                        platform: true,
+                        isActive: true,
+                        createdAt: true,
+                        updatedAt: true,
+                        _count: {
+                            select: { messages: true }
+                        }
+                    }
+                }
+            }
+        });
+
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        // Get AI Usage grouped by date for the last 30 days
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+        const aiUsage = await prisma.aIUsage.findMany({
+            where: {
+                userId,
+                createdAt: {
+                    gte: thirtyDaysAgo
+                }
+            },
+            select: {
+                createdAt: true,
+                messagesUsed: true
+            }
+        });
+
+        // Group usage by date (YYYY-MM-DD)
+        const usageByDate = {};
+        aiUsage.forEach(usage => {
+            const dateStr = usage.createdAt.toISOString().split('T')[0];
+            if (!usageByDate[dateStr]) usageByDate[dateStr] = 0;
+            usageByDate[dateStr] += usage.messagesUsed;
+        });
+
+        // Format for recharts
+        const usageChartData = Object.keys(usageByDate).map(date => ({
+            date,
+            messages: usageByDate[date]
+        })).sort((a, b) => new Date(a.date) - new Date(b.date));
+
+        res.json({ user, usageChartData });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // UPDATE user plan
 router.put('/users/:id/plan', requireAdminPass, async (req, res) => {
     try {
