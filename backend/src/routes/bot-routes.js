@@ -5,7 +5,7 @@ import pkgPg from 'pg'
 const { Pool } = pkgPg
 import { requireAuth } from '../middleware/auth.js'
 import { trackUsage, hasEnoughMessages } from '../services/usage-tracker.js'
-import { generateGeminiResponse } from '../services/GeminiService.js';
+import { generateGeminiResponse, generateAgentResponse } from '../services/GeminiService.js';
 import multer from 'multer'
 import fs from 'fs'
 import path from 'path'
@@ -2263,7 +2263,7 @@ CRITICAL: If the user pastes a huge text with company details or prices, you MUS
 
         let content = "{}";
         try {
-            const geminiResult = await generateGeminiResponse(userMessage, geminiHistory, systemInstruction, '');
+            const geminiResult = await generateAgentResponse(userMessage, geminiHistory, systemInstruction);
             content = geminiResult.text;
             console.log("Agent Chat Gemini Response:", content.substring(0, 300));
         } catch (error) {

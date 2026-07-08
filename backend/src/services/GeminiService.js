@@ -51,6 +51,42 @@ function sanitizeInput(text) {
 
 import { executeIntegrationFunction } from './IntegrationExecutor.js';
 
+export async function generateAgentResponse(userMessage, history = [], systemInstruction = '') {
+    try {
+        let rawHistory = history.map(h => ({
+            role: h.role === 'bot' || h.role === 'assistant' || h.role === 'model' ? 'model' : 'user',
+            parts: [{ text: sanitizeInput(h.parts?.[0]?.text || h.text || '') }]
+        })).filter(h => h.parts[0].text !== '');
+
+        let mergedHistory = [];
+        for (const msg of rawHistory) {
+            if (mergedHistory.length > 0 && mergedHistory[mergedHistory.length - 1].role === msg.role) {
+                mergedHistory[mergedHistory.length - 1].parts[0].text += '\n\n' + msg.parts[0].text;
+            } else {
+                mergedHistory.push(msg);
+            }
+        }
+
+        const contents = [...mergedHistory];
+        contents.push({ role: 'user', parts: [{ text: userMessage }] });
+
+        const response = await ai.models.generateContent({
+            model: MODEL_NAME,
+            contents,
+            config: {
+                systemInstruction: sanitizeInput(systemInstruction),
+                temperature: 0.2,
+                responseMimeType: 'application/json'
+            }
+        });
+
+        return { text: response.text };
+    } catch (error) {
+        console.error('generateAgentResponse Error:', error?.message || error);
+        throw new Error('Failed to communicate with Vertex AI (Agent)');
+    }
+}
+
 /**
  * Generate a response using Google Gen AI (Vertex AI backend).
  * @param {string} userMessage - The new incoming message.
