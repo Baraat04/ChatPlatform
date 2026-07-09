@@ -353,7 +353,126 @@ ${hasHistory
         let achievedGoal = false;
         let filesToSend = [];
 
-        // Helper: call Vertex AI with retry on 429 / RESOURCE_EXHAUSTED
+        // Helper: call Vertex AI with retry on ANY transient error
+        const generateWithRetry = async (params, maxRetries = 3) => {
+            for (let attempt = 0; attempt < maxRetries; attempt++) {
+                try {
+                    return await ai.models.generateContent(params);
+                } catch (err) {
+                    const msg = err.message || '';
+                    const isRateLimit = msg.includes('429') || msg.includes('quota') || msg.includes('RESOURCE_EXHAUSTED') || msg.includes('Too Many Requests');
+                    const isServerError = msg.includes('500') || msg.includes('503') || msg.includes('INTERNAL') || msg.includes('UNAVAILABLE');
+                    const isRetryable = isRateLimit || isServerError;
+                    if (isRetryable && attempt < maxRetries - 1) {
+                        const delay = (attempt + 1) * 3000;
+                        console.warn(`[GeminiService] Transient error (attempt ${attempt + 1}/${maxRetries}): ${msg.substring(0, 120)}. Retrying in ${delay}ms...`);
+                        await new Promise(r => setTimeout(r, delay));
+                        continue;
+                    }
+                    throw err;
+                }
+            }
+        };
+
+        // Core generate function (extracted so we can call it with fallback)
+        const doGenerate = async (contentsToUse) => {
+            let localInputTokens = 0, localOutputTokens = 0;
+            let localFinalText = '';
+            let localShouldPause = false, localAchievedGoal = false, localFiles = [];
+            let currentContents = [...contentsToUse];
+
+            for (let turn = 0; turn < 3; turn++) {
+                const configObj = {
+                    systemInstruction: fullSystemInstruction,
+                    temperature: 0.7,
+                    maxOutputTokens: 4096,
+                    topP: 0.95,
+                };
+                if (tools.length > 0) configObj.tools = tools;
+
+                const response = await generateWithRetry({
+                    model: MODEL_NAME,
+                    contents: currentContents,
+                    config: configObj
+                });
+
+                localInputTokens += response.usageMetadata?.promptTokenCount || 0;
+                localOutputTokens += response.usageMetadata?.candidatesTokenCount || 0;
+
+                const parts = response.candidates?.[0]?.content?.parts || [];
+                const fnParts = parts.filter(p => p.functionCall);
+
+                if (fnParts.length > 0) {
+                    currentContents.push({ role: 'model', parts });
+                    const fnResponses = [];
+                    for (const part of fnParts) {
+                        const call = part.functionCall;
+                        let result;
+                        if (call.name === 'send_file_to_client') {
+                            localFiles.push(call.args.file_url);
+                            result = { success: true, message: 'File sent.' };
+                        } else {
+                            result = await executeIntegrationFunction(call.name, call.args, integrationConfig);
+                            if (result.pauseChat) localShouldPause = true;
+                            if (result.success && ['save_to_google_sheets', 'create_crm_lead', 'create_calendar_event'].includes(call.name)) localAchievedGoal = true;
+                        }
+                        fnResponses.push({ functionResponse: { name: call.name, response: result } });
+                    }
+                    currentContents.push({ role: 'user', parts: fnResponses });
+                    continue;
+                } else {
+                    const textPart = parts.find(p => p.text);
+                    localFinalText = textPart?.text || response.text || '';
+                    localFinalText = localFinalText.replace(/\*/g, '');
+                    if (!localFinalText.trim()) {
+                        if (localAchievedGoal) localFinalText = 'Gotovo! Ya vsyo sokhranil. Chem moghu pomoch yeshchyo?';
+                        else if (localShouldPause) localFinalText = 'Peredayu dialog spetsialistu. Pozhaluysta, ozhidayte.';
+                        else localFinalText = 'Izvinite, ya ne mogu obrabotat etot zapros. Pozhaluysta, pereformuliruyte.';
+                    }
+                    break;
+                }
+            }
+            return { text: localFinalText, inputTokens: localInputTokens, outputTokens: localOutputTokens, shouldPauseChat: localShouldPause, achievedGoal: localAchievedGoal, filesToSend: localFiles };
+        };
+
+        // ATTEMPT 1: Full call with history
+        try {
+            const result = await doGenerate(contents);
+            totalInputTokens = result.inputTokens;
+            totalOutputTokens = result.outputTokens;
+            finalResponseText = result.text;
+            shouldPauseChat = result.shouldPauseChat;
+            achievedGoal = result.achievedGoal;
+            filesToSend = result.filesToSend;
+        } catch (primaryError) {
+            console.error(`[GeminiService] Primary call FAILED: ${primaryError.message}. Retrying WITHOUT history...`);
+            // ATTEMPT 2: Fallback with ONLY the user message, no history
+            try {
+                const fallbackContents = [{ role: 'user', parts: userParts }];
+                const result = await doGenerate(fallbackContents);
+                totalInputTokens = result.inputTokens;
+                totalOutputTokens = result.outputTokens;
+                finalResponseText = result.text;
+                shouldPauseChat = result.shouldPauseChat;
+                achievedGoal = result.achievedGoal;
+                filesToSend = result.filesToSend;
+                console.log(`[GeminiService] Fallback call SUCCEEDED.`);
+            } catch (fallbackError) {
+                console.error(`[GeminiService] Fallback also FAILED: ${fallbackError.message}`);
+                throw primaryError;
+            }
+        }
+
+        return { text: finalResponseText, inputTokens: totalInputTokens, outputTokens: totalOutputTokens, model: MODEL_NAME, shouldPauseChat, achievedGoal, filesToSend };
+
+    } catch (error) {
+        console.error('GeminiService Error:', error?.message || error);
+        throw new Error('Failed to communicate with Vertex AI: ' + (error?.message || 'unknown'));
+    }
+}
+
+
+
         const generateWithRetry = async (params, maxRetries = 3) => {
             for (let attempt = 0; attempt < maxRetries; attempt++) {
                 try {
