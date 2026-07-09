@@ -58,6 +58,39 @@ function scheduleAiCall(fn) {
 
 // Per-chat processing lock: prevent SAME CHAT from being processed twice simultaneously
 const chatProcessingLock = new Map(); // lockKey -> true
+
+// ─── ANTI-SPAM: Message ID deduplication ─────────────────────────────────────
+// Tracks recently processed Baileys message IDs to prevent duplicate processing.
+// Baileys can fire messages.upsert multiple times for the same message.
+const processedMsgIds = new Set();
+const MAX_PROCESSED_IDS = 5000;
+function markMsgProcessed(msgId) {
+    processedMsgIds.add(msgId);
+    // Prevent memory leak — trim oldest entries
+    if (processedMsgIds.size > MAX_PROCESSED_IDS) {
+        const iter = processedMsgIds.values();
+        for (let i = 0; i < 1000; i++) iter.next();
+        // Rebuild from remaining
+        const remaining = [];
+        for (const v of processedMsgIds) remaining.push(v);
+        processedMsgIds.clear();
+        remaining.slice(-MAX_PROCESSED_IDS + 1000).forEach(v => processedMsgIds.add(v));
+    }
+}
+
+// ─── ANTI-SPAM: Per-chat response cooldown ───────────────────────────────────
+// Prevents the bot from responding to the same chat more than once per 3 seconds.
+const chatLastResponseTime = new Map(); // "botId:chatId" -> timestamp
+const RESPONSE_COOLDOWN_MS = 3000; // 3 seconds minimum between responses to same chat
+
+// ─── ANTI-SPAM: Track our own sent message IDs ──────────────────────────────
+// Sometimes Baileys echoes back our own sent messages without fromMe=true.
+const sentByUsMsgIds = new Set();
+function markSentByUs(msgId) {
+    if (!msgId) return;
+    sentByUsMsgIds.add(msgId);
+    setTimeout(() => sentByUsMsgIds.delete(msgId), 120000); // clean up after 2 min
+}
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
@@ -398,8 +431,6 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
                             await prisma.channel.update({ where: { id: channel.id }, data: { isActive: true } });
                             // Also ensure the parent bot is active
                             await prisma.bot.update({ where: { id: botId }, data: { isActive: true } });
-                        } else {
-                            await prisma.bot.update({ where: { id: botId }, data: { isActive: true } });
                         }
                         console.log(`[WhatsApp Session ${sessionId}] isActive set to true in DB.`);
                     } catch(e) {
@@ -426,9 +457,25 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
         for (const msg of m.messages) {
             if (!msg.message) continue // Ignore empty
 
+            // 1. Anti-spam: Deduplication
+            const msgId = msg.key.id;
+            if (msgId && processedMsgIds.has(msgId)) continue;
+            if (msgId) markMsgProcessed(msgId);
+
+            // 2. Anti-spam: Echo-back check
+            if (msgId && sentByUsMsgIds.has(msgId)) continue;
+
             let senderNumber = msg.key.remoteJid
-            // РРіРЅРѕСЂРёСЂСѓРµРј технические рассылки статусов
+            // Игнорируем технические рассылки статусов
             if (senderNumber === 'status@broadcast') continue
+
+            // 3. Anti-spam: Chat cooldown (prevent responding too fast)
+            const earlyKey = `${botId}:${senderNumber}`;
+            const lastResp = chatLastResponseTime.get(earlyKey) || 0;
+            if (Date.now() - lastResp < RESPONSE_COOLDOWN_MS) {
+                console.log(`[WhatsApp Bot ${botId}] Cooldown active for ${senderNumber} — skipping.`);
+                continue;
+            }
 
             // Resolve LID to real phone number if possible
             if (senderNumber.includes('@lid')) {
@@ -680,6 +727,15 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
 
             if ((currentBotState.pausedChats || []).includes(senderNumber) || (currentBotState.pausedChats || []).includes(msg.key.remoteJid)) continue;
 
+            // ─── ANTI-SPAM: Per-chat cooldown ───────────────────────────
+            const cooldownKey = `${botId}:${senderNumber}`;
+            const lastResponseTime = chatLastResponseTime.get(cooldownKey) || 0;
+            const timeSinceLastResponse = Date.now() - lastResponseTime;
+            if (timeSinceLastResponse < RESPONSE_COOLDOWN_MS) {
+                console.log(`[WhatsApp Bot ${botId}] Cooldown active for ${senderNumber} (${timeSinceLastResponse}ms since last). Skipping.`);
+                continue;
+            }
+
             // Per-chat lock: prevent parallel processing of the same chat (race condition guard)
             const lockKey = `${sessionId}:${senderNumber}`;
             if (chatProcessingLock.get(lockKey)) {
@@ -811,6 +867,9 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
 
                     // Reply on WhatsApp
                     if (aiResponseText && aiResponseText.trim()) {
+                        // Mark cooldown BEFORE sending to prevent race conditions
+                        chatLastResponseTime.set(cooldownKey, Date.now());
+
                         let waSendResult = null;
                         try {
                             // Ensure session is online before sending
@@ -822,6 +881,8 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
                                 typingText: aiResponseText,
                                 sendReadReceipt: false // already saw the message
                             });
+                            // Track our own sent message ID to prevent echo-back processing
+                            if (waSendResult?.key?.id) markSentByUs(waSendResult.key.id);
                             console.log(`[WhatsApp Bot ${botId}] safeSendMessage result for ${senderNumber}:`, waSendResult?.key?.id ? `OK msgId=${waSendResult.key.id}` : 'NO KEY RETURNED');
                         } catch (sendErr) {
                             console.error(`[WhatsApp Bot ${botId}] safeSendMessage FAILED for ${senderNumber}:`, sendErr.message);
