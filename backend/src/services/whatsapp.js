@@ -953,7 +953,11 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
                 }); // end scheduleAiCall
 
             } catch (error) {
-                console.error(`[WhatsApp Bot ${botId}] AI Error for ${senderNumber}:`, error.message)
+                console.error(`[WhatsApp Bot ${botId}] AI Error for ${senderNumber}:`, error.message);
+                try {
+                    const fs = await import('fs');
+                    fs.appendFileSync('ai-errors.log', `${new Date().toISOString()} - Bot ${botId} - Chat ${senderNumber} - Error: ${error.message}\nStack: ${error.stack}\n`);
+                } catch(err){}
                 const isRateLimit = (error.message || '').includes('429') || (error.message || '').includes('RESOURCE_EXHAUSTED') || (error.message || '').includes('quota');
                 if (isRateLimit) {
                     console.error(`[WhatsApp Bot ${botId}] ⚠️ All retries exhausted for ${senderNumber}. Sending retry notice.`);
