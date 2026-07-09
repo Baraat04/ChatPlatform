@@ -115,6 +115,12 @@ export async function generateGeminiResponse(userMessage, history = [], systemIn
             }
         }
         let limitedHistory = mergedHistory.slice(-8); // keep last 4 full turns max
+        
+        // Gemini API strictly requires the first message to be from 'user'.
+        // If our slice happens to start with 'model', drop it to maintain valid sequence.
+        if (limitedHistory.length > 0 && limitedHistory[0].role === 'model') {
+            limitedHistory.shift();
+        }
 
         // 2. Sanitize inputs
         const sanitizedSystem = sanitizeInput(systemInstruction);

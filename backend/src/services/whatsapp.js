@@ -683,7 +683,7 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
                 }
             }
 
-            if (!textMessage && !audioBuffer && !mediaUrl) return
+            if (!textMessage && !audioBuffer && !mediaUrl) continue
 
             console.log(`[WhatsApp Bot ${botId}] ${isFromMe ? 'Sent to' : 'Received from'} ${senderNumber}: ${textMessage}`)
 
@@ -697,8 +697,8 @@ export const startWhatsAppBot = async (bot, prisma, io, channel = null) => {
                     const textMatch = lastMsg && lastMsg.text === textMessage;
                     const mediaMatch = lastMsg && lastMsg.mediaType && mediaType && lastMsg.mediaType === mediaType;
                     if (lastMsg && (textMatch || mediaMatch) && (new Date() - new Date(lastMsg.createdAt) < 60000)) {
-                        // Это дубликат сообщения, которое РР только что сохранил в базу. РРіРЅРѕСЂРёСЂСѓРµРј.
-                        return;
+                        // Это дубликат сообщения, которое Р˜Р˜ только что сохранил в базу. Р˜РіРЅРѕСЂРёСЂСѓРµРј.
+                        continue;
                     }
                 } catch (e) { }
             }
