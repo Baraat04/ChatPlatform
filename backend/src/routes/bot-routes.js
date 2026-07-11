@@ -107,9 +107,9 @@ router.post('/bot', requireAuth, async (req, res) => {
         const io = req.app.get('io')
         const { platform, system_prompt, data_prompt, apiToken } = req.body
 
-        // Telegram & Instagram bots are immediately active (webhook-based, no QR needed)
-        // WhatsApp starts inactive until QR is scanned
-        const startsActive = platform === 'TELEGRAM' || platform === 'INSTAGRAM';
+        // Telegram & Instagram bots are immediately active (webhook-based)
+        // WhatsApp is now also immediately active (Cloud API webhook-based)
+        const startsActive = platform === 'TELEGRAM' || platform === 'INSTAGRAM' || platform === 'WHATSAPP';
 
         const bot = await prisma.bot.create({
             data: {

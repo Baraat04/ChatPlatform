@@ -48,6 +48,7 @@ const { default: statisticsRouter, setStatisticsPrisma } = await import('./route
 const { default: paymentRouter } = await import('./routes/payment-routes.js')
 const { default: analyticsRouter } = await import('./routes/analytics-routes.js')
 const { default: adminRoutes } = await import('./routes/admin-routes.js')
+const { default: whatsappCloudRoutes } = await import('./routes/whatsapp-cloud-routes.js')
 const { setTrackerPrisma } = await import('./services/usage-tracker.js')
 const { startCompletionChecker } = await import('./services/completion-checker.js')
 
@@ -139,6 +140,7 @@ app.use('/api/payments', paymentRouter)
 app.use('/api', analyticsRouter)
 app.use('/api', botRouter)
 app.use('/api/admin', adminRoutes)
+app.use('/api/webhook/whatsapp-cloud', whatsappCloudRoutes)
 
 // Initialize services with the shared prisma instance
 const prismaInstance = getPrisma()
