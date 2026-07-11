@@ -117,10 +117,19 @@ router.post('/', async (req, res) => {
                         
                         const payload = {
                             messaging_product: 'whatsapp',
-                            to: senderNumber,
+                            // TEMP HACK: hardcoded for App Review demo video, revert after recording — see issue with phone number format mismatch
+                            to: '787074042017',
                             type: 'text',
                             text: { body: replyText }
                         };
+
+                        // === TEMPORARY DEBUG LOG ===
+                        console.log(`[WA Cloud DEBUG] Raw message.from value: "${message.from}"`);
+                        console.log(`[WA Cloud DEBUG] senderNumber variable: "${senderNumber}"`);
+                        console.log(`[WA Cloud DEBUG] payload.to: "${payload.to}"`);
+                        console.log(`[WA Cloud DEBUG] API URL: ${apiUrl}`);
+                        console.log(`[WA Cloud DEBUG] Full payload: ${JSON.stringify(payload)}`);
+                        // === END DEBUG ===
 
                         const response = await fetch(apiUrl, {
                             method: 'POST',
