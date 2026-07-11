@@ -1,6 +1,6 @@
 import express from 'express';
 
-import { prisma } from './bot-routes.js';
+import { prisma as getPrisma } from './bot-routes.js';
 import { generateGeminiResponse } from '../services/GeminiService.js';
 
 const router = express.Router();
@@ -33,6 +33,8 @@ router.post('/', async (req, res) => {
     // 2. Validate payload structure
     if (body.object === 'whatsapp_business_account') {
         try {
+            const prisma = getPrisma();
+
             for (const entry of body.entry) {
                 for (const change of entry.changes) {
                     const value = change.value;
