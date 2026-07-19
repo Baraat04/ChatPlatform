@@ -41,9 +41,6 @@ services:
       ROBOKASSA_PASSWORD_1: uisXn74aOTqhLRa388uG
       ROBOKASSA_PASSWORD_2:  nPWN73ljjQcW3mq8M6Rk 
       ROBOKASSA_IS_TEST: "false"
-      WHATSAPP_CLOUD_ACCESS_TOKEN: EAAMJZCcYNsucBRwdxJUg3MzyfLGwbGfJh5RsAXunJd9Lh3qBZBNfZBaRWC5ne1hFvAtYshaUpEpRoyaazcPbjSC3hs9ST2CZANRWqZCAI7GZC4TCMOHZAByD7U8M4gA5nm52iDC0jd2XW2ZAR83JEPNSfZC4PI8k5ahWrpJsz3CP0JkLZAsUbsPV6lh5bmXmb3UirxpZC3xkQB6N9HEzZCxM0jMtvosR2yyTZAViRZCuKpDwWMV6QN8Xh5XilGJVAsbEC4sZAAZAfPT7KoVQrRGh1PvSerCD4gZDZD
-      WHATSAPP_CLOUD_PHONE_ID: "1166856433186146"
-      WEBHOOK_VERIFY_TOKEN: asha_princ
     volumes:
       - /docker/shared/chatplatform/sessions:/app/sessions
       - /docker/shared/chatplatform/uploads:/app/uploads

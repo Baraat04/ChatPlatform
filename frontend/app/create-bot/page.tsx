@@ -190,6 +190,7 @@ export default function CreateBotFast() {
 
   // Data Options
   const platforms = [
+    { id: 'TELEGRAM', name: 'Telegram', icon: <MessageCircle size={32} color="#3b82f6" />, bg: 'rgba(59,130,246,0.1)' },
     { id: 'WHATSAPP', name: 'WhatsApp', icon: <Phone size={32} color="#22c55e" />, bg: 'rgba(34,197,94,0.1)' },
   ];
 
@@ -222,7 +223,7 @@ export default function CreateBotFast() {
 Формат общения: ${tone}.
 Общайся с клиентами естественно, всегда придерживайся своего формата общения и стремись выполнить свою главную цель.`;
       
-      const pId = platforms.find(p => p.name === platform)?.id || 'WHATSAPP';
+      const pId = platforms.find(p => p.name === platform)?.id || 'TELEGRAM';
       
       const response = await fetch(`${API_URL}/bot`, {
         method: 'POST',
@@ -717,7 +718,17 @@ export default function CreateBotFast() {
                     </div>
                   ))}
 
-
+                  {/* Instagram — Coming Soon */}
+                  <div
+                    className="platform-card anim-item"
+                    style={{ animationDelay: '0.2s', padding: '24px', borderRadius: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', cursor: 'not-allowed', background: 'var(--surface-container-lowest)', opacity: 0.65, position: 'relative', overflow: 'hidden' }}
+                  >
+                    <div style={{ position: 'absolute', top: '10px', right: '10px', background: 'linear-gradient(135deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888)', color: '#fff', fontSize: '10px', fontWeight: '700', padding: '2px 8px', borderRadius: '20px', letterSpacing: '0.5px' }}>СКОРО</div>
+                    <div style={{ background: 'rgba(188,24,136,0.1)', padding: '16px', borderRadius: '50%' }}>
+                      <InstagramIcon size={32} color="#bc1888" />
+                    </div>
+                    <span style={{ fontSize: '18px', fontWeight: '600', color: 'var(--on-surface)' }}>Instagram</span>
+                  </div>
                 </div>
               </div>
             )}
