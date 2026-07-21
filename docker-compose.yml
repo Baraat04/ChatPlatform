@@ -41,6 +41,10 @@ services:
       ROBOKASSA_PASSWORD_1: uisXn74aOTqhLRa388uG
       ROBOKASSA_PASSWORD_2:  nPWN73ljjQcW3mq8M6Rk 
       ROBOKASSA_IS_TEST: "false"
+      INSTAGRAM_CLIENT_ID: "3194191524101914"
+      INSTAGRAM_CLIENT_SECRET: "07e4e5be4588b63de01ec895426c4963"
+      INSTAGRAM_REDIRECT_URI: "https://api.up-chat.com/auth/instagram/callback"
+      IG_WEBHOOK_VERIFY_TOKEN: "up_chat_verify_8f3a2k9"
     volumes:
       - /docker/shared/chatplatform/sessions:/app/sessions
       - /docker/shared/chatplatform/uploads:/app/uploads
@@ -63,6 +67,8 @@ services:
       args:
         NEXT_PUBLIC_API_URL: https://api.up-chat.com
         NEXT_PUBLIC_GOOGLE_CLIENT_ID: 271879614176-cmvq3gr8plp9vl2bgu6pqm3f0ra2tbhq.apps.googleusercontent.com
+        NEXT_PUBLIC_INSTAGRAM_CLIENT_ID: "3194191524101914"
+        NEXT_PUBLIC_INSTAGRAM_REDIRECT_URI: "https://api.up-chat.com/auth/instagram/callback"
     container_name: chatplatform_frontend
     restart: always
     depends_on:
@@ -70,6 +76,8 @@ services:
     environment:
       NODE_ENV: production
       NEXT_PUBLIC_API_URL: https://api.up-chat.com
+      NEXT_PUBLIC_INSTAGRAM_CLIENT_ID: "3194191524101914"
+      NEXT_PUBLIC_INSTAGRAM_REDIRECT_URI: "https://api.up-chat.com/auth/instagram/callback"
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=traefik-proxy"

@@ -413,6 +413,18 @@ export default function BotDetails() {
     }
   }, [botId, searchParams]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const connected = searchParams?.get('instagram_connected');
+    const error = searchParams?.get('instagram_error');
+    if (connected === '1') {
+      alert(t.instagramConnected || 'Instagram успешно подключен!');
+    }
+    if (error) {
+      alert(`${t.instagramError || 'Ошибка подключения Instagram'}: ${decodeURIComponent(error)}`);
+    }
+  }, [searchParams, t]);
+
   const handleNextTourStep = () => {
     if (tourStep === 1) {
       setActiveTab('channels');
@@ -1599,6 +1611,35 @@ export default function BotDetails() {
                     <Plus size={18} /> {t.connectNewChannel || 'Connect new channel'}
                   </button>
                 )}
+                {!isAddingChannel && !channels.some(c => c.platform === 'INSTAGRAM') && (
+                  <button 
+                    onClick={() => {
+                      const clientId = process.env.NEXT_PUBLIC_INSTAGRAM_CLIENT_ID || '';
+                      const redirectUri = process.env.NEXT_PUBLIC_INSTAGRAM_REDIRECT_URI || 'https://api.up-chat.com/auth/instagram/callback';
+                      window.location.href = `https://www.instagram.com/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments&state=${botId}`;
+                    }} 
+                    className="btn-primary" 
+                    style={{ 
+                      background: 'linear-gradient(90deg, #F58529 0%, #DD2A7B 50%, #8134AF 100%)',
+                      padding: '0.75rem 1.5rem', 
+                      borderRadius: '14px', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '0.6rem', 
+                      fontSize: '0.92rem',
+                      boxShadow: '0 4px 15px rgba(221, 42, 123, 0.25)',
+                      transition: 'all 0.3s ease',
+                      marginLeft: '1rem'
+                    }}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
+                      <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+                      <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
+                    </svg> 
+                    Подключить Instagram
+                  </button>
+                )}
               </div>
 
               {/* No channels view */}
@@ -1630,13 +1671,33 @@ export default function BotDetails() {
                   <p style={{ color: 'var(--on-surface-variant)', marginBottom: '2rem', fontSize: '1rem', maxWidth: '460px', margin: '0 auto 2rem auto', lineHeight: '1.6' }}>
                     {t.noChannelsHint || 'Connect Telegram Bot or WhatsApp so your AI assistant can instantly respond to clients 24/7.'}
                   </p>
-                  <button 
-                    onClick={() => setIsAddingChannel(true)} 
-                    className="btn-primary" 
-                    style={{ padding: '0.9rem 2rem', borderRadius: '14px', margin: '0 auto', fontSize: '1rem' }}
-                  >
-                    Connect first channel
-                  </button>
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem' }}>
+                    <button 
+                      onClick={() => setIsAddingChannel(true)} 
+                      className="btn-primary" 
+                      style={{ padding: '0.9rem 2rem', borderRadius: '14px', fontSize: '1rem' }}
+                    >
+                      Connect first channel
+                    </button>
+                    {!channels.some(c => c.platform === 'INSTAGRAM') && (
+                      <button 
+                        onClick={() => {
+                          const clientId = process.env.NEXT_PUBLIC_INSTAGRAM_CLIENT_ID || '';
+                          const redirectUri = process.env.NEXT_PUBLIC_INSTAGRAM_REDIRECT_URI || 'https://api.up-chat.com/auth/instagram/callback';
+                          window.location.href = `https://www.instagram.com/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments&state=${botId}`;
+                        }} 
+                        className="btn-primary" 
+                        style={{ 
+                          background: 'linear-gradient(90deg, #F58529 0%, #DD2A7B 50%, #8134AF 100%)',
+                          padding: '0.9rem 2rem', 
+                          borderRadius: '14px', 
+                          fontSize: '1rem'
+                        }}
+                      >
+                        Подключить Instagram
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -1732,7 +1793,7 @@ export default function BotDetails() {
                                 boxShadow: channel.isActive ? '0 0 8px rgba(37,211,102,0.6)' : 'none'
                               }} />
                               <span style={{ fontSize: '0.85rem', fontWeight: 600, color: channel.isActive ? '#1e7e34' : '#9b1c1c' }}>
-                                {channel.isActive ? (t.connected || 'Connected') : (t.paused || 'Paused')}
+                                {channel.isActive ? (t.connected || 'Connected') : (isIg ? 'Требует переподключения' : (t.paused || 'Paused'))}
                               </span>
                             </div>
                           </div>
@@ -1743,6 +1804,19 @@ export default function BotDetails() {
                             {t.msgReception || 'Message Reception Control'}
                           </span>
                           <div style={{ display: 'flex', gap: '0.6rem' }}>
+                            {!channel.isActive && isIg && (
+                              <button
+                                onClick={() => {
+                                  const clientId = process.env.NEXT_PUBLIC_INSTAGRAM_CLIENT_ID || '';
+                                  const redirectUri = process.env.NEXT_PUBLIC_INSTAGRAM_REDIRECT_URI || 'https://api.up-chat.com/auth/instagram/callback';
+                                  window.location.href = `https://www.instagram.com/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments&state=${botId}`;
+                                }}
+                                style={{ background: 'rgba(245, 133, 41, 0.1)', border: '1px solid #F58529', color: '#F58529', cursor: 'pointer', padding: '0.4rem 0.8rem', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600 }}
+                                title="Переподключите Instagram"
+                              >
+                                Переподключить
+                              </button>
+                            )}
                             <button 
                               onClick={async () => {
                                 if (!confirm(t.deleteChannelConfirm || 'Are you sure you want to disconnect and delete this communication channel?')) return;

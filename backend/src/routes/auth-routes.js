@@ -222,4 +222,128 @@ router.post('/google', async (req, res) => {
     }
 });
 
+// Instagram OAuth Callback
+router.get('/instagram/callback', async (req, res) => {
+    try {
+        const { code, state, error, error_reason, error_description } = req.query;
+        
+        if (error) {
+            console.error('[Instagram OAuth] Error:', error, error_description);
+            return res.redirect(`https://up-chat.com/bots/${state}?instagram_error=${encodeURIComponent(error_description || error)}`);
+        }
+        
+        if (!code || !state) {
+            return res.redirect(`https://up-chat.com?instagram_error=Missing_code_or_state`);
+        }
+
+        const botId = Number(state);
+        if (isNaN(botId)) {
+            return res.redirect(`https://up-chat.com?instagram_error=Invalid_bot_id`);
+        }
+
+        const clientId = process.env.INSTAGRAM_CLIENT_ID;
+        const clientSecret = process.env.INSTAGRAM_CLIENT_SECRET;
+        const redirectUri = process.env.INSTAGRAM_REDIRECT_URI || 'https://api.up-chat.com/auth/instagram/callback';
+
+        const tokenForm = new URLSearchParams({
+            client_id: clientId,
+            client_secret: clientSecret,
+            grant_type: 'authorization_code',
+            redirect_uri: redirectUri,
+            code: code,
+        });
+
+        const shortTokenRes = await fetch('https://api.instagram.com/oauth/access_token', {
+            method: 'POST',
+            body: tokenForm
+        });
+
+        const shortTokenData = await shortTokenRes.json();
+        
+        if (!shortTokenRes.ok || !shortTokenData.access_token) {
+            console.error('[Instagram OAuth] Short token error:', shortTokenData);
+            return res.redirect(`https://up-chat.com/bots/${botId}?instagram_error=${encodeURIComponent('Failed to get access token')}`);
+        }
+
+        const longTokenUrl = `https://graph.instagram.com/access_token?grant_type=ig_exchange_token&client_secret=${clientSecret}&access_token=${shortTokenData.access_token}`;
+        const longTokenRes = await fetch(longTokenUrl);
+        const longTokenData = await longTokenRes.json();
+
+        if (!longTokenRes.ok || !longTokenData.access_token) {
+            console.error('[Instagram OAuth] Long token error:', longTokenData);
+            return res.redirect(`https://up-chat.com/bots/${botId}?instagram_error=${encodeURIComponent('Failed to get long-lived token')}`);
+        }
+
+        const longToken = longTokenData.access_token;
+        const expiresIn = longTokenData.expires_in || (60 * 24 * 60 * 60); // default 60 days
+        const expiresAt = new Date(Date.now() + expiresIn * 1000);
+        const instagramUserId = shortTokenData.user_id?.toString() || '';
+
+        const db = prisma();
+        
+        let channel = await db.channel.findFirst({
+            where: { botId, platform: 'INSTAGRAM' }
+        });
+
+        if (channel) {
+            await db.channel.update({
+                where: { id: channel.id },
+                data: {
+                    apiToken: longToken,
+                    instagramUserId: instagramUserId,
+                    tokenExpiresAt: expiresAt,
+                    isActive: true
+                }
+            });
+        } else {
+            await db.channel.create({
+                data: {
+                    botId,
+                    platform: 'INSTAGRAM',
+                    apiToken: longToken,
+                    instagramUserId: instagramUserId,
+                    tokenExpiresAt: expiresAt,
+                    isActive: true,
+                    slug: `ch-${botId}-instagram-${Date.now()}`
+                }
+            });
+        }
+        
+        await db.bot.update({
+            where: { id: botId },
+            data: {
+                instagramUserId: instagramUserId,
+                tokenExpiresAt: expiresAt
+            }
+        });
+
+        // Try to auto-subscribe the webhook
+        try {
+            const meRes = await fetch(`https://graph.facebook.com/v21.0/me?access_token=${longToken}`);
+            const meData = await meRes.json();
+            const pageId = meData.id;
+
+            if (pageId) {
+                await fetch(`https://graph.facebook.com/v21.0/${pageId}/subscribed_apps`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        subscribed_fields: ['messages', 'messaging_postbacks'],
+                        access_token: longToken
+                    })
+                });
+            }
+        } catch (subErr) {
+            console.error('[Instagram OAuth] Webhook auto-subscribe error:', subErr.message);
+        }
+
+        return res.redirect(`https://up-chat.com/bots/${botId}?instagram_connected=1`);
+
+    } catch (e) {
+        console.error('[Instagram OAuth] Full Error:', e);
+        const botId = req.query.state ? Number(req.query.state) : '';
+        return res.redirect(`https://up-chat.com/bots/${botId}?instagram_error=Internal_Error`);
+    }
+});
+
 export default router;

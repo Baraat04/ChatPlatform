@@ -133,6 +133,7 @@ if (!fs.existsSync(uploadDir)) {
 app.use('/uploads', express.static(uploadDir))
 
 app.use('/api/auth', authRouter)
+app.use('/auth', authRouter) // Added for Instagram callback
 app.use('/api/platform-ai', platformAIRouter)
 app.use('/api/statistics', statisticsRouter)
 app.use('/api/payments', paymentRouter)
@@ -274,4 +275,52 @@ httpServer.listen(PORT, async () => {
     } catch (ccErr) {
         console.error('[Boot] Failed to start CompletionChecker:', ccErr.message)
     }
+
+    // Instagram token refresh job (runs daily)
+    setInterval(async () => {
+        console.log('[Instagram] Running scheduled token refresh job...');
+        try {
+            const { prisma: getPrisma } = await import('./routes/bot-routes.js');
+            const prisma = getPrisma();
+            
+            // Check tokens expiring in less than 7 days
+            const inSevenDays = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+            
+            const expiringChannels = await prisma.channel.findMany({
+                where: { platform: 'INSTAGRAM', isActive: true, tokenExpiresAt: { lte: inSevenDays, not: null } }
+            });
+            
+            for (const channel of expiringChannels) {
+                if (!channel.apiToken) continue;
+                try {
+                    const res = await fetch(`https://graph.instagram.com/refresh_access_token?grant_type=ig_refresh_token&access_token=${channel.apiToken}`);
+                    const data = await res.json();
+                    
+                    if (res.ok && data.access_token) {
+                        const expiresIn = data.expires_in || (60 * 24 * 60 * 60);
+                        const expiresAt = new Date(Date.now() + expiresIn * 1000);
+                        
+                        await prisma.channel.update({
+                            where: { id: channel.id },
+                            data: { apiToken: data.access_token, tokenExpiresAt: expiresAt }
+                        });
+                        console.log(`[Instagram] Successfully refreshed token for channel ${channel.id}`);
+                    } else {
+                        console.error(`[Instagram] Failed to refresh token for channel ${channel.id}:`, data);
+                        // Mark as requires reconnection (we can just disable it or leave it, but prompt says: 
+                        // "пометить подключение статусом 'требует переподключения'; отразить это в UI бота")
+                        // Since we don't have a direct status field on Channel, we can use a special token format or just isActive = false
+                        await prisma.channel.update({
+                            where: { id: channel.id },
+                            data: { isActive: false }
+                        });
+                    }
+                } catch (e) {
+                    console.error(`[Instagram] Network error refreshing token for channel ${channel.id}:`, e.message);
+                }
+            }
+        } catch (e) {
+            console.error('[Instagram] Error in token refresh job:', e.message);
+        }
+    }, 24 * 60 * 60 * 1000); // 24 hours
 })

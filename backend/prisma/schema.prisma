@@ -74,6 +74,8 @@ model Bot {
   googleCalendarId   String?     @db.Text
   bitrixWebhookUrl   String?     @db.Text
   bitrixFields       String?     @db.Text
+  instagramUserId    String?
+  tokenExpiresAt     DateTime?
   createdAt          DateTime    @default(now())
   updatedAt          DateTime    @updatedAt
 
@@ -112,6 +114,8 @@ model Channel {
   apiToken  String?
   isActive  Boolean     @default(false)
   slug      String      @unique
+  instagramUserId String?
+  tokenExpiresAt  DateTime?
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
   messages  Message[]

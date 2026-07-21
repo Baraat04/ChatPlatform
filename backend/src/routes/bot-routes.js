@@ -1869,7 +1869,23 @@ async function getChannelByInstagramAccountId(accountId) {
         }
     }
 
-    // 2. Fetch active Instagram channels
+    // 2. Direct database lookup by instagramUserId
+    const exactChannel = await prisma.channel.findFirst({
+        where: { instagramUserId: accountId, platform: 'INSTAGRAM', isActive: true },
+        include: { bot: true }
+    });
+    if (exactChannel && exactChannel.bot.isActive) {
+        return { bot: exactChannel.bot, channel: exactChannel };
+    }
+
+    const exactBot = await prisma.bot.findFirst({
+        where: { instagramUserId: accountId, platform: 'INSTAGRAM', isActive: true }
+    });
+    if (exactBot) {
+        return { bot: exactBot, channel: null };
+    }
+
+    // 3. Fetch active Instagram channels (Fallback to Graph API if no instagramUserId)
     const activeChannels = await prisma.channel.findMany({
         where: { platform: 'INSTAGRAM', isActive: true },
         include: { bot: true }
@@ -1936,7 +1952,7 @@ router.get('/webhook/instagram', async (req, res) => {
     const token = req.query['hub.verify_token'];
     const challenge = req.query['hub.challenge'];
 
-    const expectedToken = process.env.INSTAGRAM_VERIFY_TOKEN || 'your_verify_token_here';
+    const expectedToken = process.env.IG_WEBHOOK_VERIFY_TOKEN || 'up_chat_verify_8f3a2k9';
 
     if (mode === 'subscribe' && token === expectedToken) {
         console.log(`[Instagram] Global webhook verified successfully.`);
