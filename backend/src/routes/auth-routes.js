@@ -222,6 +222,25 @@ router.post('/google', async (req, res) => {
     }
 });
 
+// Instagram OAuth Redirect Initializer
+router.get('/instagram/connect', (req, res) => {
+    const botId = req.query.botId;
+    if (!botId) {
+        return res.status(400).json({ error: 'botId query parameter is required' });
+    }
+    const clientId = process.env.INSTAGRAM_CLIENT_ID;
+    const redirectUri = process.env.INSTAGRAM_REDIRECT_URI || 'https://api.up-chat.com/auth/instagram/callback';
+    const scope = 'instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments';
+    
+    if (!clientId) {
+        console.error('[Instagram OAuth] Error: INSTAGRAM_CLIENT_ID environment variable is missing.');
+        return res.status(500).send('Instagram Client ID is not configured on the server.');
+    }
+
+    const authorizeUrl = `https://www.instagram.com/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&state=${botId}`;
+    return res.redirect(authorizeUrl);
+});
+
 // Instagram OAuth Callback
 router.get('/instagram/callback', async (req, res) => {
     try {

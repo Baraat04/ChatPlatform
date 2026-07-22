@@ -1614,9 +1614,7 @@ export default function BotDetails() {
                 {!isAddingChannel && !channels.some(c => c.platform === 'INSTAGRAM') && (
                   <button 
                     onClick={() => {
-                      const clientId = process.env.NEXT_PUBLIC_INSTAGRAM_CLIENT_ID || '';
-                      const redirectUri = process.env.NEXT_PUBLIC_INSTAGRAM_REDIRECT_URI || 'https://api.up-chat.com/auth/instagram/callback';
-                      window.location.href = `https://www.instagram.com/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments&state=${botId}`;
+                      window.location.href = `${API}/auth/instagram/connect?botId=${botId}`;
                     }} 
                     className="btn-primary" 
                     style={{ 
@@ -1682,9 +1680,7 @@ export default function BotDetails() {
                     {!channels.some(c => c.platform === 'INSTAGRAM') && (
                       <button 
                         onClick={() => {
-                          const clientId = process.env.NEXT_PUBLIC_INSTAGRAM_CLIENT_ID || '';
-                          const redirectUri = process.env.NEXT_PUBLIC_INSTAGRAM_REDIRECT_URI || 'https://api.up-chat.com/auth/instagram/callback';
-                          window.location.href = `https://www.instagram.com/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments&state=${botId}`;
+                          window.location.href = `${API}/auth/instagram/connect?botId=${botId}`;
                         }} 
                         className="btn-primary" 
                         style={{ 
@@ -1807,9 +1803,7 @@ export default function BotDetails() {
                             {!channel.isActive && isIg && (
                               <button
                                 onClick={() => {
-                                  const clientId = process.env.NEXT_PUBLIC_INSTAGRAM_CLIENT_ID || '';
-                                  const redirectUri = process.env.NEXT_PUBLIC_INSTAGRAM_REDIRECT_URI || 'https://api.up-chat.com/auth/instagram/callback';
-                                  window.location.href = `https://www.instagram.com/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments&state=${botId}`;
+                                  window.location.href = `${API}/auth/instagram/connect?botId=${botId}`;
                                 }}
                                 style={{ background: 'rgba(245, 133, 41, 0.1)', border: '1px solid #F58529', color: '#F58529', cursor: 'pointer', padding: '0.4rem 0.8rem', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600 }}
                                 title="Переподключите Instagram"

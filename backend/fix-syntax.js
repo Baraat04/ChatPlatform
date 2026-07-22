@@ -1,6 +1,6 @@
 const fs = require('fs');
 const code = `import { GoogleGenAI } from '@google/genai';
-import path from 'path';
+import path from 'path';    
 import { fileURLToPath } from 'url';
 import fs from 'fs';
 
