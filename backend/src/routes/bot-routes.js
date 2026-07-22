@@ -2137,7 +2137,7 @@ async function sendInstagramMessage(pageAccessToken, recipientId, text) {
         console.error('[Instagram] No page access token configured');
         return;
     }
-    const res = await fetch(`https://graph.facebook.com/v21.0/me/messages?access_token=${pageAccessToken}`, {
+    let res = await fetch(`https://graph.instagram.com/v21.0/me/messages?access_token=${pageAccessToken}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -2145,6 +2145,16 @@ async function sendInstagramMessage(pageAccessToken, recipientId, text) {
             message: { text }
         })
     });
+    if (!res.ok) {
+        res = await fetch(`https://graph.facebook.com/v21.0/me/messages?access_token=${pageAccessToken}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                recipient: { id: recipientId },
+                message: { text }
+            })
+        });
+    }
     if (!res.ok) {
         const errText = await res.text();
         console.error(`[Instagram] sendMessage failed:`, errText);

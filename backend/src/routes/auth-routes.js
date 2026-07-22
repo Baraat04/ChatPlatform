@@ -338,19 +338,28 @@ router.get('/instagram/callback', async (req, res) => {
 
         // Try to auto-subscribe the webhook
         try {
-            const meRes = await fetch(`https://graph.facebook.com/v21.0/me?access_token=${longToken}`);
-            const meData = await meRes.json();
-            const pageId = meData.id;
+            console.log('[Instagram OAuth] Attempting auto-subscription for token...');
+            let subRes = await fetch(`https://graph.instagram.com/v21.0/me/subscribed_apps?subscribed_fields=messages,comments,messaging_postbacks&access_token=${longToken}`, {
+                method: 'POST'
+            });
+            let subData = await subRes.json();
+            console.log('[Instagram OAuth] graph.instagram.com subscribed_apps result:', JSON.stringify(subData));
 
-            if (pageId) {
-                await fetch(`https://graph.facebook.com/v21.0/${pageId}/subscribed_apps`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        subscribed_fields: ['messages', 'messaging_postbacks'],
-                        access_token: longToken
-                    })
-                });
+            if (!subData.success) {
+                const meRes = await fetch(`https://graph.facebook.com/v21.0/me?access_token=${longToken}`);
+                const meData = await meRes.json();
+                if (meData.id && !meData.error) {
+                    const fbSubRes = await fetch(`https://graph.facebook.com/v21.0/${meData.id}/subscribed_apps`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            subscribed_fields: ['messages', 'messaging_postbacks'],
+                            access_token: longToken
+                        })
+                    });
+                    const fbSubData = await fbSubRes.json();
+                    console.log('[Instagram OAuth] graph.facebook.com subscribed_apps result:', JSON.stringify(fbSubData));
+                }
             }
         } catch (subErr) {
             console.error('[Instagram OAuth] Webhook auto-subscribe error:', subErr.message);

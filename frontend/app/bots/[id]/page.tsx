@@ -419,9 +419,15 @@ export default function BotDetails() {
     const error = searchParams?.get('instagram_error');
     if (connected === '1') {
       alert(t.instagramConnected || 'Instagram успешно подключен!');
+      const url = new URL(window.location.href);
+      url.searchParams.delete('instagram_connected');
+      window.history.replaceState({}, document.title, url.pathname + url.search);
     }
     if (error) {
       alert(`${t.instagramError || 'Ошибка подключения Instagram'}: ${decodeURIComponent(error)}`);
+      const url = new URL(window.location.href);
+      url.searchParams.delete('instagram_error');
+      window.history.replaceState({}, document.title, url.pathname + url.search);
     }
   }, [searchParams, t]);
 
