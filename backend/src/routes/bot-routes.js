@@ -1978,17 +1978,25 @@ router.post('/integrations/whatsapp/connect', requireAuth, async (req, res) => {
 
         const { exchangeCodeForToken, getWabaAndPhone, registerPhone, subscribeWabaToWebhook } = await import('../services/whatsapp-cloud.js');
         
-        // 1. Exchange token
-        const accessToken = await exchangeCodeForToken(code);
+        // 1. Exchange token (gets short-lived user token)
+        const userAccessToken = await exchangeCodeForToken(code);
         
-        // 2. Get WABA and Phone
-        const { wabaId, phoneNumberId } = await getWabaAndPhone(accessToken);
+        // 2. Get WABA and Phone Number IDs from the token scopes
+        const { wabaId, phoneNumberId } = await getWabaAndPhone(userAccessToken);
         
-        // 3. Register Phone
-        await registerPhone(phoneNumberId, accessToken);
+        // 3. Register Phone (non-fatal — Embedded Signup often auto-registers the number)
+        try {
+            await registerPhone(phoneNumberId);
+            console.log(`[WhatsApp Cloud] Phone ${phoneNumberId} registered successfully.`);
+        } catch (regErr) {
+            console.warn(`[WhatsApp Cloud] Phone registration skipped (likely already registered): ${regErr.message}`);
+        }
         
-        // 4. Subscribe WABA
-        await subscribeWabaToWebhook(wabaId, accessToken);
+        // 4. Subscribe WABA to our app's webhooks
+        await subscribeWabaToWebhook(wabaId);
+        
+        // Use the system user permanent token for sending messages (short-lived user token expires)
+        const systemToken = process.env.WA_SYSTEM_USER_TOKEN;
         
         // 5. Save to DB
         let channel = await prisma.channel.findFirst({ where: { botId: bot.id, platform: 'WHATSAPP' } });
@@ -1996,7 +2004,7 @@ router.post('/integrations/whatsapp/connect', requireAuth, async (req, res) => {
             channel = await prisma.channel.update({
                 where: { id: channel.id },
                 data: {
-                    apiToken: accessToken,
+                    apiToken: systemToken,
                     whatsappWabaId: wabaId,
                     whatsappPhoneNumberId: phoneNumberId,
                     isActive: true
@@ -2007,7 +2015,7 @@ router.post('/integrations/whatsapp/connect', requireAuth, async (req, res) => {
                 data: {
                     botId: bot.id,
                     platform: 'WHATSAPP',
-                    apiToken: accessToken,
+                    apiToken: systemToken,
                     whatsappWabaId: wabaId,
                     whatsappPhoneNumberId: phoneNumberId,
                     isActive: true,
@@ -2018,6 +2026,7 @@ router.post('/integrations/whatsapp/connect', requireAuth, async (req, res) => {
         
         // Also activate the bot itself
         await prisma.bot.update({ where: { id: bot.id }, data: { isActive: true } });
+
         
         res.json({ success: true, channel });
     } catch (e) {

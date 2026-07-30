@@ -45,7 +45,8 @@ export async function getWabaAndPhone(accessToken) {
     return { wabaId, phoneNumberId };
 }
 
-export async function registerPhone(phoneNumberId, accessToken) {
+export async function registerPhone(phoneNumberId) {
+    const accessToken = process.env.WA_SYSTEM_USER_TOKEN;
     const url = `https://graph.facebook.com/${GRAPH_API_VERSION}/${phoneNumberId}/register`;
     
     const response = await fetch(url, {
@@ -55,8 +56,8 @@ export async function registerPhone(phoneNumberId, accessToken) {
             'Authorization': `Bearer ${accessToken}`
         },
         body: JSON.stringify({
-            messaging_tier: 'TIER_1',
-            pin: '123456' // In reality, a PIN might be required to be dynamic or predefined
+            messaging_product: 'whatsapp',
+            pin: '123456'
         })
     });
     
@@ -69,7 +70,8 @@ export async function registerPhone(phoneNumberId, accessToken) {
     return data;
 }
 
-export async function subscribeWabaToWebhook(wabaId, accessToken) {
+export async function subscribeWabaToWebhook(wabaId) {
+    const accessToken = process.env.WA_SYSTEM_USER_TOKEN;
     const url = `https://graph.facebook.com/${GRAPH_API_VERSION}/${wabaId}/subscribed_apps`;
     
     const response = await fetch(url, {
