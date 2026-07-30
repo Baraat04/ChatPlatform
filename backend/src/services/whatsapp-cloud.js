@@ -84,10 +84,11 @@ export async function subscribeWabaToWebhook(wabaId) {
     
     const data = await response.json();
     if (data.error) {
-        console.error('Error subscribing WABA to webhook:', data.error);
+        console.error(`[WhatsApp Cloud] ❌ Error subscribing WABA ${wabaId} to webhook:`, data.error);
         throw new Error(`Failed to subscribe WABA: ${data.error.message}`);
     }
     
+    console.log(`[WhatsApp Cloud] ✅ Successfully subscribed WABA ${wabaId} to webhook. Response:`, data);
     return data;
 }
 

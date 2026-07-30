@@ -1926,9 +1926,13 @@ router.post('/webhook/whatsapp-cloud', async (req, res) => {
 
     try {
         const body = req.body;
-        console.log('[WhatsApp Cloud Webhook] Received payload:', JSON.stringify(body, null, 2));
+        console.log(`[WhatsApp Cloud Webhook] 📥 Received payload from ${req.ip}`);
+        console.log(JSON.stringify(body, null, 2));
 
-        if (body.object !== 'whatsapp_business_account') return;
+        if (body.object !== 'whatsapp_business_account') {
+            console.log(`[WhatsApp Cloud Webhook] ❌ Ignored object type: ${body.object}`);
+            return;
+        }
 
         const io = req.app.get('io');
         const prisma = getPrisma();
