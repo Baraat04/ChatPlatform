@@ -15,13 +15,9 @@ process.on('unhandledRejection', (reason, promise) => {
     console.error('UNHANDLED REJECTION at:', promise, 'reason:', reason)
 })
 
-// Graceful shutdown to prevent WhatsApp session corruption
+// Graceful shutdown
 const gracefulShutdown = async () => {
     console.log('Received kill signal, shutting down gracefully...');
-    try {
-        const { closeAllSessions } = await import('./services/whatsapp.js');
-        await closeAllSessions();
-    } catch (e) {}
     
     // Give OS 500ms to finish any pending IO streams before hard exit
     setTimeout(() => {
@@ -156,8 +152,6 @@ httpServer.listen(PORT, async () => {
         const { prisma: getPrisma } = await import('./routes/bot-routes.js')
         const prisma = getPrisma()
         
-        const { startWhatsAppBot } = await import('./services/whatsapp.js')
-        
         // FIX GHOST BOTS: Only allow ONE active WhatsApp bot per user
         const allActiveBots = await prisma.bot.findMany({
             where: { platform: 'WHATSAPP', isActive: true },
@@ -196,39 +190,6 @@ httpServer.listen(PORT, async () => {
             } catch (e) {
                 console.error(`[Boot] LID cleanup error for bot ${bot.id}:`, e.message);
             }
-        
-
-            // Skip legacy bot restore if a proper WhatsApp Channel already exists for this bot
-            // (to avoid duplicate sessions and dual-card UI bug)
-            const hasWaChannel = await prisma.channel.findFirst({
-                where: { botId: bot.id, platform: 'WHATSAPP', isActive: true }
-            });
-            if (hasWaChannel) {
-                console.log(`[Boot] Skipping legacy WhatsApp Bot ${bot.id} — active Channel ${hasWaChannel.id} exists.`);
-                continue;
-            }
-            console.log(`[Boot] Restoring WhatsApp Bot ${bot.id}...`)
-            startWhatsAppBot(bot, prisma, io)
-        }
-
-        // Also restore active WhatsApp CHANNELS (multi-channel system)
-        try {
-            const { startWhatsAppChannel } = await import('./services/whatsapp.js')
-            const activeWaChannels = await prisma.channel.findMany({
-                where: { platform: 'WHATSAPP', isActive: true },
-                include: { bot: true }
-            })
-            for (const channel of activeWaChannels) {
-                if (!channel.bot) continue;
-                // Restore the channel session regardless of bot.isActive
-                // (bot.isActive may be incorrectly false due to a previous QR bug)
-                console.log(`[Boot] Restoring WhatsApp Channel ${channel.id} for Bot ${channel.botId}...`)
-                startWhatsAppChannel(channel, channel.bot, prisma, io).catch(err => {
-                    console.error(`[Boot] Failed to restore WhatsApp Channel ${channel.id}:`, err.message)
-                })
-            }
-        } catch (chanErr) {
-            console.error('[Boot] Error restoring WhatsApp channels:', chanErr)
         }
 
         // AUTO-REREGISTER: Re-set Telegram webhooks to the current BASE_URL on every boot

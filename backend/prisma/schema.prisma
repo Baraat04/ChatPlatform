@@ -82,7 +82,6 @@ model Bot {
   // Foreign Key and Relation (Matches your diagram)
   user_id          Int
   user             User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  whatsappSessions BaileysSession[]
   channels         Channel[]
   messages         Message[]
   usage            AIUsage[]
@@ -93,18 +92,7 @@ model Bot {
   @@index([user_id])
 }
 
-model BaileysSession {
-  id        String   @id @default(uuid())
-  botId     Int
-  bot       Bot      @relation(fields: [botId], references: [id], onDelete: Cascade)
-  category  String
-  key       String
-  value     String   @db.Text
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 
-  @@unique([botId, category, key])
-}
 
 model Channel {
   id        Int         @id @default(autoincrement())
@@ -115,6 +103,8 @@ model Channel {
   isActive  Boolean     @default(false)
   slug      String      @unique
   instagramUserId String?
+  whatsappWabaId  String?
+  whatsappPhoneNumberId String?
   tokenExpiresAt  DateTime?
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt

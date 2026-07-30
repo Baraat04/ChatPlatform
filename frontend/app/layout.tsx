@@ -38,6 +38,23 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${inter.variable} ${spaceGrotesk.variable}`}>
+      <head>
+        <script async defer crossOrigin="anonymous" src="https://connect.facebook.net/en_US/sdk.js"></script>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.fbAsyncInit = function() {
+                FB.init({
+                  appId      : '${process.env.NEXT_PUBLIC_WA_APP_ID}',
+                  cookie     : true,
+                  xfbml      : true,
+                  version    : 'v21.0'
+                });
+              };
+            `,
+          }}
+        />
+      </head>
       <body>
         <AuthProvider>
           <LayoutWrapper>

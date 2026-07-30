@@ -399,12 +399,9 @@ router.post('/bot/:id/channels', requireAuth, async (req, res) => {
             }
         }
 
-        // WhatsApp - start QR scan flow
+        // WhatsApp Cloud API - no longer starts via Baileys QR
         if (platform === 'WHATSAPP') {
-            const { startWhatsAppChannel } = await import('../services/whatsapp.js')
-            startWhatsAppChannel(channel, bot, getPrisma(), io).catch(err => {
-                console.error(`[WhatsApp Channel ${channel.id}] Failed to start:`, err)
-            })
+            // Just return the channel, it will be configured via Embedded Signup.
         }
     } catch (e) { res.status(500).json({ error: e.message }) }
 })
@@ -426,11 +423,7 @@ router.delete('/bot/:id/channels/:channelId', requireAuth, async (req, res) => {
                 try { await callTelegramAPI('deleteWebhook', bot.apiToken, {}) } catch (e) {}
             }
             if (bot.platform === 'WHATSAPP') {
-                try {
-                    const { stopWhatsAppBot } = await import('../services/whatsapp.js')
-                    await stopWhatsAppBot(botId, true)
-                } catch (e) {}
-                // Delete session directory so the channel card disappears on next page load
+                // Delete session directory if it exists from older Baileys implementation
                 try {
                     const fsModule = await import('fs');
                     const pathModule = await import('path');
@@ -460,13 +453,21 @@ router.delete('/bot/:id/channels/:channelId', requireAuth, async (req, res) => {
         if (channel.platform === 'TELEGRAM' && channel.apiToken) {
             try { await callTelegramAPI('deleteWebhook', channel.apiToken, {}) } catch (e) {}
         }
+        
         if (channel.platform === 'WHATSAPP') {
+            // Delete legacy session directory if any
             try {
-                const { stopWhatsAppChannel } = await import('../services/whatsapp.js')
-                await stopWhatsAppChannel(channelId, true)
-                // NOTE: Do NOT call stopWhatsAppBot here - it would destroy the base bot session
-                // and cause a double-deletion effect. Only stop the specific channel session.
-            } catch (e) {}
+                const fsModule = await import('fs');
+                const pathModule = await import('path');
+                const urlModule = await import('url');
+                const __dirnameTmp = pathModule.default.dirname(urlModule.fileURLToPath(import.meta.url));
+                const sessionDir = pathModule.default.join(__dirnameTmp, `../../sessions/session_ch_${channel.id}`);
+                if (fsModule.default.existsSync(sessionDir)) {
+                    fsModule.default.rmSync(sessionDir, { recursive: true, force: true });
+                }
+            } catch (e) {
+                console.error(`[WhatsApp Channel ${channel.id}] Error deleting session:`, e.message);
+            }
         }
 
         await prisma.channel.delete({ where: { id: channelId } })
@@ -1946,7 +1947,252 @@ async function getChannelByInstagramAccountId(accountId) {
     return null;
 }
 
-// GET — Meta webhook verification challenge (Global)
+// ── WHATSAPP CLOUD API ────────────────────────────────────────
+
+const waAccountToConfigMap = new Map();
+
+async function getChannelByWhatsAppPhoneNumberId(phoneNumberId) {
+    if (waAccountToConfigMap.has(phoneNumberId)) {
+        return waAccountToConfigMap.get(phoneNumberId);
+    }
+    const prisma = getPrisma();
+    const channel = await prisma.channel.findFirst({
+        where: { whatsappPhoneNumberId: phoneNumberId, isActive: true },
+        include: { bot: true }
+    });
+    if (channel) {
+        waAccountToConfigMap.set(phoneNumberId, { bot: channel.bot, channel });
+        return { bot: channel.bot, channel };
+    }
+    return null;
+}
+
+router.post('/integrations/whatsapp/connect', requireAuth, async (req, res) => {
+    try {
+        const { code, botId } = req.body;
+        if (!code || !botId) return res.status(400).json({ error: 'Code and botId are required' });
+
+        const prisma = getPrisma();
+        const bot = await prisma.bot.findUnique({ where: { id: Number(botId), user_id: req.session.userId } });
+        if (!bot) return res.status(404).json({ error: 'Bot not found' });
+
+        const { exchangeCodeForToken, getWabaAndPhone, registerPhone, subscribeWabaToWebhook } = await import('../services/whatsapp-cloud.js');
+        
+        // 1. Exchange token
+        const accessToken = await exchangeCodeForToken(code);
+        
+        // 2. Get WABA and Phone
+        const { wabaId, phoneNumberId } = await getWabaAndPhone(accessToken);
+        
+        // 3. Register Phone
+        await registerPhone(phoneNumberId, accessToken);
+        
+        // 4. Subscribe WABA
+        await subscribeWabaToWebhook(wabaId, accessToken);
+        
+        // 5. Save to DB
+        let channel = await prisma.channel.findFirst({ where: { botId: bot.id, platform: 'WHATSAPP' } });
+        if (channel) {
+            channel = await prisma.channel.update({
+                where: { id: channel.id },
+                data: {
+                    apiToken: accessToken,
+                    whatsappWabaId: wabaId,
+                    whatsappPhoneNumberId: phoneNumberId,
+                    isActive: true
+                }
+            });
+        } else {
+            channel = await prisma.channel.create({
+                data: {
+                    botId: bot.id,
+                    platform: 'WHATSAPP',
+                    apiToken: accessToken,
+                    whatsappWabaId: wabaId,
+                    whatsappPhoneNumberId: phoneNumberId,
+                    isActive: true,
+                    slug: `wa_${bot.id}_${Date.now()}`
+                }
+            });
+        }
+        
+        // Also activate the bot itself
+        await prisma.bot.update({ where: { id: bot.id }, data: { isActive: true } });
+        
+        res.json({ success: true, channel });
+    } catch (e) {
+        console.error('WhatsApp Connect error:', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// GET — WhatsApp Cloud webhook verification
+router.get('/webhook/whatsapp-cloud', async (req, res) => {
+    const mode = req.query['hub.mode'];
+    const token = req.query['hub.verify_token'];
+    const challenge = req.query['hub.challenge'];
+
+    const expectedToken = process.env.WA_WEBHOOK_VERIFY_TOKEN || 'up_chat_wa_verify_9k2m4';
+
+    if (mode === 'subscribe' && token === expectedToken) {
+        console.log(`[WhatsApp Cloud] Webhook verified successfully.`);
+        return res.status(200).send(challenge);
+    }
+    console.warn(`[WhatsApp Cloud] Webhook verification FAILED. token=${token}`);
+    return res.sendStatus(403);
+});
+
+// POST — WhatsApp Cloud incoming messages
+router.post('/webhook/whatsapp-cloud', async (req, res) => {
+    res.status(200).send('EVENT_RECEIVED'); // Always respond 200 immediately
+
+    try {
+        const body = req.body;
+        console.log('[WhatsApp Cloud Webhook] Received payload:', JSON.stringify(body, null, 2));
+
+        if (body.object !== 'whatsapp_business_account') return;
+
+        const io = req.app.get('io');
+        const prisma = getPrisma();
+
+        for (const entry of (body.entry || [])) {
+            for (const change of (entry.changes || [])) {
+                if (change.field !== 'messages') continue;
+                const value = change.value;
+                if (!value || !value.messages || value.messages.length === 0) continue;
+
+                const phoneNumberId = value.metadata.phone_number_id;
+                const messageObj = value.messages[0];
+                const senderId = messageObj.from;
+                const messageText = messageObj.text?.body || '';
+
+                if (!phoneNumberId || !senderId || !messageText) continue;
+
+                const config = await getChannelByWhatsAppPhoneNumberId(phoneNumberId);
+                if (!config) {
+                    console.log(`[WhatsApp Cloud] Active bot not found for phone_number_id: ${phoneNumberId}`);
+                    continue;
+                }
+                const { bot, channel } = config;
+                const tokenToUse = channel.apiToken;
+
+                console.log(`[WhatsApp Bot ${bot.id}] Message from ${senderId}: ${messageText}`);
+
+                // 1. Upsert Contact
+                let contact = await prisma.contact.findUnique({ where: { botId_chatId: { botId: bot.id, chatId: senderId } } });
+                if (!contact) {
+                    const contactInfo = value.contacts?.find(c => c.wa_id === senderId);
+                    const waName = contactInfo?.profile?.name || `WA User ${senderId}`;
+                    contact = await prisma.contact.create({ data: { botId: bot.id, chatId: senderId, name: waName } });
+                    io.emit(`contact-update-${bot.id}`, contact);
+                }
+
+                // 2. Save user message
+                const userMsg = await prisma.message.create({
+                    data: { botId: bot.id, channelId: channel.id, platform: 'WHATSAPP', sender: 'user', text: messageText, chatId: senderId }
+                });
+                io.emit(`chat-${bot.id}`, userMsg);
+
+                // Skip if chat is paused
+                if ((bot.pausedChats || []).includes(senderId)) continue;
+
+                // 3. Check balance
+                const canProceed = await hasEnoughMessages(bot.user_id);
+                if (!canProceed) {
+                    try {
+                        const ownerUser = await prisma.user.findUnique({
+                            where: { id: bot.user_id },
+                            select: { email: true, name: true }
+                        });
+                        await prisma.channel.update({ where: { id: channel.id }, data: { isActive: false } });
+                        io.emit(`bot-update-${bot.id}`, { isActive: false });
+                        if (ownerUser?.email) {
+                            const { sendBalanceExhaustedEmail } = await import('../services/emailService.js');
+                            await sendBalanceExhaustedEmail(ownerUser.email, ownerUser.name, bot.name || `Bot #${bot.id}`);
+                        }
+                    } catch (e) { console.error('Error on balance exhausted:', e); }
+                    continue;
+                }
+
+                // 4. Build history
+                const recentMessages = await prisma.message.findMany({
+                    where: { botId: bot.id, chatId: senderId },
+                    orderBy: { createdAt: 'desc' },
+                    take: 20
+                });
+                const reversed = [...recentMessages].reverse();
+                const history = reversed.slice(0, -1).map(m => ({
+                    role: m.sender === 'bot' ? 'model' : 'user',
+                    parts: [{ text: m.text }]
+                }));
+                const userMessage = reversed.length > 0 ? reversed[reversed.length - 1].text : messageText;
+
+                // 5. Call Gemini
+                let aiResponseText = 'Извините, AI временно недоступен.';
+                let inputTokens = 0, outputTokens = 0;
+                try {
+                    let sysInstruction = `${bot.system_prompt || ''}\n\nCRITICAL: Follow the system instructions exactly. Pay extreme attention to any [Correction] or [IMPORTANT CORRECTION] tags at the end of the instructions.`;
+
+                    const integrationConfig = {
+                        googleSheetUrl: bot.googleSheetUrl,
+                        googleSheetColumns: bot.googleSheetColumns,
+                        bitrixWebhookUrl: bot.bitrixWebhookUrl,
+                        googleCalendarId: bot.googleCalendarId
+                    };
+                    const geminiResult = await generateGeminiResponse(
+                        userMessage, 
+                        history, 
+                        sysInstruction, 
+                        bot.data_prompt || '', 
+                        null, 
+                        null, 
+                        integrationConfig
+                    );
+                    aiResponseText = geminiResult.text;
+                    inputTokens = geminiResult.inputTokens;
+                    outputTokens = geminiResult.outputTokens;
+                    
+                    if (geminiResult.shouldPauseChat) {
+                        let pausedChats = bot.pausedChats || [];
+                        if (!pausedChats.includes(senderId)) {
+                            pausedChats.push(senderId);
+                            await prisma.bot.update({
+                                where: { id: bot.id },
+                                data: { pausedChats }
+                            });
+                        }
+                        aiResponseText = geminiResult.text + '\n\n*Чат переведён на менеджера*';
+                    }
+                    
+                    // Deduct balance
+                    if (inputTokens > 0 || outputTokens > 0) {
+                        await deductMessageAndLogTokens(bot.user_id, bot.id, channel.id, inputTokens, outputTokens);
+                    }
+                } catch (e) {
+                    console.error(`[WhatsApp Bot ${bot.id}] Gemini Error:`, e);
+                }
+
+                // 6. Send reply via WhatsApp Cloud
+                try {
+                    const { sendWhatsAppCloudMessage } = await import('../services/whatsapp-cloud.js');
+                    await sendWhatsAppCloudMessage(phoneNumberId, senderId, aiResponseText, tokenToUse);
+                } catch (e) {
+                    console.error(`[WhatsApp Bot ${bot.id}] Failed to send reply:`, e.message);
+                }
+
+                // 7. Save bot message
+                const botMsg = await prisma.message.create({
+                    data: { botId: bot.id, channelId: channel.id, platform: 'WHATSAPP', sender: 'bot', text: aiResponseText, chatId: senderId }
+                });
+                io.emit(`chat-${bot.id}`, botMsg);
+            }
+        }
+    } catch (e) {
+        console.error('WhatsApp Webhook error:', e);
+    }
+});
+
+// ── INSTAGRAM API ────────────────────────────────────────
 router.get('/webhook/instagram', async (req, res) => {
     const mode = req.query['hub.mode'];
     const token = req.query['hub.verify_token'];

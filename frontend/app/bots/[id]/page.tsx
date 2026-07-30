@@ -1179,6 +1179,50 @@ export default function BotDetails() {
     }
   }
 
+  const launchWhatsAppSignup = () => {
+    // @ts-ignore
+    if (typeof FB !== 'undefined') {
+      // @ts-ignore
+      FB.login(function (response) {
+        if (response.authResponse) {
+          const code = response.authResponse.code;
+          setIsSaving(true);
+          
+          fetch(`${API_BASE}/api/integrations/whatsapp/connect`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code, botId }),
+            credentials: 'include'
+          }).then(res => res.json()).then(data => {
+            setIsSaving(false);
+            if (data.success) {
+              setIsAddingChannel(false);
+              setNewChannelPlatform(null);
+              fetchChannels();
+            } else {
+              alert('Error connecting WhatsApp Cloud: ' + data.error);
+            }
+          }).catch(err => {
+            setIsSaving(false);
+            alert('Network error connecting WhatsApp Cloud.');
+          });
+        } else {
+          console.log('User cancelled login or did not fully authorize.');
+        }
+      }, {
+        config_id: process.env.NEXT_PUBLIC_WA_CONFIG_ID,
+        response_type: 'code',
+        override_default_response_type: true,
+        extras: {
+          setup: {},
+          featureType: '',
+          sessionInfoVersion: '3',
+        }
+      });
+    } else {
+      alert('Facebook SDK not loaded.');
+    }
+  };
 
 
   const formatTime = (d: string) => new Date(d).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
@@ -2142,112 +2186,25 @@ export default function BotDetails() {
                     </div>
                   ) : (
                     
-                    /* WhatsApp Setup Steps & QR Scanner */
+                    /* WhatsApp Cloud API Embedded Signup */
                     <div>
-                      {!qrCode ? (
-                        <div style={{ textAlign: 'center', padding: '3rem 1.5rem' }}>
-                          <div style={{ 
-                            width: '64px', 
-                            height: '64px', 
-                            borderRadius: '50%', 
-                            background: 'rgba(37, 211, 102, 0.05)', 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            justifyContent: 'center', 
-                            margin: '0 auto 1.5rem auto' 
-                          }}>
-                            <svg width="32" height="32" viewBox="0 0 24 24" fill="#25d366">
-                              <path d="M12.01 2C6.48 2 2 6.48 2 12.01C2 13.86 2.5 15.6 3.39 17.12L2.01 22.01L7.04 20.72C8.5 21.54 10.19 22.01 12 22.01C17.53 22.01 22 17.53 22 12.01C22 6.48 17.53 2 12.01 2ZM17.19 15.61C16.98 16.2 16.03 16.71 15.46 16.82C14.99 16.91 14.37 16.97 12.31 16.12C9.66 15.02 7.95 12.33 7.82 12.15C7.69 11.97 6.74 10.71 6.74 9.41C6.74 8.11 7.4 7.47 7.67 7.21C7.94 6.95 8.38 6.84 8.81 6.84C8.95 6.84 9.07 6.85 9.17 6.85C9.47 6.86 9.62 7.04 9.72 7.28L10.51 9.19C10.6 9.4 10.69 9.63 10.55 9.91C10.41 10.19 10.3 10.32 10.1 10.55L9.61 11.12C9.46 11.29 9.3 11.47 9.49 11.8C9.68 12.12 10.33 13.18 11.29 14.04C12.53 15.15 13.55 15.5 13.9 15.65C14.23 15.79 14.43 15.76 14.62 15.54C14.86 15.26 15.39 14.62 15.72 14.15C15.98 13.78 16.3 13.84 16.63 13.96L18.66 14.96C18.99 15.12 19.22 15.2 19.3 15.34C19.38 15.48 19.38 16.15 19.1 16.74C18.82 17.33 17.47 17.9 16.88 17.9C16.88 17.9 16.89 17.9 16.88 17.9C16.88 17.9 12.63 17.06 17.19 15.61Z"/>
-                            </svg>
-                          </div>
-                          <h4 style={{ fontSize: '1.2rem', fontWeight: 700, margin: '0 0 0.5rem 0' }}>{t.qrGenTitle || 'QR Code Generation'}</h4>
-                          <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.95rem', marginBottom: '2rem', maxWidth: '380px', margin: '0 auto 2rem auto', lineHeight: '1.6' }}>
-                            {t.waDescription || 'To connect WhatsApp session, we will generate a secure QR code web interface.'}
-                          </p>
-                          <button 
-                            className="btn-primary" 
-                            style={{ padding: '0.9rem 2.2rem', borderRadius: '14px', margin: '0 auto', display: 'flex', alignItems: 'center', gap: '0.6rem' }}
-                            onClick={async () => {
-                              const res = await fetch(`${API}/bot/${botId}/channels`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ platform: 'WHATSAPP' }),
-                                credentials: 'include'
-                              });
-                              if (res.ok) fetchChannels(); // Socket will send QR code
-                            }}
-                          >
-                            {t.generateQR || 'Generate QR code'}
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="qr-grid" style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '2.5rem', alignItems: 'center' }}>
-                          <div>
-                            <h4 style={{ margin: '0 0 1rem 0', color: '#25d366', fontWeight: 700 }}>
-                              {t.howToScanQr || 'How to scan QR code'}
-                            </h4>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
-                              <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
-                                <div style={{ background: '#25d366', color: '#fff', width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 800, flexShrink: 0, marginTop: '2px' }}>1</div>
-                                <div style={{ fontSize: '0.92rem', lineHeight: '1.5' }}>
-                                  {t.waStep1 || 'Open WhatsApp on your phone'}
-                                </div>
-                              </div>
-                              <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
-                                <div style={{ background: '#25d366', color: '#fff', width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 800, flexShrink: 0, marginTop: '2px' }}>2</div>
-                                <div style={{ fontSize: '0.92rem', lineHeight: '1.5' }}>
-                                  {t.waStep2 || 'Go to Menu (three dots) or Settings → Linked Devices'}
-                                </div>
-                              </div>
-                              <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
-                                <div style={{ background: '#25d366', color: '#fff', width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 800, flexShrink: 0, marginTop: '2px' }}>3</div>
-                                <div style={{ fontSize: '0.92rem', lineHeight: '1.5' }}>
-                                  {t.waStep3 || "Click the 'Link a Device' button and point your phone camera at the screen"}
-                                </div>
-                              </div>
-                            </div>
-                            
-                            <div style={{ 
-                              marginTop: '2rem', 
-                              padding: '1rem 1.2rem', 
-                              background: 'var(--surface-container-high)', 
-                              borderRadius: '12px',
-                              borderLeft: '4px solid #25d366',
-                              fontSize: '0.85rem',
-                              color: 'var(--on-surface-variant)',
-                              lineHeight: '1.5'
-                            }}>
-                              {t.qrImportant || '🔔 Important: Do not close the page until scanning is complete. The session will connect automatically.'}
-                            </div>
-                          </div>
-                          
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                            <div className="qr-image-wrapper" style={{ 
-                              display: 'inline-block', 
-                              background: 'white', 
-                              padding: '1.2rem', 
-                              borderRadius: '24px', 
-                              boxShadow: '0 20px 45px rgba(37,211,102,0.15)',
-                              border: '3px solid #25d366',
-                              position: 'relative'
-                            }}>
-                              <img src={qrCode} alt="WhatsApp QR" style={{ width: '240px', height: '240px', display: 'block', maxWidth: '100%' }} />
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '1.5rem' }}>
-                              <span style={{ 
-                                width: '8px', 
-                                height: '8px', 
-                                borderRadius: '50%', 
-                                background: 'var(--primary)',
-                                animation: 'pulse 1.5s infinite' 
-                              }} />
-                              <span>
-                                {t.waitingPhone || 'Waiting for connection from phone...'}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      )}
+                      <div style={{ background: 'rgba(37, 211, 102, 0.05)', border: '1px solid rgba(37, 211, 102, 0.15)', padding: '1.8rem', borderRadius: '20px', marginBottom: '2rem' }}>
+                        <h4 style={{ margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.6rem', color: '#25d366', fontWeight: 700 }}>
+                          WhatsApp Cloud API (Official)
+                        </h4>
+                        <p style={{ fontSize: '0.92rem', lineHeight: '1.5', color: 'var(--on-surface-variant)' }}>
+                          Connect your business to WhatsApp Cloud API via Meta Embedded Signup. This ensures a stable, official connection without QR codes.
+                        </p>
+                      </div>
+
+                      <button 
+                        disabled={isSaving}
+                        className="btn-primary" 
+                        style={{ width: '100%', padding: '1rem', borderRadius: '14px', justifyContent: 'center', fontSize: '1rem', fontWeight: 700, background: '#25d366', color: '#fff', border: 'none' }}
+                        onClick={launchWhatsAppSignup}
+                      >
+                        {isSaving ? (t.saving || 'Connecting...') : 'Connect via Meta'}
+                      </button>
                     </div>
                   )}
                 </div>
