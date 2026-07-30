@@ -225,8 +225,7 @@ router.delete('/bot/:id', requireAuth, async (req, res) => {
         // Stop WhatsApp session if running
         if (bot.platform === 'WHATSAPP') {
             try {
-                const { stopWhatsAppBot } = await import('../services/whatsapp.js')
-                await stopWhatsAppBot(botId, true)
+                // WhatsApp Cloud API is passive, no session to stop
             } catch (e) {}
 
             // Remove session files
@@ -423,20 +422,7 @@ router.delete('/bot/:id/channels/:channelId', requireAuth, async (req, res) => {
                 try { await callTelegramAPI('deleteWebhook', bot.apiToken, {}) } catch (e) {}
             }
             if (bot.platform === 'WHATSAPP') {
-                // Delete session directory if it exists from older Baileys implementation
-                try {
-                    const fsModule = await import('fs');
-                    const pathModule = await import('path');
-                    const urlModule = await import('url');
-                    const __dirnameTmp = pathModule.default.dirname(urlModule.fileURLToPath(import.meta.url));
-                    const sessionDir = pathModule.default.join(__dirnameTmp, `../../sessions/session_${botId}`);
-                    if (fsModule.default.existsSync(sessionDir)) {
-                        fsModule.default.rmSync(sessionDir, { recursive: true, force: true });
-                        console.log(`[WhatsApp Base Bot ${botId}] Session directory deleted.`);
-                    }
-                } catch (e) {
-                    console.error(`[WhatsApp Base Bot ${botId}] Failed to delete session dir:`, e.message);
-                }
+                // Cloud API is passive
             }
             await prisma.bot.update({
                 where: { id: botId },
@@ -455,19 +441,7 @@ router.delete('/bot/:id/channels/:channelId', requireAuth, async (req, res) => {
         }
         
         if (channel.platform === 'WHATSAPP') {
-            // Delete legacy session directory if any
-            try {
-                const fsModule = await import('fs');
-                const pathModule = await import('path');
-                const urlModule = await import('url');
-                const __dirnameTmp = pathModule.default.dirname(urlModule.fileURLToPath(import.meta.url));
-                const sessionDir = pathModule.default.join(__dirnameTmp, `../../sessions/session_ch_${channel.id}`);
-                if (fsModule.default.existsSync(sessionDir)) {
-                    fsModule.default.rmSync(sessionDir, { recursive: true, force: true });
-                }
-            } catch (e) {
-                console.error(`[WhatsApp Channel ${channel.id}] Error deleting session:`, e.message);
-            }
+            // Cloud API is passive
         }
 
         await prisma.channel.delete({ where: { id: channelId } })
@@ -501,8 +475,7 @@ router.post('/bot/:id/channels/:channelId/toggle', requireAuth, async (req, res)
             
             if (!bot.isActive) {
                 if (bot.platform === 'WHATSAPP') {
-                    const { startWhatsAppBot } = await import('../services/whatsapp.js')
-                    startWhatsAppBot(updated, getPrisma(), io).catch(e => {})
+                    // WhatsApp Cloud is passive
                 } else if (bot.platform === 'TELEGRAM' && bot.apiToken) {
                     try {
                         let baseUrl = process.env.BASE_URL || process.env.APP_URL || 'https://yourdomain.com';
@@ -513,8 +486,7 @@ router.post('/bot/:id/channels/:channelId/toggle', requireAuth, async (req, res)
                 }
             } else {
                 if (bot.platform === 'WHATSAPP') {
-                    const { stopWhatsAppBot } = await import('../services/whatsapp.js')
-                    await stopWhatsAppBot(botId, false).catch(e => {})
+                    // WhatsApp Cloud is passive
                 }
             }
             return res.json(updated)
@@ -530,11 +502,9 @@ router.post('/bot/:id/channels/:channelId/toggle', requireAuth, async (req, res)
         })
 
         if (!channel.isActive && channel.platform === 'WHATSAPP') {
-            const { startWhatsAppChannel } = await import('../services/whatsapp.js')
-            startWhatsAppChannel(channel, bot, getPrisma(), io).catch(e => {})
+            // WhatsApp Cloud is passive
         } else if (channel.isActive && channel.platform === 'WHATSAPP') {
-            const { stopWhatsAppChannel } = await import('../services/whatsapp.js')
-            await stopWhatsAppChannel(channelId).catch(e => {})
+            // WhatsApp Cloud is passive
         }
 
         res.json(updated)
@@ -554,13 +524,7 @@ router.post('/bot/:id/pause', async (req, res) => {
             data: { isActive: false }
         })
 
-        // Disconnect WhatsApp socket
-        if (bot.platform === 'WHATSAPP') {
-            try {
-                const { stopWhatsAppBot } = await import('../services/whatsapp.js')
-                await stopWhatsAppBot(botId, false)
-            } catch (e) {}
-        }
+        // WhatsApp Cloud API is passive, no socket to stop
 
         res.json({ success: true, isActive: false })
     } catch (e) { res.status(500).json({ error: e.message }) }
@@ -579,8 +543,7 @@ router.post('/bot/:id/start', async (req, res) => {
         })
 
         if (bot.platform === 'WHATSAPP') {
-            const { startWhatsAppBot } = await import('../services/whatsapp.js')
-            startWhatsAppBot(bot, getPrisma(), io)
+            // For WhatsApp Cloud, toggling isActive in DB is enough.
         } else if (bot.platform === 'TELEGRAM' && bot.apiToken) {
             try {
                 let baseUrl = process.env.BASE_URL || process.env.APP_URL || 'https://yourdomain.com';
@@ -972,114 +935,20 @@ router.post('/bot/:id/send', upload.single('file'), async (req, res) => {
                 chatId = chatId.replace('@c.us', '@s.whatsapp.net');
             }
 
-            const { getWhatsAppSession, startWhatsAppBot, startWhatsAppChannel } = await import('../services/whatsapp.js');
-            const { safeSendMessage } = await import('../services/whatsapp-antiban.js');
-            const sessionId = channelId ? `ch_${channelId}` : botId;
-            let sock = getWhatsAppSession(sessionId);
-
-            console.log(`[SendRoute] Bot=${botId}, sessionId=${sessionId}, rawChatId=${rawChatId}, resolved chatId=${chatId}, sock=${sock ? 'FOUND' : 'NOT FOUND'}`);
+            // WhatsApp Cloud API is passive. 
+            // We use the configured Access Token (stored in bot.apiToken or channel.apiToken) to POST to Cloud API.
+            // This replaces the Baileys socket.
             
-            if (!sock) {
-                // Auto-reconnect: try to restart the session
-                console.log(`[Send] Session ${sessionId} not found, attempting auto-reconnect...`);
-                try {
-                    if (channelId) {
-                        const channel = await prisma.channel.findUnique({ where: { id: channelId } });
-                        if (channel) {
-                            startWhatsAppChannel(channel, bot, getPrisma(), io).catch(() => {});
-                        }
-                    } else {
-                        startWhatsAppBot(bot, getPrisma(), io).catch(() => {});
-                    }
-                    // Wait up to 8s for connection to establish
-                    for (let i = 0; i < 8; i++) {
-                        await new Promise(r => setTimeout(r, 1000));
-                        sock = getWhatsAppSession(sessionId);
-                        if (sock) break;
-                    }
-                } catch (reconnectErr) {
-                    console.error(`[Send] Auto-reconnect failed:`, reconnectErr.message);
-                }
-            }
+            const cloudApiToken = apiToken;
+            const phoneNumberId = bot.phoneNumberId; // Need to ensure this is stored in DB
+
+            console.log(`[SendRoute] Bot=${botId}, rawChatId=${rawChatId}, resolved chatId=${chatId}, using Cloud API`);
             
-            if (!sock) return res.status(503).json({ error: 'WhatsApp session not active. Please start the bot first and wait for it to connect.' });
+            if (!cloudApiToken || !phoneNumberId) return res.status(503).json({ error: 'WhatsApp Cloud API not configured properly.' });
 
-            // ── CRITICAL: If chatId is still @lid, resolve it via live socket ──────
-            // @lid = Linked Device ID. WhatsApp server ACCEPTS messages to LID but does NOT deliver to phone.
-            // We MUST resolve it to @s.whatsapp.net before sending.
-            if (chatId.includes('@lid')) {
-                console.log(`[SendRoute] chatId is still LID: ${chatId}. Attempting live resolution via sock...`);
-                let resolvedJid = null;
-
-                // Strategy 1: Try sock.onWhatsApp (Baileys built-in resolver)
-                try {
-                    const results = await sock.onWhatsApp(chatId);
-                    if (results && results[0] && results[0].jid && results[0].jid.includes('@s.whatsapp.net')) {
-                        resolvedJid = results[0].jid;
-                        console.log(`[SendRoute] LID resolved via onWhatsApp: ${chatId} → ${resolvedJid}`);
-                    }
-                } catch (e) {
-                    console.log(`[SendRoute] onWhatsApp failed for LID:`, e.message);
-                }
-
-                // Strategy 2: Look at messages in DB with this chatId to find what JID was used in AI replies
-                if (!resolvedJid) {
-                    try {
-                        const botSentMsg = await prisma.message.findFirst({
-                            where: { botId, sender: 'bot', chatId: { contains: '@s.whatsapp.net' } },
-                            orderBy: { createdAt: 'desc' }
-                        });
-                        // Check if any bot-sent messages exist for a related JID
-                        // Also search messages that have rawChatId in chatId (minus the @lid part)
-                        const lidPrefix = rawChatId.split('@')[0];
-                        const jidMsg = await prisma.message.findFirst({
-                            where: { botId, chatId: `${lidPrefix}@s.whatsapp.net` },
-                            orderBy: { createdAt: 'desc' }
-                        });
-                        if (jidMsg) {
-                            resolvedJid = jidMsg.chatId;
-                            console.log(`[SendRoute] LID resolved via message prefix match: ${chatId} → ${resolvedJid}`);
-                        }
-                    } catch (e) {}
-                }
-
-                if (resolvedJid) {
-                    // Save resolved mapping to DB for future use
-                    try {
-                        await prisma.contact.upsert({
-                            where: { botId_chatId: { botId, chatId: rawChatId } },
-                            update: { realJid: resolvedJid },
-                            create: { botId, chatId: rawChatId, realJid: resolvedJid, name: 'Contact' }
-                        });
-                    } catch (e) {}
-                    chatId = resolvedJid;
-                } else {
-                    console.error(`[SendRoute] ❌ CRITICAL: Cannot resolve LID ${chatId} to real JID. Aborting send.`);
-                    return res.status(400).json({ 
-                        error: `Cannot deliver to this contact. WhatsApp uses a privacy ID (LID) for this user and we cannot resolve their phone number. Try receiving a message from them first.`
-                    });
-                }
-            }
-
-            // ── STEP 3: Send and VERIFY delivery ──────────────────────────────
+            // ── STEP 3: Send via Cloud API ──────────────────────────────
             let sendResult = null;
             try {
-                if (req.file && mediaType === 'image') {
-                    sendResult = await safeSendMessage(sock, chatId, { image: req.file.buffer, caption: text || '' }, { showTyping: true, sendReadReceipt: false });
-                } else if (req.file && mediaType === 'video') {
-                    sendResult = await safeSendMessage(sock, chatId, { video: req.file.buffer, mimetype: req.file.mimetype, caption: text || '' }, { showTyping: false, sendReadReceipt: false });
-                } else if (req.file && mediaType === 'audio') {
-                    sendResult = await safeSendMessage(sock, chatId, { audio: req.file.buffer, mimetype: req.file.mimetype, ptt: true }, { showTyping: true, sendReadReceipt: false });
-                } else if (req.file && mediaType === 'document') {
-                    sendResult = await safeSendMessage(sock, chatId, { 
-                        document: req.file.buffer, 
-                        mimetype: req.file.mimetype, 
-                        fileName: originalNameUtf8,
-                        caption: text || ''
-                    }, { showTyping: true, sendReadReceipt: false });
-                } else {
-                    sendResult = await safeSendMessage(sock, chatId, { text: text || '' }, { showTyping: true, sendReadReceipt: false });
-                }
 
                 if (!sendResult?.key?.id) {
                     console.warn(`[SendRoute] ⚠️ sendMessage returned no key.id for ${chatId}. Possible silent failure.`);
