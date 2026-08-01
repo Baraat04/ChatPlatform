@@ -36,11 +36,22 @@ export async function getWabaAndPhone(accessToken) {
     }
     
     const wabaId = data.data.granular_scopes.find(s => s.scope === 'whatsapp_business_management')?.target_ids[0];
-    const phoneNumberId = data.data.granular_scopes.find(s => s.scope === 'whatsapp_business_messaging')?.target_ids[0];
     
-    if (!wabaId || !phoneNumberId) {
-        throw new Error('Could not extract waba_id or phone_number_id from the token scopes.');
+    if (!wabaId) {
+        throw new Error('Could not extract waba_id from the token scopes.');
     }
+    
+    // Fetch the actual Phone Number ID from the WABA
+    const phoneRes = await fetch(`https://graph.facebook.com/${GRAPH_API_VERSION}/${wabaId}/phone_numbers`, {
+        headers: { 'Authorization': `Bearer ${process.env.WA_SYSTEM_USER_TOKEN}` }
+    });
+    const phoneData = await phoneRes.json();
+    
+    if (!phoneData.data || phoneData.data.length === 0) {
+        throw new Error('No phone numbers found in the connected WABA.');
+    }
+    
+    const phoneNumberId = phoneData.data[0].id; // Use the first connected phone number
     
     return { wabaId, phoneNumberId };
 }
