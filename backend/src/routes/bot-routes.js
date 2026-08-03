@@ -1853,13 +1853,10 @@ router.post('/integrations/whatsapp/connect', requireAuth, async (req, res) => {
         // 2. Get WABA and Phone Number IDs from the token scopes
         const { wabaId, phoneNumberId } = await getWabaAndPhone(userAccessToken);
         
-        // 3. Register Phone (non-fatal — Embedded Signup often auto-registers the number)
-        try {
-            await registerPhone(phoneNumberId);
-            console.log(`[WhatsApp Cloud] Phone ${phoneNumberId} registered successfully.`);
-        } catch (regErr) {
-            console.warn(`[WhatsApp Cloud] Phone registration skipped (likely already registered): ${regErr.message}`);
-        }
+        // 3. Skip registerPhone — Embedded Signup auto-registers the number.
+        //    Calling /register manually forces full migration and breaks Coexistence
+        //    (user would have to delete WhatsApp from their phone).
+        console.log(`[WhatsApp Cloud] Skipping manual phone registration (Embedded Signup handles it). Phone: ${phoneNumberId}`);
         
         // 4. Subscribe WABA to our app's webhooks
         await subscribeWabaToWebhook(wabaId);
