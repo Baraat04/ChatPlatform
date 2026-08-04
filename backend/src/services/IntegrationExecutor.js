@@ -1,4 +1,4 @@
-import fetch from 'node-fetch';
+// Uses Node 20's global fetch — node-fetch is not a declared dependency.
 import { google } from 'googleapis';
 import path from 'path';
 import { fileURLToPath } from 'url';

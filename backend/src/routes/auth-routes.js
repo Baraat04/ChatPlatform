@@ -2,7 +2,7 @@ import express from 'express';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { OAuth2Client } from 'google-auth-library';
-import { prisma } from './bot-routes.js';
+import { prisma, claimInstagramAccountId } from './bot-routes.js';
 import { transporter } from '../services/emailService.js';
 
 const router = express.Router();
@@ -260,6 +260,21 @@ router.get('/instagram/callback', async (req, res) => {
             return res.redirect(`https://up-chat.com?instagram_error=Invalid_bot_id`);
         }
 
+        // `state` is attacker-controlled. Without an ownership check anyone could attach THEIR
+        // Instagram account to SOMEONE ELSE'S bot — that bot would then answer their DMs using
+        // the victim's system_prompt/data_prompt and drain the victim's message balance.
+        // Checked before the code exchange so a forged state never burns a real OAuth code.
+        if (!req.session?.userId) {
+            return res.redirect(`https://up-chat.com/bots/${botId}?instagram_error=${encodeURIComponent('Session expired. Log in and connect Instagram again.')}`);
+        }
+        const ownedBot = await prisma().bot.findFirst({
+            where: { id: botId, user_id: req.session.userId }
+        });
+        if (!ownedBot) {
+            console.warn(`[Instagram OAuth] User ${req.session.userId} attempted to connect Instagram to bot ${botId}, which they do not own. Rejected.`);
+            return res.redirect(`https://up-chat.com/bots?instagram_error=${encodeURIComponent('Bot not found')}`);
+        }
+
         const clientId = process.env.INSTAGRAM_CLIENT_ID;
         const clientSecret = process.env.INSTAGRAM_CLIENT_SECRET;
         const redirectUri = process.env.INSTAGRAM_REDIRECT_URI || 'https://api.up-chat.com/auth/instagram/callback';
@@ -303,6 +318,10 @@ router.get('/instagram/callback', async (req, res) => {
         let channel = await db.channel.findFirst({
             where: { botId, platform: 'INSTAGRAM' }
         });
+
+        // Release this Instagram account from any other bot still claiming it, so the webhook
+        // can never resolve it to a different tenant's bot (wrong prompts, wrong billing).
+        await claimInstagramAccountId(instagramUserId, { channelId: channel?.id ?? null, botId });
 
         if (channel) {
             await db.channel.update({

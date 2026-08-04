@@ -62,15 +62,39 @@ function getPrisma() {
 }
 export { getPrisma as prisma }
 
+// Ownership guard for the operator/inbox routes. These take a bare numeric bot id and
+// ids are sequential, so requireAuth alone is not enough — bot 42 must also be YOURS.
+// Always chain it after requireAuth: it reads req.session.userId.
+async function requireBotOwnership(req, res, next) {
+    try {
+        const botId = Number(req.params.id)
+        if (!Number.isInteger(botId)) return res.status(400).json({ error: 'Invalid bot id' })
+
+        const prisma = getPrisma()
+        const bot = await prisma.bot.findFirst({
+            where: { id: botId, user_id: req.session.userId }
+        })
+
+        // 404 (not 403) so the response can't be used to enumerate which bot ids exist.
+        if (!bot) return res.status(404).json({ error: 'Bot not found' })
+
+        req.bot = bot
+        next()
+    } catch (e) {
+        res.status(500).json({ error: e.message })
+    }
+}
+
 // ── BOTS ────────────────────────────────────────────────
 
 // GET stats
-router.get('/stats', async (req, res) => {
+router.get('/stats', requireAuth, async (req, res) => {
     try {
         const prisma = getPrisma()
-        // Here we could filter by user_id if we had auth, but for now we'll count all bot messages
+        // Scoped to the caller's own bots — this feeds the per-user dashboard on /bots,
+        // so platform-wide totals would both leak volume and be the wrong number to show.
         const messageCount = await prisma.message.count({
-            where: { sender: 'bot' }
+            where: { sender: 'bot', bot: { user_id: req.session.userId } }
         })
         const costPer1000 = 10 // $10 per 1000 messages
         const cost = (messageCount / 1000) * costPer1000
@@ -514,7 +538,7 @@ router.post('/bot/:id/channels/:channelId/toggle', requireAuth, async (req, res)
 // ── BOT STATUS / PAUSE ───────────────────────────────────
 
 // POST /api/bot/:id/pause — полностью останавливает бота (isActive = false + отключает сокет)
-router.post('/bot/:id/pause', async (req, res) => {
+router.post('/bot/:id/pause', requireAuth, requireBotOwnership, async (req, res) => {
     try {
         const prisma = getPrisma()
         const botId = Number(req.params.id)
@@ -531,7 +555,7 @@ router.post('/bot/:id/pause', async (req, res) => {
 })
 
 // POST /api/bot/:id/start — запускает бота (isActive = true + reconnect)
-router.post('/bot/:id/start', async (req, res) => {
+router.post('/bot/:id/start', requireAuth, requireBotOwnership, async (req, res) => {
     try {
         const prisma = getPrisma()
         const io = req.app.get('io')
@@ -563,7 +587,7 @@ router.post('/bot/:id/start', async (req, res) => {
 // ── MESSAGES / CHATS ─────────────────────────────────────
 
 // GET all messages for a bot (all chats combined)
-router.get('/bot/:id/messages', async (req, res) => {
+router.get('/bot/:id/messages', requireAuth, requireBotOwnership, async (req, res) => {
     try {
         const prisma = getPrisma()
         const msgs = await prisma.message.findMany({
@@ -576,7 +600,7 @@ router.get('/bot/:id/messages', async (req, res) => {
 
 // GET list of unique chat contacts for a bot
 // Returns: [{ chatId, lastMessage, lastAt, unreadCount, name }]
-router.get('/bot/:id/chats', async (req, res) => {
+router.get('/bot/:id/chats', requireAuth, requireBotOwnership, async (req, res) => {
     const botId = Number(req.params.id)
     try {
         const prisma = getPrisma()
@@ -730,7 +754,7 @@ router.get('/bot/:id/chats', async (req, res) => {
 })
 
 // POST update contact name
-router.post('/bot/:id/contact/name', async (req, res) => {
+router.post('/bot/:id/contact/name', requireAuth, requireBotOwnership, async (req, res) => {
     try {
         const prisma = getPrisma()
         const botId = Number(req.params.id)
@@ -749,7 +773,7 @@ router.post('/bot/:id/contact/name', async (req, res) => {
 })
 
 // POST delete contact (and its messages)
-router.post('/bot/:id/contact/delete', async (req, res) => {
+router.post('/bot/:id/contact/delete', requireAuth, requireBotOwnership, async (req, res) => {
     try {
         const prisma = getPrisma()
         const botId = Number(req.params.id)
@@ -773,7 +797,7 @@ router.post('/bot/:id/contact/delete', async (req, res) => {
 
 // GET messages for a specific chat (chatId as query param)
 // GET /api/bot/:id/chat?chatId=79991234567
-router.get('/bot/:id/chat', async (req, res) => {
+router.get('/bot/:id/chat', requireAuth, requireBotOwnership, async (req, res) => {
     try {
         const prisma = getPrisma()
         const botId = Number(req.params.id)
@@ -790,7 +814,7 @@ router.get('/bot/:id/chat', async (req, res) => {
 })
 
 // POST delete all messages for a specific chat (using POST because DELETE is sometimes blocked)
-router.post('/bot/:id/chat/delete', async (req, res) => {
+router.post('/bot/:id/chat/delete', requireAuth, requireBotOwnership, async (req, res) => {
     try {
         const prisma = getPrisma()
         const botId = Number(req.params.id)
@@ -815,7 +839,9 @@ router.post('/bot/:id/chat/delete', async (req, res) => {
 
 // POST send message to a specific chat
 // Body: { text, chatId }
-router.post('/bot/:id/send', upload.single('file'), async (req, res) => {
+// Guards run before multer so an unauthenticated upload is rejected before its bytes
+// are buffered into memory.
+router.post('/bot/:id/send', requireAuth, requireBotOwnership, upload.single('file'), async (req, res) => {
     try {
         const prisma = getPrisma()
         const botId = Number(req.params.id)
@@ -851,12 +877,20 @@ router.post('/bot/:id/send', upload.single('file'), async (req, res) => {
                 mediaType = 'audio';
                 try {
                     const { execSync } = require('child_process');
-                    const outPath = filePath + '.opus.ogg';
-                    execSync(`ffmpeg -i "${filePath}" -c:a libopus -b:a 32k -vbr on "${outPath}" -y`, { stdio: 'ignore' });
-                    req.file.buffer = fs.readFileSync(outPath);
-                    req.file.mimetype = 'audio/ogg; codecs=opus';
+                    // WhatsApp and Telegram both require Opus-in-OGG for voice notes.
+                    // Write to a distinct temp path first — ffmpeg refuses to write its own input.
+                    const tmpPath = `${filePath}.opus.ogg`;
+                    execSync(`ffmpeg -i "${filePath}" -c:a libopus -b:a 32k -vbr on "${tmpPath}" -y`, { stdio: 'ignore' });
+                    req.file.buffer = fs.readFileSync(tmpPath);
+                    req.file.mimetype = 'audio/ogg';
+                    // Serve the converted bytes under a .ogg name: an .mp3/.webm filename holding
+                    // OGG data gets the wrong Content-Type from express.static and won't play.
+                    // (The browser recorder labels its blob .ogg but Chrome actually emits WebM.)
+                    const oggPath = filePath.replace(/\.[^.]*$/, '') + '.ogg';
                     fs.unlinkSync(filePath);
-                    fs.renameSync(outPath, filePath);
+                    fs.renameSync(tmpPath, oggPath);
+                    filePath = oggPath;
+                    mediaUrl = `/uploads/${path.basename(oggPath)}`;
                 } catch(err) {
                     console.log('FFMPEG audio conversion failed (or ffmpeg not installed). Using original buffer.', err.message);
                 }
@@ -927,57 +961,77 @@ router.post('/bot/:id/send', upload.single('file'), async (req, res) => {
         let chatId = realChatId;
 
         if (platform === 'WHATSAPP') {
-            // Normalize: add @s.whatsapp.net ONLY if it's a plain phone number (no domain at all)
-            // IMPORTANT: @lid is NOT a valid delivery address — must resolve it first
-            if (!chatId.includes('@')) {
-                chatId = `${chatId}@s.whatsapp.net`;
-            } else if (chatId.includes('@c.us')) {
-                chatId = chatId.replace('@c.us', '@s.whatsapp.net');
+            const {
+                sendWhatsAppCloudMessage,
+                sendWhatsAppCloudMedia,
+                uploadWhatsAppMedia,
+                toWaId
+            } = await import('../services/whatsapp-cloud.js');
+
+            // The Cloud API addresses recipients by bare wa_id. Legacy Baileys rows may still
+            // carry a JID (`...@s.whatsapp.net` / `...@c.us`), so strip the domain for delivery
+            // but keep `chatId` as-is so the reply is stored in the thread the operator is viewing.
+            const waRecipient = toWaId(chatId);
+            if (!waRecipient) {
+                return res.status(400).json({ error: `Cannot resolve a WhatsApp number from "${rawChatId}".` });
             }
 
-            // WhatsApp Cloud API is passive. 
-            // We use the configured Access Token (stored in bot.apiToken or channel.apiToken) to POST to Cloud API.
-            // This replaces the Baileys socket.
-            
-            const cloudApiToken = apiToken;
-            const phoneNumberId = bot.phoneNumberId; // Need to ensure this is stored in DB
+            // The phone number id lives on the Channel (set during Embedded Signup), never on Bot.
+            const waChannel = channelId
+                ? await prisma.channel.findUnique({ where: { id: channelId } })
+                : await prisma.channel.findFirst({
+                    where: { botId, platform: 'WHATSAPP' },
+                    orderBy: { updatedAt: 'desc' }
+                });
 
-            console.log(`[SendRoute] Bot=${botId}, rawChatId=${rawChatId}, resolved chatId=${chatId}, using Cloud API`);
-            
-            if (!cloudApiToken || !phoneNumberId) return res.status(503).json({ error: 'WhatsApp Cloud API not configured properly.' });
+            const cloudApiToken = waChannel?.apiToken || apiToken || process.env.WA_SYSTEM_USER_TOKEN;
+            const phoneNumberId = waChannel?.whatsappPhoneNumberId;
+
+            console.log(`[SendRoute] Bot=${botId}, rawChatId=${rawChatId}, to=${waRecipient}, phoneNumberId=${phoneNumberId}, using Cloud API`);
+
+            if (!phoneNumberId || !cloudApiToken) {
+                return res.status(503).json({ error: 'WhatsApp is not connected for this bot. Reconnect it in the channel settings.' });
+            }
+
+            if (waChannel?.id) channelId = waChannel.id;
 
             // ── STEP 3: Send via Cloud API ──────────────────────────────
-            let sendResult = null;
             try {
+                if (req.file && mediaType) {
+                    const waType = mediaType === 'document' ? 'document' : mediaType;
+                    const mediaId = await uploadWhatsAppMedia(
+                        phoneNumberId,
+                        req.file.buffer,
+                        req.file.mimetype,
+                        originalNameUtf8 || path.basename(filePath || 'upload'),
+                        cloudApiToken
+                    );
+                    const sendResult = await sendWhatsAppCloudMedia(
+                        phoneNumberId,
+                        waRecipient,
+                        { type: waType, mediaId, caption: text || '', filename: originalNameUtf8 },
+                        cloudApiToken
+                    );
+                    console.log(`[SendRoute] ✅ ${waType} delivered to ${waRecipient}, msgId=${sendResult?.messages?.[0]?.id}`);
 
-                if (!sendResult?.key?.id) {
-                    console.warn(`[SendRoute] ⚠️ sendMessage returned no key.id for ${chatId}. Possible silent failure.`);
+                    // WhatsApp drops captions on audio, so send any accompanying text separately.
+                    if (waType === 'audio' && text) {
+                        await sendWhatsAppCloudMessage(phoneNumberId, waRecipient, text, cloudApiToken);
+                    }
                 } else {
-                    console.log(`[SendRoute] ✅ Message delivered to ${chatId}, msgId=${sendResult.key.id}`);
+                    const sendResult = await sendWhatsAppCloudMessage(phoneNumberId, waRecipient, text || '', cloudApiToken);
+                    console.log(`[SendRoute] ✅ Message delivered to ${waRecipient}, msgId=${sendResult?.messages?.[0]?.id}`);
                 }
             } catch (err) {
-                console.error(`[SendRoute] ❌ safeSendMessage FAILED for ${chatId}:`, err.message);
-                // Fallback: try direct send without anti-ban wrapper
-                try {
-                    console.log(`[SendRoute] Attempting FALLBACK direct send to ${chatId}...`);
-                    if (req.file && mediaType === 'image') {
-                        sendResult = await sock.sendMessage(chatId, { image: req.file.buffer, caption: text || '' });
-                    } else if (req.file && mediaType === 'video') {
-                        sendResult = await sock.sendMessage(chatId, { video: req.file.buffer, mimetype: req.file.mimetype, caption: text || '' });
-                    } else if (req.file && mediaType === 'audio') {
-                        sendResult = await sock.sendMessage(chatId, { audio: req.file.buffer, mimetype: req.file.mimetype, ptt: true });
-                    } else if (req.file && mediaType === 'document') {
-                        sendResult = await sock.sendMessage(chatId, { document: req.file.buffer, mimetype: req.file.mimetype, fileName: originalNameUtf8, caption: text || '' });
-                    } else {
-                        sendResult = await sock.sendMessage(chatId, { text: text || '' });
-                    }
-                    console.log(`[SendRoute] FALLBACK direct send result:`, sendResult?.key?.id ? `OK msgId=${sendResult.key.id}` : 'NO KEY');
-                } catch (directErr) {
-                    console.error(`[SendRoute] ❌ FALLBACK direct send also FAILED:`, directErr.message);
-                    return res.status(500).json({ error: `WhatsApp send failed: ${directErr.message}` });
+                console.error(`[SendRoute] ❌ WhatsApp Cloud send FAILED for ${waRecipient}:`, err.message);
+                // 131047: the 24h customer service window has closed — only templates are allowed.
+                if (err.code === 131047) {
+                    return res.status(400).json({
+                        error: 'Прошло больше 24 часов с последнего сообщения клиента. WhatsApp разрешает написать первым только через одобренный шаблон.'
+                    });
                 }
+                return res.status(502).json({ error: `WhatsApp send failed: ${err.message}` });
             }
-
 
         } else if (platform === 'TELEGRAM') {
             if (!apiToken) return res.status(503).json({ error: 'Telegram API token missing.' });
@@ -1069,7 +1123,7 @@ router.post('/bot/:id/send', upload.single('file'), async (req, res) => {
 
 // POST broadcast to multiple numbers
 // Body: { text, chatIds: string[] }
-router.post('/bot/:id/broadcast', upload.single('file'), async (req, res) => {
+router.post('/bot/:id/broadcast', requireAuth, requireBotOwnership, upload.single('file'), async (req, res) => {
     try {
         const botId = Number(req.params.id)
         const prisma = getPrisma()
@@ -1114,12 +1168,20 @@ router.post('/bot/:id/broadcast', upload.single('file'), async (req, res) => {
                 mediaType = 'audio';
                 try {
                     const { execSync } = require('child_process');
-                    const outPath = filePath + '.opus.ogg';
-                    execSync(`ffmpeg -i "${filePath}" -c:a libopus -b:a 32k -vbr on "${outPath}" -y`, { stdio: 'ignore' });
-                    req.file.buffer = fs.readFileSync(outPath);
-                    req.file.mimetype = 'audio/ogg; codecs=opus';
+                    // WhatsApp and Telegram both require Opus-in-OGG for voice notes.
+                    // Write to a distinct temp path first — ffmpeg refuses to write its own input.
+                    const tmpPath = `${filePath}.opus.ogg`;
+                    execSync(`ffmpeg -i "${filePath}" -c:a libopus -b:a 32k -vbr on "${tmpPath}" -y`, { stdio: 'ignore' });
+                    req.file.buffer = fs.readFileSync(tmpPath);
+                    req.file.mimetype = 'audio/ogg';
+                    // Serve the converted bytes under a .ogg name: an .mp3/.webm filename holding
+                    // OGG data gets the wrong Content-Type from express.static and won't play.
+                    // (The browser recorder labels its blob .ogg but Chrome actually emits WebM.)
+                    const oggPath = filePath.replace(/\.[^.]*$/, '') + '.ogg';
                     fs.unlinkSync(filePath);
-                    fs.renameSync(outPath, filePath);
+                    fs.renameSync(tmpPath, oggPath);
+                    filePath = oggPath;
+                    mediaUrl = `/uploads/${path.basename(oggPath)}`;
                 } catch(err) {
                     console.log('FFMPEG audio conversion failed (or ffmpeg not installed). Using original buffer.', err.message);
                 }
@@ -1131,68 +1193,74 @@ router.post('/bot/:id/broadcast', upload.single('file'), async (req, res) => {
         const results = []
 
         if (bot.platform === 'WHATSAPP') {
-            const { getWhatsAppSession } = await import('../services/whatsapp.js')
-            const { safeSendMessage, broadcastDelay, shuffleArray, isActiveHour, BROADCAST_CONFIG } = await import('../services/whatsapp-antiban.js')
-            const sock = getWhatsAppSession(botId)
-            if (!sock) return res.status(503).json({ error: 'WhatsApp session not active' })
+            const {
+                sendWhatsAppCloudMessage,
+                sendWhatsAppCloudMedia,
+                uploadWhatsAppMedia,
+                toWaId
+            } = await import('../services/whatsapp-cloud.js')
 
-            // Anti-ban: shuffle recipient order so pattern is unpredictable
-            const shuffledIds = shuffleArray([...parsedChatIds]);
+            const waChannel = await prisma.channel.findFirst({
+                where: { botId, platform: 'WHATSAPP' },
+                orderBy: { updatedAt: 'desc' }
+            })
+            const cloudApiToken = waChannel?.apiToken || bot.apiToken || process.env.WA_SYSTEM_USER_TOKEN
+            const phoneNumberId = waChannel?.whatsappPhoneNumberId
 
-            // Anti-ban: warn if outside active hours
-            if (!isActiveHour()) {
-                console.warn(`[AntiBan] ⚠️  Broadcast started outside active hours (${new Date().getHours()}:00). Proceeding with caution.`);
+            if (!phoneNumberId || !cloudApiToken) {
+                return res.status(503).json({ error: 'WhatsApp is not connected for this bot.' })
             }
 
-            let msgIndex = 0;
-            for (const rawId of shuffledIds) {
-                if (msgIndex >= BROADCAST_CONFIG.sessionLimit) {
-                    console.warn(`[AntiBan] 🛑 Session limit of ${BROADCAST_CONFIG.sessionLimit} reached. Stopping broadcast.`);
-                    results.push({ chatId: rawId, success: false, error: 'Session limit reached (anti-ban)' });
-                    continue;
+            // Upload the attachment once and reuse the media id for every recipient.
+            let sharedMediaId = null
+            if (req.file && mediaType) {
+                try {
+                    sharedMediaId = await uploadWhatsAppMedia(
+                        phoneNumberId,
+                        req.file.buffer,
+                        req.file.mimetype,
+                        originalNameUtf8 || 'upload',
+                        cloudApiToken
+                    )
+                } catch (upErr) {
+                    return res.status(502).json({ error: `WhatsApp media upload failed: ${upErr.message}` })
                 }
+            }
 
+            for (const rawId of parsedChatIds) {
                 try {
                     let jid = rawId;
                     const contact = await prisma.contact.findFirst({ where: { botId, chatId: rawId, realJid: { not: null } } });
                     if (contact && contact.realJid) {
                         jid = contact.realJid;
                     }
-                    jid = jid.includes('@') ? jid : `${jid}@s.whatsapp.net`
-                    
-                    let content;
-                    if (req.file && mediaType === 'image') {
-                        content = { image: req.file.buffer, caption: text || '' };
-                    } else if (req.file && mediaType === 'video') {
-                        content = { video: req.file.buffer, mimetype: req.file.mimetype, caption: text || '' };
-                    } else if (req.file && mediaType === 'audio') {
-                        content = { audio: req.file.buffer, mimetype: req.file.mimetype, ptt: true };
-                    } else if (req.file && mediaType === 'document') {
-                        content = { document: req.file.buffer, mimetype: req.file.mimetype, fileName: originalNameUtf8, caption: text || '' };
-                    } else {
-                        content = { text: text || '' };
-                    }
+                    const waRecipient = toWaId(jid)
+                    if (!waRecipient) throw new Error(`Cannot resolve a WhatsApp number from "${rawId}"`)
 
-                    // Anti-ban: use safeSendMessage (typing indicator + read receipt + random delays)
-                    await safeSendMessage(sock, jid, content, {
-                        showTyping: !req.file, // typing only for text messages
-                        typingText: text || ''
-                    });
+                    if (sharedMediaId) {
+                        await sendWhatsAppCloudMedia(
+                            phoneNumberId,
+                            waRecipient,
+                            { type: mediaType, mediaId: sharedMediaId, caption: text || '', filename: originalNameUtf8 },
+                            cloudApiToken
+                        )
+                        if (mediaType === 'audio' && text) {
+                            await sendWhatsAppCloudMessage(phoneNumberId, waRecipient, text, cloudApiToken)
+                        }
+                    } else {
+                        await sendWhatsAppCloudMessage(phoneNumberId, waRecipient, text || '', cloudApiToken)
+                    }
 
                     let textToSave = text || (req.file ? originalNameUtf8 : '');
                     if (mediaType === 'audio' && !text) textToSave = '';
                     const savedMsg = await prisma.message.create({
-                        data: { botId, sender: 'bot', text: textToSave, chatId: jid, mediaUrl, mediaType }
+                        data: { botId, channelId: waChannel.id, platform: 'WHATSAPP', sender: 'bot', text: textToSave, chatId: jid, mediaUrl, mediaType }
                     })
                     io.emit(`chat-${botId}`, savedMsg)
                     results.push({ chatId: jid, success: true })
 
-                    msgIndex++;
-                    // Anti-ban: wait between messages (8-25s normal, 1-3min every 15 msgs)
-                    const delay = broadcastDelay(msgIndex);
-                    console.log(`[AntiBan] 🕒 Waiting ${Math.round(delay/1000)}s before next recipient...`);
-                    await new Promise(r => setTimeout(r, delay));
-
+                    // Meta rate-limits the Cloud API; keep a modest gap between recipients.
+                    await new Promise(r => setTimeout(r, 1000));
                 } catch (err) {
                     results.push({ chatId: rawId, success: false, error: err.message })
                 }
@@ -1291,7 +1359,7 @@ router.post('/bot/:id/broadcast', upload.single('file'), async (req, res) => {
 })
 
 // POST resume AI for a specific chat (was paused per-chat before, kept for compat)
-router.post('/bot/:id/resume', async (req, res) => {
+router.post('/bot/:id/resume', requireAuth, requireBotOwnership, async (req, res) => {
     try {
         const prisma = getPrisma()
         const botId = Number(req.params.id)
@@ -1307,24 +1375,15 @@ router.post('/bot/:id/resume', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }) }
 })
 
-// POST start QR scan for WhatsApp bot
+// Legacy Baileys QR pairing. WhatsApp now connects through Meta Embedded Signup
+// (POST /api/integrations/whatsapp/connect); services/whatsapp.js no longer exists.
 router.post('/bot/:id/connect', async (req, res) => {
-    try {
-        const prisma = getPrisma()
-        const io = req.app.get('io')
-        const botId = Number(req.params.id)
-
-        const bot = await prisma.bot.findUnique({ where: { id: botId } })
-        if (!bot) return res.status(404).json({ error: 'Bot not found' })
-
-        const { startWhatsAppBot } = await import('../services/whatsapp.js')
-        startWhatsAppBot(bot, getPrisma(), io)
-
-        res.json({ success: true, message: 'Bot connecting, watch for QR event' })
-    } catch (e) { res.status(500).json({ error: e.message }) }
+    res.status(410).json({
+        error: 'QR pairing has been replaced by WhatsApp Cloud API. Connect the number via "Подключить WhatsApp" in the channel settings.'
+    })
 })
 // НОВЫЙ РОУТ ДЛЯ РУЧНОЙ ПРИВЯЗКИ НОМЕРА К LID
-router.post('/bot/:id/link-lid', async (req, res) => {
+router.post('/bot/:id/link-lid', requireAuth, requireBotOwnership, async (req, res) => {
     const { id } = req.params;
     const { lid, jid } = req.body;
     
@@ -1724,19 +1783,46 @@ router.post('/webhook/telegram/:slug', async (req, res) => {
 
 const igAccountToConfigMap = new Map(); // instagram_business_account_id -> { bot, channel }
 
+/**
+ * A platform account id (Instagram account, WhatsApp phone number) must resolve to exactly
+ * one bot, or inbound webhooks get answered with the wrong tenant's prompts. Meta allows an
+ * account to be moved between owners, which leaves the previous owner's row pointing at the
+ * same id — so on every (re)connect, strip the id from everyone else.
+ */
+async function claimInstagramAccountId(accountId, { channelId = null, botId = null } = {}) {
+    if (!accountId) return
+    const prisma = getPrisma()
+    await prisma.channel.updateMany({
+        where: { instagramUserId: accountId, ...(channelId ? { id: { not: channelId } } : {}) },
+        data: { instagramUserId: null }
+    })
+    await prisma.bot.updateMany({
+        where: { instagramUserId: accountId, ...(botId ? { id: { not: botId } } : {}) },
+        data: { instagramUserId: null }
+    })
+}
+export { claimInstagramAccountId }
+
 async function getChannelByInstagramAccountId(accountId) {
     const prisma = getPrisma();
     
-    // 1. Check cache
+    // 1. Check cache — but re-verify against the DB that the entry still belongs to THIS
+    //    account id. A channel reconnected to a different Instagram account would otherwise
+    //    keep answering for the previous owner, using the wrong bot's prompts.
     if (igAccountToConfigMap.has(accountId)) {
         const cached = igAccountToConfigMap.get(accountId);
         if (cached.channel) {
             const channel = await prisma.channel.findUnique({ where: { id: cached.channel.id }, include: { bot: true } });
-            if (channel && channel.isActive && channel.bot.isActive) return { bot: channel.bot, channel };
+            if (channel && channel.instagramUserId === accountId && channel.isActive && channel.bot.isActive) {
+                return { bot: channel.bot, channel };
+            }
         } else {
             const bot = await prisma.bot.findUnique({ where: { id: cached.bot.id } });
-            if (bot && bot.isActive) return { bot, channel: null };
+            if (bot && bot.instagramUserId === accountId && bot.isActive) {
+                return { bot, channel: null };
+            }
         }
+        igAccountToConfigMap.delete(accountId);
     }
 
     // 2. Direct database lookup by instagramUserId
@@ -1769,6 +1855,13 @@ async function getChannelByInstagramAccountId(accountId) {
                 const data = await response.json();
                 const igId = data.instagram_business_account?.id;
                 if (igId) {
+                    // Persist what the token proved, so step 2 resolves it directly next time
+                    // instead of re-scanning every tenant's channel on each message.
+                    if (channel.instagramUserId !== igId) {
+                        await claimInstagramAccountId(igId, { channelId: channel.id, botId: channel.botId })
+                        await prisma.channel.update({ where: { id: channel.id }, data: { instagramUserId: igId } })
+                        channel.instagramUserId = igId
+                    }
                     igAccountToConfigMap.set(igId, { bot: channel.bot, channel });
                     if (igId === accountId) {
                         return { bot: channel.bot, channel };
@@ -1793,6 +1886,11 @@ async function getChannelByInstagramAccountId(accountId) {
                 const data = await response.json();
                 const igId = data.instagram_business_account?.id;
                 if (igId) {
+                    if (bot.instagramUserId !== igId) {
+                        await claimInstagramAccountId(igId, { botId: bot.id })
+                        await prisma.bot.update({ where: { id: bot.id }, data: { instagramUserId: igId } })
+                        bot.instagramUserId = igId
+                    }
                     igAccountToConfigMap.set(igId, { bot, channel: null });
                     if (igId === accountId) {
                         return { bot, channel: null };
@@ -1804,33 +1902,26 @@ async function getChannelByInstagramAccountId(accountId) {
         }
     }
 
-    if (activeChannels.length > 0) {
-        console.log(`[Instagram] Fallback mapping to first active channel for account ${accountId}`);
-        return { bot: activeChannels[0].bot, channel: activeChannels[0] };
-    }
-    if (activeBots.length > 0) {
-        console.log(`[Instagram] Fallback mapping to first active legacy bot for account ${accountId}`);
-        return { bot: activeBots[0], channel: null };
-    }
-
+    // NEVER guess. Falling back to "the first active bot" answers this account's customer
+    // with a DIFFERENT TENANT's system_prompt and data_prompt, files the conversation under
+    // their bot, and bills their message balance. Dropping the message is the safe failure.
+    console.warn(`[Instagram] No bot is connected to Instagram account ${accountId} — message ignored. Reconnect the account so instagramUserId is stored.`);
     return null;
 }
 
 // ── WHATSAPP CLOUD API ────────────────────────────────────────
 
-const waAccountToConfigMap = new Map();
-
+// NOTE: deliberately NOT cached. isActive has to be read fresh on every webhook so that
+// switching a bot off in the UI takes effect immediately. The channel is returned even when
+// inactive so inbound messages still land in the inbox — the caller decides whether to reply.
 async function getChannelByWhatsAppPhoneNumberId(phoneNumberId) {
-    if (waAccountToConfigMap.has(phoneNumberId)) {
-        return waAccountToConfigMap.get(phoneNumberId);
-    }
     const prisma = getPrisma();
     const channel = await prisma.channel.findFirst({
-        where: { whatsappPhoneNumberId: phoneNumberId, isActive: true },
+        where: { whatsappPhoneNumberId: phoneNumberId },
+        orderBy: { updatedAt: 'desc' },
         include: { bot: true }
     });
     if (channel) {
-        waAccountToConfigMap.set(phoneNumberId, { bot: channel.bot, channel });
         return { bot: channel.bot, channel };
     }
     return null;
@@ -1863,9 +1954,24 @@ router.post('/integrations/whatsapp/connect', requireAuth, async (req, res) => {
         
         // Use the system user permanent token for sending messages (short-lived user token expires)
         const systemToken = process.env.WA_SYSTEM_USER_TOKEN;
-        
-        // 5. Save to DB
+
+        // 5. Save to DB.
+        // First release this phone number from any other bot that still claims it — a number
+        // can be moved between businesses (and Meta test numbers get reused constantly). A
+        // leftover row would make the webhook resolve to the wrong tenant's bot, answering
+        // with their system_prompt/data_prompt and spending their message balance.
         let channel = await prisma.channel.findFirst({ where: { botId: bot.id, platform: 'WHATSAPP' } });
+        const stale = await prisma.channel.updateMany({
+            where: {
+                whatsappPhoneNumberId: phoneNumberId,
+                ...(channel ? { id: { not: channel.id } } : {})
+            },
+            data: { whatsappPhoneNumberId: null, whatsappWabaId: null, isActive: false }
+        });
+        if (stale.count > 0) {
+            console.warn(`[WhatsApp Cloud] Released phone number ${phoneNumberId} from ${stale.count} previously connected channel(s).`);
+        }
+
         if (channel) {
             channel = await prisma.channel.update({
                 where: { id: channel.id },
@@ -1943,19 +2049,74 @@ router.post('/webhook/whatsapp-cloud', async (req, res) => {
                 const phoneNumberId = value.metadata.phone_number_id;
                 const messageObj = value.messages[0];
                 const senderId = messageObj.from;
-                const messageText = messageObj.text?.body || '';
 
-                if (!phoneNumberId || !senderId || !messageText) continue;
+                if (!phoneNumberId || !senderId) continue;
 
                 const config = await getChannelByWhatsAppPhoneNumberId(phoneNumberId);
                 if (!config) {
-                    console.log(`[WhatsApp Cloud] Active bot not found for phone_number_id: ${phoneNumberId}`);
+                    console.log(`[WhatsApp Cloud] Bot not found for phone_number_id: ${phoneNumberId}`);
                     continue;
                 }
                 const { bot, channel } = config;
-                const tokenToUse = channel.apiToken;
+                const tokenToUse = channel.apiToken || process.env.WA_SYSTEM_USER_TOKEN;
 
-                console.log(`[WhatsApp Bot ${bot.id}] Message from ${senderId}: ${messageText}`);
+                // ── Resolve text + media ────────────────────────────────
+                // Media arrives as an id only; it has to be downloaded from the Graph API
+                // and mirrored into /uploads so the operator UI can render it.
+                let messageText = messageObj.text?.body || messageObj[messageObj.type]?.caption || '';
+                let mediaUrl = null;
+                let mediaType = null;
+                let waAudioBuffer = null;
+                let waAudioMime = null;
+
+                const { downloadWhatsAppMedia, waTypeToMediaType } = await import('../services/whatsapp-cloud.js');
+                const resolvedMediaType = waTypeToMediaType(messageObj.type);
+
+                if (resolvedMediaType) {
+                    const mediaNode = messageObj[messageObj.type];
+                    const mediaId = mediaNode?.id;
+                    if (mediaId) {
+                        try {
+                            const { buffer, mimeType } = await downloadWhatsAppMedia(mediaId, tokenToUse);
+
+                            const originalName = mediaNode.filename || '';
+                            // Extension is attacker-controlled (sender-supplied filename) — keep only
+                            // word chars so it can never influence the path we write to.
+                            let ext = originalName ? path.extname(originalName).replace(/[^\w.]/g, '') : '';
+                            if (!ext || ext === '.') {
+                                const subtype = String(mimeType).split(';')[0].split('/')[1] || 'bin';
+                                ext = '.' + (subtype === 'jpeg' ? 'jpg' : subtype).replace(/[^\w]/g, '');
+                            }
+                            const prefixMap = { image: 'wa_image', audio: 'wa_audio', video: 'wa_video', document: 'wa_doc' };
+                            const filename = `${prefixMap[resolvedMediaType]}_${Date.now()}_${Math.floor(Math.random() * 1000)}${ext}`;
+                            fs.writeFileSync(path.join(__dirname, '../../uploads', filename), buffer);
+
+                            mediaUrl = `/uploads/${filename}`;
+                            mediaType = resolvedMediaType;
+
+                            if (resolvedMediaType === 'audio') {
+                                // Let Gemini actually listen to the voice note, and keep an [AUDIO]
+                                // marker in the transcript so history is never empty (mirrors Telegram).
+                                waAudioBuffer = buffer;
+                                waAudioMime = String(mimeType).split(';')[0].trim();
+                                const audioTag = `[AUDIO]${mediaUrl}`;
+                                messageText = messageText ? `${messageText}\n${audioTag}` : audioTag;
+                            } else if (resolvedMediaType === 'document' && !messageText) {
+                                messageText = originalName || 'Документ';
+                            }
+                        } catch (mediaErr) {
+                            console.error(`[WhatsApp Bot ${bot.id}] Media download failed (${messageObj.type}):`, mediaErr.message);
+                        }
+                    }
+                }
+
+                // Unsupported payloads (reactions, system notices) carry nothing to store.
+                if (!messageText && !mediaUrl) {
+                    console.log(`[WhatsApp Bot ${bot.id}] Skipping unsupported message type: ${messageObj.type}`);
+                    continue;
+                }
+
+                console.log(`[WhatsApp Bot ${bot.id}] Message from ${senderId} (${messageObj.type}): ${messageText}`);
 
                 // 1. Upsert Contact
                 let contact = await prisma.contact.findUnique({ where: { botId_chatId: { botId: bot.id, chatId: senderId } } });
@@ -1968,12 +2129,33 @@ router.post('/webhook/whatsapp-cloud', async (req, res) => {
 
                 // 2. Save user message
                 const userMsg = await prisma.message.create({
-                    data: { botId: bot.id, channelId: channel.id, platform: 'WHATSAPP', sender: 'user', text: messageText, chatId: senderId }
+                    data: { botId: bot.id, channelId: channel.id, platform: 'WHATSAPP', sender: 'user', text: messageText, chatId: senderId, mediaUrl, mediaType }
                 });
                 io.emit(`chat-${bot.id}`, userMsg);
 
-                // Skip if chat is paused
-                if ((bot.pausedChats || []).includes(senderId)) continue;
+                // Re-read state fresh: the bot/channel may have been switched off after this
+                // webhook started, and `bot`/`channel` above are a snapshot. The message stays
+                // in the inbox either way — only the AI auto-reply is suppressed.
+                const freshBot = await prisma.bot.findUnique({
+                    where: { id: bot.id },
+                    select: { isActive: true, pausedChats: true }
+                });
+                if (!freshBot?.isActive) {
+                    console.log(`[WhatsApp Bot ${bot.id}] Bot is OFF — message stored, no auto-reply.`);
+                    continue;
+                }
+
+                const freshChannel = await prisma.channel.findUnique({
+                    where: { id: channel.id },
+                    select: { isActive: true }
+                });
+                if (!freshChannel?.isActive) {
+                    console.log(`[WhatsApp Bot ${bot.id}] Channel ${channel.id} is OFF — message stored, no auto-reply.`);
+                    continue;
+                }
+
+                // Skip if chat is paused (handed off to a human operator)
+                if ((freshBot.pausedChats || []).includes(senderId)) continue;
 
                 // 3. Check balance
                 const canProceed = await hasEnoughMessages(bot.user_id);
@@ -2019,20 +2201,20 @@ router.post('/webhook/whatsapp-cloud', async (req, res) => {
                         googleCalendarId: bot.googleCalendarId
                     };
                     const geminiResult = await generateGeminiResponse(
-                        userMessage, 
-                        history, 
-                        sysInstruction, 
-                        bot.data_prompt || '', 
-                        null, 
-                        null, 
+                        userMessage,
+                        history,
+                        sysInstruction,
+                        bot.data_prompt || '',
+                        waAudioBuffer,
+                        waAudioMime,
                         integrationConfig
                     );
                     aiResponseText = geminiResult.text;
                     inputTokens = geminiResult.inputTokens;
                     outputTokens = geminiResult.outputTokens;
-                    
+
                     if (geminiResult.shouldPauseChat) {
-                        let pausedChats = bot.pausedChats || [];
+                        let pausedChats = freshBot.pausedChats || [];
                         if (!pausedChats.includes(senderId)) {
                             pausedChats.push(senderId);
                             await prisma.bot.update({
@@ -2042,28 +2224,40 @@ router.post('/webhook/whatsapp-cloud', async (req, res) => {
                         }
                         aiResponseText = geminiResult.text + '\n\n*Чат переведён на менеджера*';
                     }
-                    
+
                     // Deduct balance
                     if (inputTokens > 0 || outputTokens > 0) {
-                        await deductMessageAndLogTokens(bot.user_id, bot.id, channel.id, inputTokens, outputTokens);
+                        await trackUsage({
+                            userId: bot.user_id,
+                            botId: bot.id,
+                            provider: 'vertex-ai',
+                            model: geminiResult.model,
+                            inputTokens,
+                            outputTokens
+                        });
                     }
                 } catch (e) {
                     console.error(`[WhatsApp Bot ${bot.id}] Gemini Error:`, e);
                 }
 
-                // 6. Send reply via WhatsApp Cloud
+                // 6. Send reply via WhatsApp Cloud. Only persist it if it actually left —
+                //    otherwise the operator sees a reply the customer never received.
+                let replySent = false;
                 try {
                     const { sendWhatsAppCloudMessage } = await import('../services/whatsapp-cloud.js');
                     await sendWhatsAppCloudMessage(phoneNumberId, senderId, aiResponseText, tokenToUse);
+                    replySent = true;
                 } catch (e) {
                     console.error(`[WhatsApp Bot ${bot.id}] Failed to send reply:`, e.message);
                 }
 
                 // 7. Save bot message
-                const botMsg = await prisma.message.create({
-                    data: { botId: bot.id, channelId: channel.id, platform: 'WHATSAPP', sender: 'bot', text: aiResponseText, chatId: senderId }
-                });
-                io.emit(`chat-${bot.id}`, botMsg);
+                if (replySent) {
+                    const botMsg = await prisma.message.create({
+                        data: { botId: bot.id, channelId: channel.id, platform: 'WHATSAPP', sender: 'bot', text: aiResponseText, chatId: senderId }
+                    });
+                    io.emit(`chat-${bot.id}`, botMsg);
+                }
             }
         }
     } catch (e) {
@@ -2155,8 +2349,29 @@ router.post('/webhook/instagram', async (req, res) => {
                 });
                 io.emit(`chat-${bot.id}`, userMsg);
 
+                // Re-read state fresh: `bot`/`channel` come from igAccountToConfigMap, which is
+                // never invalidated, so a bot switched off in the UI would otherwise keep replying.
+                const freshIgBot = await prisma.bot.findUnique({
+                    where: { id: bot.id },
+                    select: { isActive: true, pausedChats: true }
+                });
+                if (!freshIgBot?.isActive) {
+                    console.log(`[Instagram Bot ${bot.id}] Bot is OFF — message stored, no auto-reply.`);
+                    continue;
+                }
+                if (channel) {
+                    const freshIgChannel = await prisma.channel.findUnique({
+                        where: { id: channel.id },
+                        select: { isActive: true }
+                    });
+                    if (!freshIgChannel?.isActive) {
+                        console.log(`[Instagram Bot ${bot.id}] Channel ${channel.id} is OFF — message stored, no auto-reply.`);
+                        continue;
+                    }
+                }
+
                 // Skip if chat is paused
-                if ((bot.pausedChats || []).includes(senderId)) continue;
+                if ((freshIgBot.pausedChats || []).includes(senderId)) continue;
 
                 // 3. Check balance
                 const canProceed = await hasEnoughMessages(bot.user_id);
@@ -2320,7 +2535,7 @@ router.post('/bot/:id/instagram-subscribe', requireAuth, async (req, res) => {
     }
 });
 
-router.post('/bot/:id/upload-pdf', requireAuth, upload.single('file'), async (req, res) => {
+router.post('/bot/:id/upload-pdf', requireAuth, requireBotOwnership, upload.single('file'), async (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'No file uploaded' })
         const botId = req.params.id;
