@@ -21,6 +21,12 @@ ENV NEXT_PUBLIC_WA_APP_ID=$NEXT_PUBLIC_WA_APP_ID
 ARG NEXT_PUBLIC_WA_CONFIG_ID
 ENV NEXT_PUBLIC_WA_CONFIG_ID=$NEXT_PUBLIC_WA_CONFIG_ID
 
+# Facebook JS SDK version used by the Embedded Signup dialog. Must be set at build time —
+# Next.js inlines NEXT_PUBLIC_* into the bundle during `npm run build`, so setting it only
+# at runtime would leave the old value baked into the page.
+ARG NEXT_PUBLIC_FB_SDK_VERSION
+ENV NEXT_PUBLIC_FB_SDK_VERSION=$NEXT_PUBLIC_FB_SDK_VERSION
+
 
 # Copy package files
 COPY package*.json ./

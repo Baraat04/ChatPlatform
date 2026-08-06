@@ -1,6 +1,15 @@
 // Uses Node 20's global fetch/FormData/Blob — node-fetch is not a declared dependency.
 
-const GRAPH_API_VERSION = 'v21.0';
+// Overridable so the Graph version can be raised without a code change. Keep this in step
+// with the version selected for each webhook topic in the App Dashboard — Meta sends the
+// payload shape of the *subscription's* version, not of the version we call.
+const GRAPH_API_VERSION = process.env.GRAPH_API_VERSION || 'v21.0';
+
+// Coexistence endpoints (/smb_app_data) postdate v21.0, so calling them on the version
+// above would fail as an unknown edge. They get their own, newer version rather than
+// raising GRAPH_API_VERSION globally — message sending works on v21.0 today and there is
+// no test suite to catch a regression from moving it.
+const SMB_GRAPH_API_VERSION = process.env.SMB_GRAPH_API_VERSION || 'v23.0';
 
 export async function exchangeCodeForToken(code) {
     const appId = process.env.WA_APP_ID;
@@ -247,6 +256,37 @@ export async function downloadWhatsAppMedia(mediaId, accessToken) {
 
     const buffer = Buffer.from(await binRes.arrayBuffer());
     return { buffer, mimeType: meta.mime_type || 'application/octet-stream', sha256: meta.sha256 };
+}
+
+/**
+ * Coexistence only: ask Meta to push the business's existing WhatsApp Business app data
+ * into our webhook. `sync_type` is 'history' (past conversations) or 'smb_app_state_sync'
+ * (contacts). Meta allows each of these **once per onboarding** — there is no retry, so the
+ * returned request_id is logged for support if the follow-up webhooks never arrive.
+ *
+ * Fails soft: a business that declined history sharing, or a number that isn't a
+ * Coexistence number, must not break an otherwise successful connect.
+ */
+export async function syncSmbAppData(phoneNumberId, syncType, accessToken) {
+    const url = `https://graph.facebook.com/${SMB_GRAPH_API_VERSION}/${phoneNumberId}/smb_app_data`;
+
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`
+        },
+        body: JSON.stringify({ messaging_product: 'whatsapp', sync_type: syncType })
+    });
+
+    const data = await response.json();
+    if (data.error) {
+        console.error(`[WhatsApp Cloud] smb_app_data (${syncType}) failed:`, data.error);
+        throw graphError(`Failed to start ${syncType} sync`, data.error);
+    }
+
+    console.log(`[WhatsApp Cloud] ${syncType} sync requested for ${phoneNumberId}, request_id=${data.request_id}`);
+    return data;
 }
 
 /** Map a WhatsApp inbound message type to our Message.mediaType vocabulary. */

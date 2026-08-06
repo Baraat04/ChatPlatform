@@ -857,6 +857,10 @@ router.post('/bot/:id/send', requireAuth, requireBotOwnership, upload.single('fi
         let mediaUrl = null;
         let mediaType = null;
         let filePath = null;
+        // WhatsApp message id of what we just sent. Under Coexistence the same message is
+        // echoed back to our webhook; storing the id lets the echo handler recognise it
+        // instead of adding a second copy to the transcript.
+        let sentWamid = null;
 
         let originalNameUtf8 = req.file ? req.file.originalname : '';
         if (req.file) {
@@ -1012,7 +1016,8 @@ router.post('/bot/:id/send', requireAuth, requireBotOwnership, upload.single('fi
                         { type: waType, mediaId, caption: text || '', filename: originalNameUtf8 },
                         cloudApiToken
                     );
-                    console.log(`[SendRoute] ✅ ${waType} delivered to ${waRecipient}, msgId=${sendResult?.messages?.[0]?.id}`);
+                    sentWamid = sendResult?.messages?.[0]?.id || null;
+                    console.log(`[SendRoute] ✅ ${waType} delivered to ${waRecipient}, msgId=${sentWamid}`);
 
                     // WhatsApp drops captions on audio, so send any accompanying text separately.
                     if (waType === 'audio' && text) {
@@ -1020,7 +1025,8 @@ router.post('/bot/:id/send', requireAuth, requireBotOwnership, upload.single('fi
                     }
                 } else {
                     const sendResult = await sendWhatsAppCloudMessage(phoneNumberId, waRecipient, text || '', cloudApiToken);
-                    console.log(`[SendRoute] ✅ Message delivered to ${waRecipient}, msgId=${sendResult?.messages?.[0]?.id}`);
+                    sentWamid = sendResult?.messages?.[0]?.id || null;
+                    console.log(`[SendRoute] ✅ Message delivered to ${waRecipient}, msgId=${sentWamid}`);
                 }
             } catch (err) {
                 console.error(`[SendRoute] ❌ WhatsApp Cloud send FAILED for ${waRecipient}:`, err.message);
@@ -1112,7 +1118,7 @@ router.post('/bot/:id/send', requireAuth, requireBotOwnership, upload.single('fi
         let textToSave = text || (req.file ? originalNameUtf8 : '');
         if (mediaType === 'audio' && !text) textToSave = '';
         const savedMsg = await prisma.message.create({
-            data: { botId, channelId, platform, sender: 'bot', text: textToSave, chatId, mediaUrl, mediaType }
+            data: { botId, channelId, platform, sender: 'bot', text: textToSave, chatId, mediaUrl, mediaType, waMessageId: sentWamid }
         })
 
         io.emit(`chat-${botId}`, { ...savedMsg, platform })
@@ -1237,24 +1243,29 @@ router.post('/bot/:id/broadcast', requireAuth, requireBotOwnership, upload.singl
                     const waRecipient = toWaId(jid)
                     if (!waRecipient) throw new Error(`Cannot resolve a WhatsApp number from "${rawId}"`)
 
+                    // Keep the wamid so the Coexistence echo of this broadcast is recognised
+                    // and not stored a second time.
+                    let broadcastWamid = null;
                     if (sharedMediaId) {
-                        await sendWhatsAppCloudMedia(
+                        const mediaResult = await sendWhatsAppCloudMedia(
                             phoneNumberId,
                             waRecipient,
                             { type: mediaType, mediaId: sharedMediaId, caption: text || '', filename: originalNameUtf8 },
                             cloudApiToken
                         )
+                        broadcastWamid = mediaResult?.messages?.[0]?.id || null;
                         if (mediaType === 'audio' && text) {
                             await sendWhatsAppCloudMessage(phoneNumberId, waRecipient, text, cloudApiToken)
                         }
                     } else {
-                        await sendWhatsAppCloudMessage(phoneNumberId, waRecipient, text || '', cloudApiToken)
+                        const textResult = await sendWhatsAppCloudMessage(phoneNumberId, waRecipient, text || '', cloudApiToken)
+                        broadcastWamid = textResult?.messages?.[0]?.id || null;
                     }
 
                     let textToSave = text || (req.file ? originalNameUtf8 : '');
                     if (mediaType === 'audio' && !text) textToSave = '';
                     const savedMsg = await prisma.message.create({
-                        data: { botId, channelId: waChannel.id, platform: 'WHATSAPP', sender: 'bot', text: textToSave, chatId: jid, mediaUrl, mediaType }
+                        data: { botId, channelId: waChannel.id, platform: 'WHATSAPP', sender: 'bot', text: textToSave, chatId: jid, mediaUrl, mediaType, waMessageId: broadcastWamid }
                     })
                     io.emit(`chat-${botId}`, savedMsg)
                     results.push({ chatId: jid, success: true })
@@ -1936,7 +1947,7 @@ router.post('/integrations/whatsapp/connect', requireAuth, async (req, res) => {
         const bot = await prisma.bot.findUnique({ where: { id: Number(botId), user_id: req.session.userId } });
         if (!bot) return res.status(404).json({ error: 'Bot not found' });
 
-        const { exchangeCodeForToken, getWabaAndPhone, registerPhone, subscribeWabaToWebhook } = await import('../services/whatsapp-cloud.js');
+        const { exchangeCodeForToken, getWabaAndPhone, registerPhone, subscribeWabaToWebhook, syncSmbAppData } = await import('../services/whatsapp-cloud.js');
         
         // 1. Exchange token (gets short-lived user token)
         const userAccessToken = await exchangeCodeForToken(code);
@@ -1999,7 +2010,20 @@ router.post('/integrations/whatsapp/connect', requireAuth, async (req, res) => {
         // Also activate the bot itself
         await prisma.bot.update({ where: { id: bot.id }, data: { isActive: true } });
 
-        
+        // 6. Coexistence only: pull in the contacts and chat history that already exist in
+        //    the owner's WhatsApp Business app. Meta allows each sync exactly once per
+        //    onboarding, and the data arrives later as `smb_app_state_sync` / `history`
+        //    webhooks. A number that isn't a Coexistence number, or an owner who declined
+        //    to share history, makes these fail — which must not fail the whole connect,
+        //    since the channel above is already saved and working.
+        for (const syncType of ['smb_app_state_sync', 'history']) {
+            try {
+                await syncSmbAppData(phoneNumberId, syncType, systemToken);
+            } catch (syncErr) {
+                console.warn(`[WhatsApp Cloud] ${syncType} sync unavailable for ${phoneNumberId}: ${syncErr.message}`);
+            }
+        }
+
         res.json({ success: true, channel });
     } catch (e) {
         console.error('WhatsApp Connect error:', e);
@@ -2023,6 +2047,215 @@ router.get('/webhook/whatsapp-cloud', async (req, res) => {
     return res.sendStatus(403);
 });
 
+// ── Coexistence webhook handlers ────────────────────────────────────────────
+// With Coexistence the business keeps using WhatsApp on their phone while the number is
+// also on the Cloud API, so Meta reports three extra event types. None of them may reach
+// the AI reply path: they describe messages that were *already sent*, so answering them
+// would make the bot reply to itself, deduct from the owner's balance, and loop.
+
+/**
+ * `smb_message_echoes` — the owner sent a message from their own phone (or a companion
+ * device). Stored as sender:'bot' so the shared inbox and the AI's history stay complete.
+ *
+ * Deduped on the wamid: when the operator sends from up-chat, that message is saved by the
+ * send route *and* echoed back here, which would otherwise show twice in the transcript and
+ * halve the effective context window (history is the last 20 rows).
+ */
+async function handleSmbMessageEchoes(value, io) {
+    const prisma = getPrisma();
+    const phoneNumberId = value?.metadata?.phone_number_id;
+    const echoes = value?.message_echoes || [];
+    if (!phoneNumberId || echoes.length === 0) return;
+
+    const config = await getChannelByWhatsAppPhoneNumberId(phoneNumberId);
+    if (!config) {
+        console.log(`[WhatsApp Echo] No bot for phone_number_id: ${phoneNumberId}`);
+        return;
+    }
+    const { bot, channel } = config;
+
+    for (const echo of echoes) {
+        // `to` is the customer — `from` is the business's own number, so it must not be
+        // used as chatId or every outbound message would land in one bogus thread.
+        const chatId = echo.to;
+        const wamid = echo.id;
+        if (!chatId || !wamid) continue;
+
+        const already = await prisma.message.findFirst({
+            where: { botId: bot.id, waMessageId: wamid },
+            select: { id: true }
+        });
+        if (already) continue;
+
+        const text = echo.text?.body || echo[echo.type]?.caption || '';
+        const mediaType = waTypeToMediaTypeSafe(echo.type);
+        // Echo media is referenced by id only. Storing the text/type keeps the transcript
+        // readable; downloading the bytes is a separate concern and not attempted here.
+        const storedText = text || (mediaType ? `[${mediaType}]` : '');
+        if (!storedText) continue;
+
+        const msg = await prisma.message.create({
+            data: {
+                botId: bot.id,
+                channelId: channel.id,
+                platform: 'WHATSAPP',
+                sender: 'bot',
+                text: storedText,
+                chatId,
+                mediaType,
+                waMessageId: wamid
+            }
+        });
+        io.emit(`chat-${bot.id}`, msg);
+        console.log(`[WhatsApp Echo] Stored owner message to ${chatId} (bot ${bot.id})`);
+    }
+}
+
+/**
+ * `smb_app_state_sync` — the business's WhatsApp contacts. Arrives after the one-time
+ * sync request at connect, and again whenever they add/edit/remove a contact on the phone.
+ */
+async function handleSmbAppStateSync(value, io) {
+    const prisma = getPrisma();
+    const phoneNumberId = value?.metadata?.phone_number_id;
+    const entries = value?.state_sync || [];
+    if (!phoneNumberId || entries.length === 0) return;
+
+    const config = await getChannelByWhatsAppPhoneNumberId(phoneNumberId);
+    if (!config) {
+        console.log(`[WhatsApp StateSync] No bot for phone_number_id: ${phoneNumberId}`);
+        return;
+    }
+    const { bot } = config;
+
+    for (const item of entries) {
+        if (item.type !== 'contact') continue;
+        const chatId = item.contact?.phone_number;
+        if (!chatId) continue;
+
+        // 'remove' only means they deleted it from their phonebook — the conversation and
+        // its messages stay. Renaming to the raw number keeps the thread intact.
+        const name = item.action === 'remove'
+            ? `WA User ${chatId}`
+            : (item.contact.full_name || item.contact.first_name || `WA User ${chatId}`);
+
+        const contact = await prisma.contact.upsert({
+            where: { botId_chatId: { botId: bot.id, chatId } },
+            update: { name },
+            create: { botId: bot.id, chatId, name }
+        });
+        io.emit(`contact-update-${bot.id}`, contact);
+    }
+    console.log(`[WhatsApp StateSync] Synced ${entries.length} contact change(s) for bot ${bot.id}`);
+}
+
+/**
+ * `history` — past conversations from the business's phone, delivered as a series of
+ * webhooks after the one-time sync request.
+ *
+ * Meta's docs describe the payload as message threads but do not pin down the field names,
+ * and media arrives as a placeholder followed by a second webhook. So this reads the shape
+ * defensively and logs anything it doesn't recognise rather than guessing — check the log
+ * after the first real sync and tighten it to whatever actually arrives.
+ */
+async function handleHistorySync(value, io) {
+    const prisma = getPrisma();
+    const phoneNumberId = value?.metadata?.phone_number_id;
+    if (!phoneNumberId) return;
+
+    // Documented failure: the business declined to share their history.
+    const errors = value?.errors || value?.history?.errors;
+    if (Array.isArray(errors) && errors.some(e => String(e.code) === '2593109')) {
+        console.log(`[WhatsApp History] Business declined history sharing for ${phoneNumberId}.`);
+        return;
+    }
+
+    const config = await getChannelByWhatsAppPhoneNumberId(phoneNumberId);
+    if (!config) {
+        console.log(`[WhatsApp History] No bot for phone_number_id: ${phoneNumberId}`);
+        return;
+    }
+    const { bot, channel } = config;
+
+    const threads = value?.history?.[0]?.threads || value?.history?.threads || value?.threads;
+    if (!Array.isArray(threads)) {
+        console.warn('[WhatsApp History] Unrecognised payload shape — nothing imported. Raw value:',
+            JSON.stringify(value).slice(0, 2000));
+        return;
+    }
+
+    let imported = 0;
+    for (const thread of threads) {
+        const chatId = thread.id || thread.wa_id || thread.contact_id;
+        if (!chatId) continue;
+
+        for (const m of (thread.messages || [])) {
+            const wamid = m.id;
+            if (!wamid) continue;
+
+            const already = await prisma.message.findFirst({
+                where: { botId: bot.id, waMessageId: wamid },
+                select: { id: true }
+            });
+            if (already) continue;
+
+            const text = m.text?.body || m[m.type]?.caption || '';
+            const mediaType = waTypeToMediaTypeSafe(m.type);
+            const storedText = text || (mediaType ? `[${mediaType}]` : '');
+            if (!storedText) continue;
+
+            // `from` equal to the business number means the owner wrote it.
+            const isFromBusiness = m.from && value.metadata.display_phone_number
+                && String(m.from).replace(/\D/g, '') === String(value.metadata.display_phone_number).replace(/\D/g, '');
+
+            await prisma.message.create({
+                data: {
+                    botId: bot.id,
+                    channelId: channel.id,
+                    platform: 'WHATSAPP',
+                    sender: isFromBusiness ? 'bot' : 'user',
+                    text: storedText,
+                    chatId,
+                    mediaType,
+                    waMessageId: wamid,
+                    // Imported conversations must keep their real timestamps, otherwise the
+                    // whole history stacks up at "now" and the transcript order is wrong.
+                    ...(m.timestamp ? { createdAt: new Date(Number(m.timestamp) * 1000) } : {})
+                }
+            });
+            imported++;
+        }
+
+        const existingContact = await prisma.contact.findUnique({
+            where: { botId_chatId: { botId: bot.id, chatId } }
+        });
+        if (!existingContact) {
+            const contact = await prisma.contact.create({
+                data: { botId: bot.id, chatId, name: thread.name || `WA User ${chatId}` }
+            });
+            io.emit(`contact-update-${bot.id}`, contact);
+        }
+    }
+
+    if (imported > 0) {
+        io.emit(`chat-${bot.id}`, { historyImported: imported });
+        console.log(`[WhatsApp History] Imported ${imported} message(s) for bot ${bot.id}`);
+    }
+}
+
+/** waTypeToMediaType without importing the module on every echo. */
+function waTypeToMediaTypeSafe(waType) {
+    switch (waType) {
+        case 'image':
+        case 'sticker': return 'image';
+        case 'audio':
+        case 'voice': return 'audio';
+        case 'video': return 'video';
+        case 'document': return 'document';
+        default: return null;
+    }
+}
+
 // POST — WhatsApp Cloud incoming messages
 router.post('/webhook/whatsapp-cloud', async (req, res) => {
     res.status(200).send('EVENT_RECEIVED'); // Always respond 200 immediately
@@ -2042,6 +2275,25 @@ router.post('/webhook/whatsapp-cloud', async (req, res) => {
 
         for (const entry of (body.entry || [])) {
             for (const change of (entry.changes || [])) {
+                // Coexistence events describe messages that already went out. They are
+                // stored for the inbox and then dropped — never fed to the AI reply path
+                // below, which would answer our own message and bill the owner for it.
+                if (change.field === 'smb_message_echoes') {
+                    try { await handleSmbMessageEchoes(change.value, io); }
+                    catch (e) { console.error('[WhatsApp Echo] handler failed:', e); }
+                    continue;
+                }
+                if (change.field === 'smb_app_state_sync') {
+                    try { await handleSmbAppStateSync(change.value, io); }
+                    catch (e) { console.error('[WhatsApp StateSync] handler failed:', e); }
+                    continue;
+                }
+                if (change.field === 'history') {
+                    try { await handleHistorySync(change.value, io); }
+                    catch (e) { console.error('[WhatsApp History] handler failed:', e); }
+                    continue;
+                }
+
                 if (change.field !== 'messages') continue;
                 const value = change.value;
                 if (!value || !value.messages || value.messages.length === 0) continue;
@@ -2127,9 +2379,23 @@ router.post('/webhook/whatsapp-cloud', async (req, res) => {
                     io.emit(`contact-update-${bot.id}`, contact);
                 }
 
-                // 2. Save user message
+                // 2. Save user message.
+                // Meta redelivers a webhook it considers unacknowledged, and with Coexistence
+                // the same message can also arrive through the history sync — so store the
+                // wamid and skip anything already recorded rather than duplicating the thread.
+                if (messageObj.id) {
+                    const duplicate = await prisma.message.findFirst({
+                        where: { botId: bot.id, waMessageId: messageObj.id },
+                        select: { id: true }
+                    });
+                    if (duplicate) {
+                        console.log(`[WhatsApp Bot ${bot.id}] Duplicate message ${messageObj.id} ignored.`);
+                        continue;
+                    }
+                }
+
                 const userMsg = await prisma.message.create({
-                    data: { botId: bot.id, channelId: channel.id, platform: 'WHATSAPP', sender: 'user', text: messageText, chatId: senderId, mediaUrl, mediaType }
+                    data: { botId: bot.id, channelId: channel.id, platform: 'WHATSAPP', sender: 'user', text: messageText, chatId: senderId, mediaUrl, mediaType, waMessageId: messageObj.id || null }
                 });
                 io.emit(`chat-${bot.id}`, userMsg);
 
@@ -2243,9 +2509,13 @@ router.post('/webhook/whatsapp-cloud', async (req, res) => {
                 // 6. Send reply via WhatsApp Cloud. Only persist it if it actually left —
                 //    otherwise the operator sees a reply the customer never received.
                 let replySent = false;
+                let replyWamid = null;
                 try {
                     const { sendWhatsAppCloudMessage } = await import('../services/whatsapp-cloud.js');
-                    await sendWhatsAppCloudMessage(phoneNumberId, senderId, aiResponseText, tokenToUse);
+                    const sendResult = await sendWhatsAppCloudMessage(phoneNumberId, senderId, aiResponseText, tokenToUse);
+                    // Keep the wamid: with Coexistence this same message comes back as an
+                    // smb_message_echo, and the echo handler skips ids we already stored.
+                    replyWamid = sendResult?.messages?.[0]?.id || null;
                     replySent = true;
                 } catch (e) {
                     console.error(`[WhatsApp Bot ${bot.id}] Failed to send reply:`, e.message);
@@ -2254,7 +2524,7 @@ router.post('/webhook/whatsapp-cloud', async (req, res) => {
                 // 7. Save bot message
                 if (replySent) {
                     const botMsg = await prisma.message.create({
-                        data: { botId: bot.id, channelId: channel.id, platform: 'WHATSAPP', sender: 'bot', text: aiResponseText, chatId: senderId }
+                        data: { botId: bot.id, channelId: channel.id, platform: 'WHATSAPP', sender: 'bot', text: aiResponseText, chatId: senderId, waMessageId: replyWamid }
                     });
                     io.emit(`chat-${bot.id}`, botMsg);
                 }

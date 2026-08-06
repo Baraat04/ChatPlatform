@@ -50,6 +50,13 @@ services:
       WA_CONFIG_ID: "1033776592591389"
       WA_SYSTEM_USER_TOKEN: "EAAMJZCcYNsucBSHemw2JImGByl2UoZBFjptb3wkRSZC3KIS5EQf5FNxVBZB6AzWr5CNZASctjYZAsCQ4BIiysdNueBMzxfeLAMPV8C270koYI07ZBFmt1suCiMZAzIhSDnA11At19QabPb2lw1HabHa1FhowU0UfQMOTuXihuOJjAfJcvHeEXu6XWT5OcJZCxRwZDZD"
       WA_WEBHOOK_VERIFY_TOKEN: "up_chat_wa_verify_9k2m4"
+      # Graph version for normal WhatsApp calls (send, media, connect). Left at the version
+      # that is known to work — raise deliberately, there is no test suite to catch a break.
+      GRAPH_API_VERSION: "v21.0"
+      # Coexistence only (/smb_app_data). Must stay newer than the above: that endpoint does
+      # not exist on v21.0. Keep in step with the version chosen for the history /
+      # smb_app_state_sync / smb_message_echoes webhook topics in the Meta App Dashboard.
+      SMB_GRAPH_API_VERSION: "v23.0"
     volumes:
       - /docker/shared/chatplatform/sessions:/app/sessions
       - /docker/shared/chatplatform/uploads:/app/uploads
@@ -76,6 +83,9 @@ services:
         NEXT_PUBLIC_INSTAGRAM_REDIRECT_URI: "https://api.up-chat.com/auth/instagram/callback"
         NEXT_PUBLIC_WA_APP_ID: "855410484294375"
         NEXT_PUBLIC_WA_CONFIG_ID: "1033776592591389"
+        # Embedded Signup dialog version. v21.0 predates Coexistence, so the dialog would
+        # only ever offer "enter a new phone number". Raise this if it still does.
+        NEXT_PUBLIC_FB_SDK_VERSION: "v23.0"
     container_name: chatplatform_frontend
     restart: always
     depends_on:
@@ -87,6 +97,7 @@ services:
       NEXT_PUBLIC_INSTAGRAM_REDIRECT_URI: "https://api.up-chat.com/auth/instagram/callback"
       NEXT_PUBLIC_WA_APP_ID: "855410484294375"
       NEXT_PUBLIC_WA_CONFIG_ID: "1033776592591389"
+      NEXT_PUBLIC_FB_SDK_VERSION: "v23.0"
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=traefik-proxy"

@@ -48,7 +48,10 @@ export default function RootLayout({
                   appId      : '${process.env.NEXT_PUBLIC_WA_APP_ID}',
                   cookie     : true,
                   xfbml      : true,
-                  version    : 'v21.0'
+                  // Drives the Embedded Signup dialog. Coexistence ("connect an existing
+                  // WhatsApp Business account") is a newer flow than v21.0, so this is
+                  // overridable — raise it if the dialog still offers only a new number.
+                  version    : '${process.env.NEXT_PUBLIC_FB_SDK_VERSION || 'v23.0'}'
                 });
               };
             `,

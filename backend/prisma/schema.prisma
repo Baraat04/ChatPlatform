@@ -126,9 +126,13 @@ model Message {
   createdAt DateTime @default(now())
   mediaUrl  String?
   mediaType String?
+  // WhatsApp message id (wamid). Set on both inbound and outbound WhatsApp messages so
+  // Coexistence echoes — which report back messages we already stored — can be deduped.
+  waMessageId String?
 
   @@index([botId, chatId])
   @@index([botId, platform])
+  @@unique([botId, waMessageId])
 }
 
 model Contact {
