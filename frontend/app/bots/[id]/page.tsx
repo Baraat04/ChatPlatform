@@ -1215,8 +1215,13 @@ export default function BotDetails() {
         override_default_response_type: true,
         extras: {
           setup: {},
-          featureType: '',
+          // Selects the Coexistence flow, which adds the "Select your setup" step where the
+          // business can connect the WhatsApp Business app already running on their phone.
+          // A blank featureType is not "no preference" — Meta reads it as the standard
+          // flow and silently skips that step, jumping straight to phone number entry.
+          featureType: 'whatsapp_business_app_onboarding',
           sessionInfoVersion: '3',
+          version: 'v3',
         }
       });
     } else {

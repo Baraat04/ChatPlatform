@@ -114,6 +114,16 @@ WhatsApp Cloud has a hard constraint the other platforms don't: outside the **24
 
 `registerPhone()` exists but is **deliberately not called** during connect — invoking `/register` forces full migration and breaks Coexistence (the customer would lose WhatsApp on their phone).
 
+Coexistence (connecting a number that is still live in the customer's WhatsApp Business app) has three separate switches, and all of them must be on. Two are outside the repo, so a code-only check will always say it looks fine:
+
+1. `featureType: 'whatsapp_business_app_onboarding'` in the `FB.login` extras (`frontend/app/bots/[id]/page.tsx`). **A blank `featureType` is not a neutral default** — Meta reads it as the standard flow and silently drops the "Select your setup" step, so the dialog goes straight to phone-number entry and the Coexistence option never renders.
+2. The `history`, `smb_app_state_sync` and `smb_message_echoes` webhook topics subscribed in the Meta App Dashboard.
+3. Tech Provider or Solution Partner status on the Meta business account.
+
+The webhook then receives three extra `change.field` values. None may reach the AI reply path: they describe messages that were already sent, so replying makes the bot answer itself and bills the owner. `Message.waMessageId` holds the wamid on inbound *and* outbound sends specifically so an echo of our own message is recognised instead of duplicated.
+
+To check whether a given number can use Coexistence at all: `GET /{phone-number-id}?fields=is_on_biz_app,platform_type`. `is_on_biz_app: false` means the number is API-only and can never coexist, regardless of configuration.
+
 Media is a two-step protocol in both directions: upload bytes to `/{phone-number-id}/media` to get an id before sending, and for inbound, `GET /{media-id}` returns a URL that must then be fetched with the `Authorization` header attached.
 
 ### Tenant isolation
