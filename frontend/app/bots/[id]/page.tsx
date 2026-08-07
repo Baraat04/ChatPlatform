@@ -1179,6 +1179,33 @@ export default function BotDetails() {
     }
   }
 
+  // Embedded Signup session logging. Meta lists this as a requirement for onboarding
+  // WhatsApp Business app users (Coexistence), and it is the only way to learn *which*
+  // flow the business actually completed: choosing Coexistence emits
+  // FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING instead of the normal finish event, and in
+  // that case the number is already registered so phone registration must be skipped.
+  // It also hands us phone_number_id / waba_id directly, rather than inferring them
+  // from the token's granular scopes afterwards.
+  useEffect(() => {
+    const onSignupMessage = (event: MessageEvent) => {
+      // Only trust messages that genuinely came from Meta — this listener is global.
+      if (!event.origin.endsWith('facebook.com')) return;
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type !== 'WA_EMBEDDED_SIGNUP') return;
+        console.log('[WA Embedded Signup]', data.event, data.data);
+        if (data.event === 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING') {
+          console.log('[WA Embedded Signup] Coexistence onboarding — number already registered.');
+        }
+      } catch {
+        // Non-JSON messages are normal here; other Facebook frames use this channel too.
+      }
+    };
+
+    window.addEventListener('message', onSignupMessage);
+    return () => window.removeEventListener('message', onSignupMessage);
+  }, []);
+
   const launchWhatsAppSignup = () => {
     // @ts-ignore
     if (typeof FB !== 'undefined') {
