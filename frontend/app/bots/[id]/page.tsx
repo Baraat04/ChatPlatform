@@ -1190,15 +1190,48 @@ export default function BotDetails() {
     const onSignupMessage = (event: MessageEvent) => {
       // Only trust messages that genuinely came from Meta — this listener is global.
       if (!event.origin.endsWith('facebook.com')) return;
+
+      // Log the raw payload before parsing. When the dialog refuses to open ("Функция
+      // недоступна"), the reason arrives here and often is not the JSON WA_EMBEDDED_SIGNUP
+      // envelope — silently swallowing non-JSON would discard the only diagnostic there is.
+      console.log('[WA-SIGNUP] raw from', event.origin, ':', event.data);
+
+      let data: any;
       try {
-        const data = JSON.parse(event.data);
-        if (data.type !== 'WA_EMBEDDED_SIGNUP') return;
-        console.log('[WA Embedded Signup]', data.event, data.data);
-        if (data.event === 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING') {
-          console.log('[WA Embedded Signup] Coexistence onboarding — number already registered.');
-        }
+        data = JSON.parse(event.data);
       } catch {
-        // Non-JSON messages are normal here; other Facebook frames use this channel too.
+        return;
+      }
+
+      if (data?.type !== 'WA_EMBEDDED_SIGNUP') {
+        console.log('[WA-SIGNUP] other facebook message, type =', data?.type);
+        return;
+      }
+
+      console.log('[WA-SIGNUP] event =', data.event);
+      console.log('[WA-SIGNUP] data  =', JSON.stringify(data.data, null, 2));
+
+      switch (data.event) {
+        case 'FINISH':
+          console.log('[WA-SIGNUP] ✅ standard onboarding finished (new number).');
+          break;
+        case 'FINISH_ONLY_WABA':
+          console.log('[WA-SIGNUP] ✅ finished with WABA only, no phone number.');
+          break;
+        case 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING':
+          console.log('[WA-SIGNUP] ✅ COEXISTENCE onboarding — number already registered, skip /register.');
+          break;
+        case 'CANCEL':
+          // current_step is the single most useful field: it names the screen the user
+          // was on when the flow stopped, which is what tells us whether "Select your
+          // setup" was ever reached.
+          console.warn('[WA-SIGNUP] ⚠️ cancelled at step:', data.data?.current_step);
+          break;
+        case 'ERROR':
+          console.error('[WA-SIGNUP] ❌ error:', data.data?.error_message || data.data);
+          break;
+        default:
+          console.log('[WA-SIGNUP] unhandled event type.');
       }
     };
 
@@ -1209,12 +1242,19 @@ export default function BotDetails() {
   const launchWhatsAppSignup = () => {
     // @ts-ignore
     if (typeof FB !== 'undefined') {
+      console.log('[WA-SIGNUP] launching with config_id =', process.env.NEXT_PUBLIC_WA_CONFIG_ID,
+        'sdk =', process.env.NEXT_PUBLIC_FB_SDK_VERSION);
+
       // @ts-ignore
       FB.login(function (response) {
+        // The whole response, not just authResponse — when the dialog is refused there is
+        // no authResponse at all and `status`/`error` carry the reason.
+        console.log('[WA-SIGNUP] FB.login response =', JSON.stringify(response, null, 2));
+
         if (response.authResponse) {
           const code = response.authResponse.code;
           setIsSaving(true);
-          
+
           fetch(`${API_BASE}/api/integrations/whatsapp/connect`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1234,7 +1274,7 @@ export default function BotDetails() {
             alert('Network error connecting WhatsApp Cloud.');
           });
         } else {
-          console.log('User cancelled login or did not fully authorize.');
+          console.warn('[WA-SIGNUP] no authResponse — dialog was cancelled, blocked, or refused. status =', response?.status);
         }
       }, {
         config_id: process.env.NEXT_PUBLIC_WA_CONFIG_ID,

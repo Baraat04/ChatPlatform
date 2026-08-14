@@ -1941,6 +1941,7 @@ async function getChannelByWhatsAppPhoneNumberId(phoneNumberId) {
 router.post('/integrations/whatsapp/connect', requireAuth, async (req, res) => {
     try {
         const { code, botId } = req.body;
+        console.log(`[WA-CONNECT] request for bot ${botId} from user ${req.session.userId}, code present: ${!!code}`);
         if (!code || !botId) return res.status(400).json({ error: 'Code and botId are required' });
 
         const prisma = getPrisma();
@@ -1949,11 +1950,17 @@ router.post('/integrations/whatsapp/connect', requireAuth, async (req, res) => {
 
         const { exchangeCodeForToken, getWabaAndPhone, registerPhone, subscribeWabaToWebhook, syncSmbAppData } = await import('../services/whatsapp-cloud.js');
         
-        // 1. Exchange token (gets short-lived user token)
+        // 1. Exchange the code for the customer's **business integration system user token**.
+        //    Despite the variable name this is not a short-lived user token: Meta's docs say
+        //    Tech Providers use business tokens exclusively, and this is the only credential
+        //    that actually carries access to *this customer's* WABA.
         const userAccessToken = await exchangeCodeForToken(code);
         
+        console.log(`[WA-CONNECT] token exchange ok, length ${userAccessToken?.length}`);
+
         // 2. Get WABA and Phone Number IDs from the token scopes
         const { wabaId, phoneNumberId } = await getWabaAndPhone(userAccessToken);
+        console.log(`[WA-CONNECT] resolved wabaId=${wabaId} phoneNumberId=${phoneNumberId}`);
         
         // 3. Skip registerPhone — Embedded Signup auto-registers the number.
         //    Calling /register manually forces full migration and breaks Coexistence
@@ -1963,8 +1970,11 @@ router.post('/integrations/whatsapp/connect', requireAuth, async (req, res) => {
         // 4. Subscribe WABA to our app's webhooks
         await subscribeWabaToWebhook(wabaId);
         
-        // Use the system user permanent token for sending messages (short-lived user token expires)
-        const systemToken = process.env.WA_SYSTEM_USER_TOKEN;
+        // Store the customer's business token as the channel credential. Our own
+        // WA_SYSTEM_USER_TOKEN only has access to WABAs our business portfolio owns, so it
+        // works for our own test number and will fail for a real customer's WABA. The send
+        // paths already fall back to WA_SYSTEM_USER_TOKEN when a channel has no token.
+        const systemToken = userAccessToken || process.env.WA_SYSTEM_USER_TOKEN;
 
         // 5. Save to DB.
         // First release this phone number from any other bot that still claims it — a number
