@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, Save, Trash2, Send, Bot, User, Users, UserPlus, Pause, Play, Phone, MessageSquare, Radio, Edit2, Wand2, ChevronDown, Check, Plus, Database, BrainCircuit, FileUp, Image as LucideImage, FileAudio2, X, Mic, BarChart2, Activity, Settings, FileText, Loader2, Link as LinkIcon, Lock, CheckCircle2, Video, MoreVertical } from 'lucide-react';
+import { ArrowLeft, Save, Trash2, Send, Bot, User, Users, UserPlus, Pause, Play, Phone, MessageSquare, Radio, Edit2, Wand2, ChevronDown, Check, Plus, Database, BrainCircuit, FileUp, Image as LucideImage, FileAudio2, X, Mic, BarChart2, Activity, Settings, FileText, Loader2, Link as LinkIcon, Lock, CheckCircle2, Video, MoreVertical, Info } from 'lucide-react';
 import Link from 'next/link';
 import { io } from 'socket.io-client';
 import { useLanguage } from '../../contexts/LanguageContext';
@@ -280,6 +280,34 @@ interface BotType {
   pausedChats?: string[];
 }
 
+interface MetaNumberStatus {
+  channelId: number;
+  phoneNumberId: string;
+  wabaId: string | null;
+  isActive: boolean;
+  uniqueContacts24h: number;
+  displayPhoneNumber?: string | null;
+  verifiedName?: string | null;
+  tier?: string | null;
+  tierLimit?: number | null;
+  qualityRating?: string;
+  error?: string | null;
+}
+
+type BrainSection = 'identity' | 'style' | 'knowledge' | 'limits';
+
+interface BrainBlock {
+  id: number;
+  botId: number;
+  section: BrainSection;
+  title: string;
+  content: string;
+  source?: string | null;
+  sourceUrl?: string | null;
+  isActive: boolean;
+  order: number;
+}
+
 interface Chat {
   chatId: string;
   lastMessage: string;
@@ -329,6 +357,19 @@ export default function BotDetails() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [systemPrompt, setSystemPrompt] = useState('');
   const [dataPrompt, setDataPrompt] = useState('');
+  // AI brain, stored as editable blocks. The prompts above are now generated from these on
+  // the server, so they are read-only output rather than something the user edits by hand.
+  const [brainBlocks, setBrainBlocks] = useState<BrainBlock[]>([]);
+  const [brainMode, setBrainMode] = useState<'blocks' | 'chat'>('blocks');
+  const [editingBlockId, setEditingBlockId] = useState<number | 'new' | null>(null);
+  const [editingSection, setEditingSection] = useState<BrainSection>('identity');
+  const [draftTitle, setDraftTitle] = useState('');
+  const [draftContent, setDraftContent] = useState('');
+  const [brainBusy, setBrainBusy] = useState(false);
+  // Meta tab: limits and quality live per phone number, so this is a list, not one object.
+  const [metaNumbers, setMetaNumbers] = useState<MetaNumberStatus[]>([]);
+  const [metaLoading, setMetaLoading] = useState(false);
+  const [showChannelsInfo, setShowChannelsInfo] = useState(false);
   const [googleSheetUrl, setGoogleSheetUrl] = useState('');
   const [googleSheetColumns, setGoogleSheetColumns] = useState('');
   const [isGoogleSheetsActive, setIsGoogleSheetsActive] = useState(false);
@@ -346,7 +387,7 @@ export default function BotDetails() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
   const [fileType, setFileType] = useState<'image' | 'audio' | 'video' | 'document' | null>(null);
-  const [activeTab, setActiveTab] = useState<'chats' | 'agent' | 'settings' | 'broadcast' | 'channels' | 'integrations'>('chats');
+  const [activeTab, setActiveTab] = useState<'chats' | 'agent' | 'meta' | 'settings' | 'broadcast' | 'channels' | 'integrations'>('chats');
   const [chatFilter, setChatFilter] = useState('Все');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSendingMessage, setIsSendingMessage] = useState(false);
@@ -795,6 +836,7 @@ export default function BotDetails() {
     fetchBot();
     fetchChats();
     fetchChannels();
+    fetchBrain();
 
     const socket = io(SOCKET_URL);
     socket.on(`chat-${botId}`, (newMsg: any) => {
@@ -946,6 +988,97 @@ export default function BotDetails() {
     }
   }
 
+  // Fetched only when the Meta tab is opened: each number costs one Graph API call, and the
+  // figures change slowly enough that loading them on every page view would be wasteful.
+  async function fetchMetaStatus() {
+    setMetaLoading(true);
+    try {
+      const res = await fetch(`${API}/bot/${botId}/meta-status`, { credentials: 'include' });
+      if (!res.ok) return;
+      const data = await res.json();
+      setMetaNumbers(data.numbers || []);
+    } finally {
+      setMetaLoading(false);
+    }
+  }
+
+  // ── AI brain blocks ────────────────────────────────────────────────────────
+  // Every write re-fetches the bot as well: the server regenerates system_prompt and
+  // data_prompt from the blocks, so the "final prompt" panel would otherwise show a stale
+  // version of what the bot is actually running on.
+  async function fetchBrain() {
+    const res = await fetch(`${API}/bot/${botId}/brain`, { credentials: 'include' });
+    if (!res.ok) return;
+    const data = await res.json();
+    setBrainBlocks(data.blocks || []);
+    if (data.seeded) fetchBot();
+  }
+
+  function startAddBlock(section: BrainSection) {
+    setEditingSection(section);
+    setEditingBlockId('new');
+    setDraftTitle('');
+    setDraftContent('');
+  }
+
+  function startEditBlock(block: BrainBlock) {
+    setEditingSection(block.section);
+    setEditingBlockId(block.id);
+    setDraftTitle(block.title || '');
+    setDraftContent(block.content || '');
+  }
+
+  function cancelEditBlock() {
+    setEditingBlockId(null);
+    setDraftTitle('');
+    setDraftContent('');
+  }
+
+  async function saveBlock() {
+    if (!draftContent.trim() || brainBusy) return;
+    setBrainBusy(true);
+    try {
+      const isNew = editingBlockId === 'new';
+      const url = isNew
+        ? `${API}/bot/${botId}/brain`
+        : `${API}/bot/${botId}/brain/${editingBlockId}`;
+      const res = await fetch(url, {
+        method: isNew ? 'POST' : 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          section: editingSection,
+          title: draftTitle.trim(),
+          content: draftContent.trim(),
+        }),
+      });
+      if (!res.ok) {
+        alert((await res.json()).error || 'Error');
+        return;
+      }
+      cancelEditBlock();
+      await fetchBrain();
+      await fetchBot();
+    } finally {
+      setBrainBusy(false);
+    }
+  }
+
+  async function deleteBlock(block: BrainBlock) {
+    if (!confirm(t.deleteCardConfirm || 'Delete this card?')) return;
+    setBrainBusy(true);
+    try {
+      await fetch(`${API}/bot/${botId}/brain/${block.id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      await fetchBrain();
+      await fetchBot();
+    } finally {
+      setBrainBusy(false);
+    }
+  }
+
   async function handleToggleActive() {
     if (!bot) return;
     setIsTogglingActive(true);
@@ -961,9 +1094,9 @@ export default function BotDetails() {
     await fetch(`${API}/bot/${botId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        system_prompt: systemPrompt, 
-        data_prompt: dataPrompt,
+      // system_prompt / data_prompt are deliberately not sent: they are generated from the
+      // brain blocks, and posting the local copy back would race with that composition.
+      body: JSON.stringify({
         googleSheetUrl,
         googleSheetColumns,
         googleCalendarId,
@@ -1005,6 +1138,11 @@ export default function BotDetails() {
         setDataPrompt(data.data_prompt);
         parseDataPrompt(data.data_prompt);
       }
+      // The agent now edits cards, so the list has to be reloaded — otherwise the Setup tab
+      // still shows the rule the user just asked it to remove.
+      if (data.applied && (data.applied.added || data.applied.updated || data.applied.deleted)) {
+        await fetchBrain();
+      }
     } catch (err: any) {
       console.error(err);
       setAgentChatHistory([...newHistory, { role: 'assistant', content: `Ошибка при связи с ИИ-агентом: ${err.message}` }]);
@@ -1039,30 +1177,24 @@ export default function BotDetails() {
       });
       const data = await res.json();
       if (data.text) {
-        let appendedData = `\n\n--- ДАННЫЕ ИЗ PDF (${file.name}) ---\n`;
-        if (data.fileUrl) {
-          appendedData += `ССЫЛКА НА ФАЙЛ ДЛЯ ОТПРАВКИ КЛИЕНТУ: ${data.fileUrl}\n(Если клиент просит этот файл, используй инструмент send_file_to_client с этой ссылкой)\n\n`;
-        }
-        appendedData += data.text;
-        const newDataPrompt = dataPrompt + appendedData;
-        setDataPrompt(newDataPrompt);
-        
-        // Save to backend so agent can see it
-        await fetch(`${API}/bot/${botId}`, {
-          method: 'PUT',
+        // Each file becomes its own knowledge card instead of being appended to one giant
+        // data_prompt. That is what makes an outdated price list removable later — before,
+        // uploading a corrected file just added a second copy and the bot saw both.
+        await fetch(`${API}/bot/${botId}/brain`, {
+          method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            system_prompt: systemPrompt, 
-            data_prompt: newDataPrompt,
-            googleSheetUrl,
-            googleSheetColumns,
-            googleCalendarId,
-            bitrixWebhookUrl,
-            bitrixFields
+          credentials: 'include',
+          body: JSON.stringify({
+            section: 'knowledge',
+            title: file.name,
+            content: data.text,
+            source: 'pdf',
+            sourceUrl: data.fileUrl || null,
           }),
-          credentials: 'include'
         });
-        
+        await fetchBrain();
+        await fetchBot();
+
         // Автоматически отправляем агенту сообщение о загрузке ПДФ
         setActiveTab('agent');
         await sendToAgent(`Я только что загрузил PDF файл "${file.name}". Пожалуйста, подтверди, что ты успешно прочитал и добавил эти данные.`);
@@ -1684,14 +1816,23 @@ export default function BotDetails() {
         {([
           ['chats', <MessageSquare size={16} />, t.chats || 'Dialogs'],
           ['channels', <Phone size={16} />, t.channels || 'Channels'],
-          ['agent', <BrainCircuit size={16} />, t.aiBrain || 'AI Brain'], 
+          ['agent', <BrainCircuit size={16} />, t.aiBrain || 'AI Brain'],
+          ['meta', <BarChart2 size={16} />, t.metaTab || 'Meta'],
           ['integrations', <Activity size={16} />, 'Интеграции'],
-          ['settings', <Settings size={16} />, t.settings || 'Configuration'], 
+          ['settings', <Settings size={16} />, t.settings || 'Configuration'],
           ['broadcast', <Radio size={16} />, t.campaigns]
         ] as const)
         .filter(([tab]) => tab !== 'broadcast' || (user?.subscriptionPlan === 'GROWTH' || user?.subscriptionPlan === 'PRO'))
         .map(([tab, icon, label]) => (
-          <button key={tab} onClick={() => setActiveTab(tab as any)} className={`tab-btn ${activeTab === tab ? 'active' : ''}`}>
+          <button
+            key={tab}
+            onClick={() => {
+              setActiveTab(tab as any);
+              // Loaded on open rather than on mount — each number is a separate Graph call.
+              if (tab === 'meta') fetchMetaStatus();
+            }}
+            className={`tab-btn ${activeTab === tab ? 'active' : ''}`}
+          >
             {icon} {label}
           </button>
         ))}
@@ -1699,6 +1840,122 @@ export default function BotDetails() {
 
       {/* ─── CONTENT ─── */}
       <div style={{ flex: 1, overflow: 'hidden', display: 'flex' }}>
+
+        {/* ══ META TAB ══ */}
+        {activeTab === 'meta' && (
+          <div style={{ padding: '2.5rem', flex: 1, overflowY: 'auto', background: 'var(--background)' }}>
+            <div style={{ maxWidth: '820px', margin: '0 auto' }}>
+              <div style={{ marginBottom: '2rem' }}>
+                <h2 style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--on-surface)', margin: '0 0 0.4rem 0' }}>
+                  {t.metaTitle || 'Number limits and quality'}
+                </h2>
+                <p style={{ color: 'var(--on-surface-variant)', margin: 0, fontSize: '0.95rem' }}>
+                  {t.metaSub || 'Read live from Meta for each connected WhatsApp number.'}
+                </p>
+              </div>
+
+              {metaLoading && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'var(--on-surface-variant)', padding: '2rem 0' }}>
+                  <Loader2 size={18} className="spin" /> …
+                </div>
+              )}
+
+              {!metaLoading && metaNumbers.length === 0 && (
+                <div style={{ padding: '2.5rem', textAlign: 'center', border: '1px dashed var(--outline-variant)', borderRadius: '18px', color: 'var(--on-surface-variant)' }}>
+                  {t.metaNoNumbers || 'No WhatsApp numbers connected.'}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+                {metaNumbers.map(num => {
+                  const quality = (num.qualityRating || 'UNKNOWN').toUpperCase();
+                  const qColor = quality === 'GREEN' ? '#1e7e34' : quality === 'YELLOW' ? '#b8860b' : quality === 'RED' ? '#c62828' : 'var(--on-surface-variant)';
+                  const qBg = quality === 'GREEN' ? 'rgba(30,126,52,0.1)' : quality === 'YELLOW' ? 'rgba(184,134,11,0.12)' : quality === 'RED' ? 'rgba(198,40,40,0.1)' : 'var(--surface-container-high)';
+                  const qLabel = quality === 'GREEN' ? (t.metaQualityGreen || 'High')
+                    : quality === 'YELLOW' ? (t.metaQualityYellow || 'Medium')
+                    : quality === 'RED' ? (t.metaQualityRed || 'Low')
+                    : (t.metaQualityUnknown || 'No data');
+                  const limitLabel = num.tierLimit ? num.tierLimit.toLocaleString('ru-RU') : (t.metaUnlimited || 'Unlimited');
+                  const pct = num.tierLimit ? Math.min(100, Math.round((num.uniqueContacts24h / num.tierLimit) * 100)) : 0;
+
+                  return (
+                    <div key={num.channelId} style={{ background: 'var(--surface-container)', border: '1px solid var(--outline-variant)', borderRadius: '18px', padding: '1.6rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap' }}>
+                        <div>
+                          <div style={{ fontWeight: 800, fontSize: '1.15rem', color: 'var(--on-surface)' }}>
+                            {num.displayPhoneNumber || num.phoneNumberId}
+                          </div>
+                          {num.verifiedName && (
+                            <div style={{ fontSize: '0.88rem', color: 'var(--on-surface-variant)', marginTop: '0.15rem' }}>{num.verifiedName}</div>
+                          )}
+                        </div>
+                        <span style={{ background: qBg, color: qColor, padding: '0.35rem 0.8rem', borderRadius: '999px', fontSize: '0.82rem', fontWeight: 700 }}>
+                          {t.metaQuality || 'Quality'}: {qLabel}
+                        </span>
+                      </div>
+
+                      {num.error ? (
+                        <div style={{ marginTop: '1.2rem', fontSize: '0.88rem', color: '#c62828' }}>
+                          {t.metaError || 'Could not read data from Meta'}: {num.error}
+                        </div>
+                      ) : (
+                        <div style={{ marginTop: '1.4rem' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem', marginBottom: '0.5rem' }}>
+                            <span style={{ color: 'var(--on-surface-variant)' }}>{t.metaReached || 'Unique customers in 24h'}</span>
+                            <span style={{ fontWeight: 700, color: 'var(--on-surface)' }}>
+                              {num.uniqueContacts24h} / {limitLabel}
+                            </span>
+                          </div>
+                          <div style={{ height: '8px', background: 'var(--surface-container-high)', borderRadius: '999px', overflow: 'hidden' }}>
+                            <div style={{ width: `${pct}%`, height: '100%', background: pct > 85 ? '#c62828' : 'var(--primary)', transition: 'width 0.3s' }} />
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', marginTop: '0.6rem', flexWrap: 'wrap' }}>
+                            <span style={{ fontSize: '0.78rem', color: 'var(--on-surface-variant)', lineHeight: 1.45, maxWidth: '32rem' }}>
+                              {t.metaReachedNote || ''}
+                            </span>
+                            <span style={{ fontSize: '0.78rem', color: 'var(--on-surface-variant)', fontFamily: 'monospace' }}>
+                              {t.metaTier || 'Tier'}: {num.tier || '—'}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Meta moved this limit from the phone number to the business portfolio, so
+                  numbers in one portfolio share it. Users who split traffic across numbers
+                  expecting separate quotas need to know before they plan around it. */}
+              <div style={{ marginTop: '1.8rem', padding: '1.1rem 1.3rem', borderRadius: '14px', background: 'rgba(184,134,11,0.08)', border: '1px solid rgba(184,134,11,0.25)', fontSize: '0.88rem', lineHeight: 1.55, color: 'var(--on-surface)' }}>
+                {t.metaSharedWarning || ''}
+              </div>
+
+              <div style={{ marginTop: '2rem', padding: '1.6rem', borderRadius: '18px', background: 'var(--surface-container-low)', border: '1px solid var(--outline-variant)' }}>
+                <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.1rem', fontWeight: 700, color: 'var(--on-surface)' }}>
+                  {t.metaUpgradeTitle || 'How to raise the limit'}
+                </h3>
+                <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                  {[t.metaUpgrade1, t.metaUpgrade2, t.metaUpgrade3].map((point, i) => (
+                    <li key={i} style={{ display: 'flex', gap: '0.65rem', fontSize: '0.9rem', lineHeight: 1.55, color: 'var(--on-surface-variant)' }}>
+                      <Check size={16} color="var(--primary)" style={{ flexShrink: 0, marginTop: '3px' }} />
+                      <span>{point}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <a
+                href="https://business.facebook.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ marginTop: '1.5rem', display: 'inline-flex', alignItems: 'center', gap: '0.55rem', padding: '0.8rem 1.4rem', borderRadius: '12px', border: '1px solid var(--outline-variant)', color: 'var(--primary)', textDecoration: 'none', fontSize: '0.92rem', fontWeight: 600 }}
+              >
+                <LinkIcon size={17} /> {t.metaManageBtn || 'Manage Meta Business Account'} ↗
+              </a>
+            </div>
+          </div>
+        )}
 
         {/* ══ CHANNELS TAB ══ */}
         {activeTab === 'channels' && (
@@ -1711,8 +1968,15 @@ export default function BotDetails() {
                   <h2 style={{ margin: 0, fontSize: '1.8rem', fontWeight: 800, color: 'var(--on-surface)', letterSpacing: '-0.5px' }}>
                     {t.channelsTitle || 'Communication Channels'}
                   </h2>
-                  <p style={{ margin: '0.4rem 0 0 0', color: 'var(--on-surface-variant)', fontSize: '0.92rem' }}>
+                  <p style={{ margin: '0.4rem 0 0 0', color: 'var(--on-surface-variant)', fontSize: '0.92rem', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                     {t.channelsSub || 'Connect external messengers for automated AI responses.'}
+                    <button
+                      onClick={() => setShowChannelsInfo(v => !v)}
+                      title={t.channelsInfoTitle || 'How channels work'}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', background: 'transparent', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '0.88rem', fontWeight: 600, padding: 0 }}
+                    >
+                      <Info size={15} /> {t.channelsInfoTitle || 'How channels work'}
+                    </button>
                   </p>
                 </div>
                 {!isAddingChannel && (
@@ -1733,34 +1997,28 @@ export default function BotDetails() {
                     <Plus size={18} /> {t.connectNewChannel || 'Connect new channel'}
                   </button>
                 )}
-                {!isAddingChannel && !channels.some(c => c.platform === 'INSTAGRAM') && (
-                  <button 
-                    onClick={() => {
-                      window.location.href = `${API}/auth/instagram/connect?botId=${botId}`;
-                    }} 
-                    className="btn-primary" 
-                    style={{ 
-                      background: 'linear-gradient(90deg, #F58529 0%, #DD2A7B 50%, #8134AF 100%)',
-                      padding: '0.75rem 1.5rem', 
-                      borderRadius: '14px', 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      gap: '0.6rem', 
-                      fontSize: '0.92rem',
-                      boxShadow: '0 4px 15px rgba(221, 42, 123, 0.25)',
-                      transition: 'all 0.3s ease',
-                      marginLeft: '1rem'
-                    }}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
-                      <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
-                      <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
-                    </svg> 
-                    Подключить Instagram
-                  </button>
-                )}
               </div>
+
+              {showChannelsInfo && (
+                <div style={{ marginBottom: '2rem', padding: '1.5rem', borderRadius: '18px', background: 'var(--surface-container-low)', border: '1px solid var(--outline-variant)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: '1rem' }}>
+                    <h4 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: 'var(--on-surface)' }}>
+                      {t.channelsInfoTitle || 'How channels work in up-chat'}
+                    </h4>
+                    <button onClick={() => setShowChannelsInfo(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--on-surface-variant)', padding: '0.2rem' }}>
+                      <X size={17} />
+                    </button>
+                  </div>
+                  <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                    {[t.channelsInfo1, t.channelsInfo2, t.channelsInfo3].map((point, i) => (
+                      <li key={i} style={{ display: 'flex', gap: '0.65rem', fontSize: '0.9rem', lineHeight: 1.55, color: 'var(--on-surface-variant)' }}>
+                        <Check size={16} color="var(--primary)" style={{ flexShrink: 0, marginTop: '3px' }} />
+                        <span>{point}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               {/* No channels view */}
               {channels.length === 0 && !isAddingChannel && (
@@ -1791,31 +2049,6 @@ export default function BotDetails() {
                   <p style={{ color: 'var(--on-surface-variant)', marginBottom: '2rem', fontSize: '1rem', maxWidth: '460px', margin: '0 auto 2rem auto', lineHeight: '1.6' }}>
                     {t.noChannelsHint || 'Connect Telegram Bot or WhatsApp so your AI assistant can instantly respond to clients 24/7.'}
                   </p>
-                  <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem' }}>
-                    <button 
-                      onClick={() => setIsAddingChannel(true)} 
-                      className="btn-primary" 
-                      style={{ padding: '0.9rem 2rem', borderRadius: '14px', fontSize: '1rem' }}
-                    >
-                      Connect first channel
-                    </button>
-                    {!channels.some(c => c.platform === 'INSTAGRAM') && (
-                      <button 
-                        onClick={() => {
-                          window.location.href = `${API}/auth/instagram/connect?botId=${botId}`;
-                        }} 
-                        className="btn-primary" 
-                        style={{ 
-                          background: 'linear-gradient(90deg, #F58529 0%, #DD2A7B 50%, #8134AF 100%)',
-                          padding: '0.9rem 2rem', 
-                          borderRadius: '14px', 
-                          fontSize: '1rem'
-                        }}
-                      >
-                        Подключить Instagram
-                      </button>
-                    )}
-                  </div>
                 </div>
               )}
 
@@ -1933,24 +2166,36 @@ export default function BotDetails() {
                                 Переподключить
                               </button>
                             )}
-                            <button 
+                            <button
                               onClick={async () => {
-                                if (!confirm(t.deleteChannelConfirm || 'Are you sure you want to disconnect and delete this communication channel?')) return;
+                                if (!confirm(t.removeChannelConfirm || 'Remove this channel?')) return;
                                 await fetch(`${API}/bot/${botId}/channels/${channel.id}`, { method: 'DELETE', credentials: 'include' });
                                 fetchChannels();
-                              }} 
-                              style={{ 
-                                background: 'rgba(220, 53, 69, 0.08)', 
-                                border: 'none', 
-                                color: '#dc3545', 
-                                cursor: 'pointer', 
-                                padding: '0.5rem', 
+                              }}
+                              style={{
+                                background: 'transparent',
+                                border: '1px solid var(--outline-variant)',
+                                color: 'var(--on-surface-variant)',
+                                cursor: 'pointer',
+                                padding: '0.5rem 0.9rem',
                                 borderRadius: '10px',
+                                fontSize: '0.85rem',
+                                fontWeight: 600,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.45rem',
                                 transition: 'all 0.2s'
                               }}
-                              title="Delete Channel"
+                              onMouseEnter={e => {
+                                e.currentTarget.style.borderColor = '#dc3545';
+                                e.currentTarget.style.color = '#dc3545';
+                              }}
+                              onMouseLeave={e => {
+                                e.currentTarget.style.borderColor = 'var(--outline-variant)';
+                                e.currentTarget.style.color = 'var(--on-surface-variant)';
+                              }}
                             >
-                              <Trash2 size={16} />
+                              <Trash2 size={15} /> {t.removeChannel || 'Remove channel'}
                             </button>
                           </div>
                         </div>
@@ -2259,24 +2504,48 @@ export default function BotDetails() {
                   ) : (
                     
                     /* WhatsApp Cloud API Embedded Signup */
-                    <div>
-                      <div style={{ background: 'rgba(37, 211, 102, 0.05)', border: '1px solid rgba(37, 211, 102, 0.15)', padding: '1.8rem', borderRadius: '20px', marginBottom: '2rem' }}>
-                        <h4 style={{ margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.6rem', color: '#25d366', fontWeight: 700 }}>
-                          WhatsApp Cloud API (Official)
-                        </h4>
-                        <p style={{ fontSize: '0.92rem', lineHeight: '1.5', color: 'var(--on-surface-variant)' }}>
-                          Connect your business to WhatsApp Cloud API via Meta Embedded Signup. This ensures a stable, official connection without QR codes.
-                        </p>
+                    <div style={{ maxWidth: '520px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.4rem' }}>
+                        <div style={{
+                          width: '52px', height: '52px', borderRadius: '16px', flexShrink: 0,
+                          background: 'rgba(37, 211, 102, 0.1)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center'
+                        }}>
+                          <svg width="28" height="28" viewBox="0 0 24 24" fill="#25d366">
+                            <path d="M12.01 2C6.48 2 2 6.48 2 12.01C2 13.86 2.5 15.6 3.39 17.12L2.01 22.01L7.04 20.72C8.5 21.54 10.19 22.01 12 22.01C17.53 22.01 22 17.53 22 12.01C22 6.48 17.53 2 12.01 2Z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <h4 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: 'var(--on-surface)' }}>
+                            {t.waCloudTitle || 'WhatsApp Business — official connection'}
+                          </h4>
+                          <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.9rem', lineHeight: 1.5, color: 'var(--on-surface-variant)' }}>
+                            {t.waCloudDesc || 'Connect your business number through Meta.'}
+                          </p>
+                        </div>
                       </div>
 
-                      <button 
+                      <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 1.8rem 0', display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
+                        {[t.waCloudPoint1, t.waCloudPoint2, t.waCloudPoint3].map((point, i) => (
+                          <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.65rem', fontSize: '0.92rem', color: 'var(--on-surface)' }}>
+                            <Check size={17} color="#25d366" style={{ flexShrink: 0, marginTop: '2px' }} />
+                            <span>{point}</span>
+                          </li>
+                        ))}
+                      </ul>
+
+                      <button
                         disabled={isSaving}
-                        className="btn-primary" 
+                        className="btn-primary"
                         style={{ width: '100%', padding: '1rem', borderRadius: '14px', justifyContent: 'center', fontSize: '1rem', fontWeight: 700, background: '#25d366', color: '#fff', border: 'none' }}
                         onClick={launchWhatsAppSignup}
                       >
-                        {isSaving ? (t.saving || 'Connecting...') : 'Connect via Meta'}
+                        {isSaving ? (t.saving || 'Connecting...') : (t.connectViaMeta || 'Continue with Meta')}
                       </button>
+
+                      <p style={{ margin: '0.9rem 0 0 0', fontSize: '0.82rem', lineHeight: 1.5, color: 'var(--on-surface-variant)', textAlign: 'center' }}>
+                        {t.waCloudNote || 'A Meta window will open.'}
+                      </p>
                     </div>
                   )}
                 </div>
@@ -2836,16 +3105,20 @@ export default function BotDetails() {
                           onKeyDown={async (e) => {
                             if (e.key === 'Enter' && e.currentTarget.value.trim()) {
                               const newInstruction = e.currentTarget.value.trim();
-                              const updatedPrompt = systemPrompt + `\n\n=== IMPORTANT CORRECTION ===\n${newInstruction}`;
-                              setSystemPrompt(updatedPrompt);
                               e.currentTarget.value = '';
                               setShowDirectiveInput(false);
-                              await fetch(`${API}/bot/${botId}`, {
-                                method: 'PUT',
+                              // Becomes an editable "how to reply" card. This used to append
+                              // another "=== IMPORTANT CORRECTION ===" onto system_prompt, so
+                              // ten quick corrections meant ten permanent, often contradictory
+                              // instructions that nobody could find or remove afterwards.
+                              await fetch(`${API}/bot/${botId}/brain`, {
+                                method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ system_prompt: updatedPrompt, data_prompt: dataPrompt }),
-                                credentials: 'include'
+                                credentials: 'include',
+                                body: JSON.stringify({ section: 'style', content: newInstruction, source: 'manual' }),
                               });
+                              await fetchBrain();
+                              await fetchBot();
                             }
                             if (e.key === 'Escape') setShowDirectiveInput(false);
                           }}
@@ -2986,13 +3259,198 @@ export default function BotDetails() {
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--background)' }}>
             <div style={{ padding: '1.5rem', background: 'var(--surface-container-lowest)', borderBottom: '1px solid var(--outline-variant)' }}>
               <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--on-surface)', display: 'flex', alignItems: 'center', gap: '0.75rem', margin: 0 }}>
-                <BrainCircuit size={28} color="var(--primary)" /> {t.interactionBrain || 'Interaction with AI Brain'}
+                <BrainCircuit size={28} color="var(--primary)" /> {t.aiBrain || 'AI Brain'}
               </h2>
-              <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.9rem', marginTop: '0.5rem', marginBottom: 0 }}>
-                {t.agentTabDesc || 'Communicate with the agent directly to configure its behavior and knowledge base.'}
+              <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.9rem', marginTop: '0.5rem', marginBottom: '1rem' }}>
+                {brainMode === 'blocks'
+                  ? (t.brainHint || 'Describe your bot piece by piece.')
+                  : (t.agentTabDesc || 'Communicate with the agent to configure its behavior.')}
               </p>
+              <div style={{ display: 'inline-flex', gap: '0.3rem', background: 'var(--surface-container-high)', padding: '0.25rem', borderRadius: '12px' }}>
+                {([['blocks', t.brainSetup || 'Setup'], ['chat', t.brainChatMode || 'Chat with AI']] as const).map(([mode, label]) => (
+                  <button
+                    key={mode}
+                    onClick={() => setBrainMode(mode as 'blocks' | 'chat')}
+                    style={{
+                      padding: '0.5rem 1.1rem',
+                      borderRadius: '9px',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontSize: '0.88rem',
+                      fontWeight: 600,
+                      background: brainMode === mode ? 'var(--primary)' : 'transparent',
+                      color: brainMode === mode ? 'var(--on-primary)' : 'var(--on-surface-variant)',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
-            
+
+            {brainMode === 'blocks' && (
+              <div style={{ flex: 1, overflowY: 'auto', padding: '2rem 1.5rem' }}>
+                <div style={{ maxWidth: '760px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
+                  {(['identity', 'style', 'knowledge', 'limits'] as BrainSection[]).map(section => {
+                    const meta = {
+                      identity: { title: t.secIdentity || 'Who you are', hint: t.secIdentityHint || '' },
+                      style: { title: t.secStyle || 'How to reply', hint: t.secStyleHint || '' },
+                      knowledge: { title: t.secKnowledge || 'What the bot knows', hint: t.secKnowledgeHint || '' },
+                      limits: { title: t.secLimits || 'What it must not do', hint: t.secLimitsHint || '' },
+                    }[section];
+                    const items = brainBlocks.filter(b => b.section === section);
+                    const isEditingHere = editingBlockId !== null && editingSection === section;
+
+                    return (
+                      <section key={section}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: '0.9rem' }}>
+                          <div>
+                            <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: 'var(--on-surface)' }}>{meta.title}</h3>
+                            <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.85rem', lineHeight: 1.5, color: 'var(--on-surface-variant)' }}>{meta.hint}</p>
+                          </div>
+                          <button
+                            onClick={() => startAddBlock(section)}
+                            style={{
+                              flexShrink: 0, display: 'flex', alignItems: 'center', gap: '0.35rem',
+                              background: 'transparent', border: '1px solid var(--outline-variant)',
+                              color: 'var(--primary)', cursor: 'pointer', padding: '0.45rem 0.85rem',
+                              borderRadius: '10px', fontSize: '0.85rem', fontWeight: 600
+                            }}
+                          >
+                            <Plus size={15} /> {t.addCard || 'Add'}
+                          </button>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
+                          {items.length === 0 && !isEditingHere && (
+                            <div style={{
+                              padding: '1.4rem', borderRadius: '14px', textAlign: 'center',
+                              border: '1px dashed var(--outline-variant)',
+                              color: 'var(--on-surface-variant)', fontSize: '0.88rem'
+                            }}>
+                              {t.emptySectionText || 'Nothing here yet'}
+                            </div>
+                          )}
+
+                          {items.map(block => (
+                            editingBlockId === block.id ? (
+                              <div key={block.id} style={{ padding: '1.2rem', borderRadius: '14px', border: '1px solid var(--primary)', background: 'var(--surface-container-low)' }}>
+                                <input
+                                  className="premium-input"
+                                  value={draftTitle}
+                                  onChange={e => setDraftTitle(e.target.value)}
+                                  placeholder={t.cardTitlePh || 'Short name (optional)'}
+                                  style={{ width: '100%', marginBottom: '0.7rem', padding: '0.7rem 0.9rem', fontSize: '0.9rem' }}
+                                />
+                                <textarea
+                                  className="premium-input"
+                                  rows={5}
+                                  value={draftContent}
+                                  onChange={e => setDraftContent(e.target.value)}
+                                  placeholder={t.cardContentPh || 'Text the bot should follow'}
+                                  style={{ width: '100%', resize: 'vertical', padding: '0.8rem 0.9rem', fontSize: '0.92rem', lineHeight: 1.5 }}
+                                />
+                                <div style={{ display: 'flex', gap: '0.6rem', marginTop: '0.9rem' }}>
+                                  <button className="btn-primary" onClick={saveBlock} disabled={brainBusy || !draftContent.trim()} style={{ padding: '0.55rem 1.2rem', borderRadius: '10px', fontSize: '0.88rem' }}>
+                                    {t.save || 'Save'}
+                                  </button>
+                                  <button onClick={cancelEditBlock} style={{ background: 'transparent', border: '1px solid var(--outline-variant)', color: 'var(--on-surface-variant)', cursor: 'pointer', padding: '0.55rem 1.2rem', borderRadius: '10px', fontSize: '0.88rem', fontWeight: 600 }}>
+                                    {t.cancel || 'Cancel'}
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div key={block.id} style={{
+                                padding: '1.1rem 1.2rem', borderRadius: '14px',
+                                border: '1px solid var(--outline-variant)', background: 'var(--surface-container)'
+                              }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
+                                  <div style={{ minWidth: 0 }}>
+                                    {block.title && (
+                                      <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--on-surface)', marginBottom: '0.3rem', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                        {block.title}
+                                        {block.source === 'pdf' && (
+                                          <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--on-surface-variant)', background: 'var(--surface-container-high)', padding: '2px 7px', borderRadius: '6px' }}>
+                                            {t.fromFileLabel || 'from file'}
+                                          </span>
+                                        )}
+                                      </div>
+                                    )}
+                                    <div style={{ fontSize: '0.9rem', lineHeight: 1.55, color: 'var(--on-surface-variant)', whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: '9rem', overflow: 'hidden' }}>
+                                      {block.content}
+                                    </div>
+                                  </div>
+                                  <div style={{ display: 'flex', gap: '0.35rem', flexShrink: 0 }}>
+                                    <button onClick={() => startEditBlock(block)} title={t.editCard || 'Edit'} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--on-surface-variant)', padding: '0.35rem', borderRadius: '8px' }}>
+                                      <Edit2 size={15} />
+                                    </button>
+                                    <button onClick={() => deleteBlock(block)} title={t.deleteCard || 'Delete'} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--on-surface-variant)', padding: '0.35rem', borderRadius: '8px' }}>
+                                      <Trash2 size={15} />
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            )
+                          ))}
+
+                          {isEditingHere && editingBlockId === 'new' && (
+                            <div style={{ padding: '1.2rem', borderRadius: '14px', border: '1px solid var(--primary)', background: 'var(--surface-container-low)' }}>
+                              <input
+                                className="premium-input"
+                                value={draftTitle}
+                                onChange={e => setDraftTitle(e.target.value)}
+                                placeholder={t.cardTitlePh || 'Short name (optional)'}
+                                style={{ width: '100%', marginBottom: '0.7rem', padding: '0.7rem 0.9rem', fontSize: '0.9rem' }}
+                              />
+                              <textarea
+                                className="premium-input"
+                                autoFocus
+                                rows={5}
+                                value={draftContent}
+                                onChange={e => setDraftContent(e.target.value)}
+                                placeholder={t.cardContentPh || 'Text the bot should follow'}
+                                style={{ width: '100%', resize: 'vertical', padding: '0.8rem 0.9rem', fontSize: '0.92rem', lineHeight: 1.5 }}
+                              />
+                              <div style={{ display: 'flex', gap: '0.6rem', marginTop: '0.9rem' }}>
+                                <button className="btn-primary" onClick={saveBlock} disabled={brainBusy || !draftContent.trim()} style={{ padding: '0.55rem 1.2rem', borderRadius: '10px', fontSize: '0.88rem' }}>
+                                  {t.save || 'Save'}
+                                </button>
+                                <button onClick={cancelEditBlock} style={{ background: 'transparent', border: '1px solid var(--outline-variant)', color: 'var(--on-surface-variant)', cursor: 'pointer', padding: '0.55rem 1.2rem', borderRadius: '10px', fontSize: '0.88rem', fontWeight: 600 }}>
+                                  {t.cancel || 'Cancel'}
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </section>
+                    );
+                  })}
+
+                  {/* Read-only: what the four sections above actually compile to. Kept visible
+                      so an advanced user can verify the result, but not editable — editing it
+                      by hand is exactly what used to make the bot's behaviour drift. */}
+                  <details style={{ borderTop: '1px solid var(--outline-variant)', paddingTop: '1.5rem' }}>
+                    <summary style={{ cursor: 'pointer', fontSize: '0.92rem', fontWeight: 600, color: 'var(--on-surface-variant)' }}>
+                      {t.advancedRaw || 'Advanced: final prompt'}
+                    </summary>
+                    <p style={{ fontSize: '0.82rem', color: 'var(--on-surface-variant)', margin: '0.7rem 0' }}>
+                      {t.advancedRawHint || 'Built automatically from the cards above.'}
+                    </p>
+                    <pre style={{
+                      whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: '0.8rem',
+                      background: 'var(--surface-container-low)', padding: '1rem', borderRadius: '12px',
+                      color: 'var(--on-surface-variant)', maxHeight: '340px', overflow: 'auto', margin: 0
+                    }}>
+                      {[systemPrompt, dataPrompt].filter(Boolean).join('\n\n')}
+                    </pre>
+                  </details>
+                </div>
+              </div>
+            )}
+
+            {brainMode === 'chat' && (
+            <>
             <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               {agentChatHistory.length === 0 ? (
                 <div style={{ margin: 'auto', textAlign: 'center', color: '#565e74' }}>
@@ -3037,6 +3495,8 @@ export default function BotDetails() {
                 <Send size={18} /> {t.send || 'Send'}
               </button>
             </div>
+            </>
+            )}
           </div>
         )}
 
@@ -3533,11 +3993,20 @@ export default function BotDetails() {
                           if (val.trim()) { setDataPrompt(prev => prev + '\n\nAdditional fact: ' + val.trim()); e.currentTarget.value = ''; }
                         }
                       }} />
-                      <button type="button" className="btn-primary" onClick={() => {
+                      <button type="button" className="btn-primary" onClick={async () => {
                         const input = document.getElementById('customFactInput') as HTMLInputElement;
                         if (input && input.value.trim()) {
-                          setDataPrompt(prev => prev + '\n\nAdditional fact: ' + input.value.trim());
+                          // Same reason as above: a fact is a card, not another line glued to
+                          // the end of data_prompt where it can never be corrected or removed.
+                          await fetch(`${API}/bot/${botId}/brain`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'include',
+                            body: JSON.stringify({ section: 'knowledge', content: input.value.trim(), source: 'manual' }),
+                          });
                           input.value = '';
+                          await fetchBrain();
+                          await fetchBot();
                         }
                       }}>
                         <Plus size={18} /> {t.add || 'Add'}
@@ -3555,19 +4024,21 @@ export default function BotDetails() {
                 </h3>
                 <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.9rem', marginBottom: '2rem' }}>{t.advancedSettingsSub}</p>
                 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '1rem', color: 'var(--on-surface)', marginBottom: '0.5rem', fontWeight: 600 }}>{t.sysPromptFull}</label>
-                    <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.85rem', marginBottom: '1rem', lineHeight: '1.4' }}>{t.sysPromptDesc}</p>
-                    <textarea className="premium-input" rows={8} value={systemPrompt} onChange={e => setSystemPrompt(e.target.value)} style={{ resize: 'vertical', fontFamily: 'monospace', background: 'var(--surface-container-low)', color: 'var(--primary)', width: '100%' }} />
-                  </div>
-                  
-                  <div>
-                    <label style={{ display: 'block', fontSize: '1rem', color: 'var(--on-surface)', marginBottom: '0.5rem', fontWeight: 600 }}>{t.dataPromptFull}</label>
-                    <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.85rem', marginBottom: '1rem', lineHeight: '1.4' }}>{t.dataBaseDesc}</p>
-                    <textarea className="premium-input" rows={12} value={dataPrompt} onChange={e => setDataPrompt(e.target.value)} style={{ resize: 'vertical', fontFamily: 'monospace', background: 'var(--surface-container-low)', color: 'var(--primary)', width: '100%' }} />
-                  </div>
-                </div>
+                {/* The raw prompts used to be editable here. They are now generated from the
+                    cards in the AI Brain tab, so hand-edits would be silently overwritten by
+                    the next card change — a confusing way to lose work. The read-only version
+                    lives next to the cards that produce it. */}
+                <button
+                  onClick={() => { setActiveTab('agent'); setBrainMode('blocks'); }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '0.6rem',
+                    background: 'transparent', border: '1px solid var(--outline-variant)',
+                    color: 'var(--primary)', cursor: 'pointer', padding: '0.8rem 1.3rem',
+                    borderRadius: '12px', fontSize: '0.92rem', fontWeight: 600
+                  }}
+                >
+                  <BrainCircuit size={18} /> {t.aiBrain || 'AI Brain'}
+                </button>
               </div>
 
             </div>

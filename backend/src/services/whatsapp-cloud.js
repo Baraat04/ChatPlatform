@@ -259,6 +259,62 @@ export async function downloadWhatsAppMedia(mediaId, accessToken) {
 }
 
 /**
+ * Read a number's messaging limit and quality rating from Meta.
+ *
+ * The tier field is `whatsapp_business_manager_messaging_limit` (values like "TIER_250") —
+ * note it is not `messaging_limit_tier`, which does not exist and returns an error. Quality is
+ * GREEN / YELLOW / RED / NA / UNKNOWN.
+ *
+ * Requested on a newer Graph version than GRAPH_API_VERSION: these fields postdate v21.0.
+ */
+export async function getPhoneNumberStatus(phoneNumberId, accessToken) {
+    const fields = 'whatsapp_business_manager_messaging_limit,quality_rating,display_phone_number,verified_name,platform_type,is_on_biz_app,code_verification_status';
+    const url = `https://graph.facebook.com/${SMB_GRAPH_API_VERSION}/${phoneNumberId}?fields=${fields}`;
+
+    const response = await fetch(url, {
+        headers: { 'Authorization': `Bearer ${accessToken || process.env.WA_SYSTEM_USER_TOKEN}` }
+    });
+    const data = await response.json();
+
+    if (data.error) {
+        console.error(`[WhatsApp Cloud] Error reading status for ${phoneNumberId}:`, data.error);
+        throw graphError('Failed to read phone number status', data.error);
+    }
+    return data;
+}
+
+/** "TIER_250" → 250. Returns null for UNLIMITED or anything unrecognised. */
+export function tierToNumber(tier) {
+    if (!tier || typeof tier !== 'string') return null;
+    const match = tier.match(/(\d+)/);
+    return match ? Number(match[1]) : null;
+}
+
+/**
+ * Detach our app from a customer's WABA. Without this, deleting the channel only removes
+ * our own row — Meta keeps delivering that WABA's messages to our webhook, and the number
+ * stays attached to the app, so reconnecting it later (or another tenant claiming it)
+ * behaves unpredictably. Best-effort: the row must be deletable even when Meta refuses.
+ */
+export async function unsubscribeWabaFromWebhook(wabaId, accessToken) {
+    const url = `https://graph.facebook.com/${GRAPH_API_VERSION}/${wabaId}/subscribed_apps`;
+
+    const response = await fetch(url, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${accessToken || process.env.WA_SYSTEM_USER_TOKEN}` }
+    });
+
+    const data = await response.json();
+    if (data.error) {
+        console.error(`[WhatsApp Cloud] Error unsubscribing WABA ${wabaId}:`, data.error);
+        throw graphError('Failed to unsubscribe WABA', data.error);
+    }
+
+    console.log(`[WhatsApp Cloud] ✅ Unsubscribed WABA ${wabaId} from webhook.`);
+    return data;
+}
+
+/**
  * Coexistence only: ask Meta to push the business's existing WhatsApp Business app data
  * into our webhook. `sync_type` is 'history' (past conversations) or 'smb_app_state_sync'
  * (contacts). Meta allows each of these **once per onboarding** — there is no retry, so the

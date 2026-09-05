@@ -6,7 +6,7 @@ import { API_URL } from '../config';
 import {
   BookOpen, Bot, Zap, MessageSquare, BarChart2, ChevronDown, ChevronUp,
   Send, CheckCircle, Terminal, QrCode, Brain, Layers, ArrowRight,
-  Database, Settings, Users, Megaphone
+  Database, Settings, Users, Megaphone, Phone
 } from 'lucide-react';
 
 // ── TYPES ──────────────────────────────────────────────────
@@ -43,6 +43,43 @@ const docsDict = {
       { icon: MessageSquare, title: 'Живые чаты', desc: 'Интерфейс для просмотра диалогов. Вы можете перехватить управление и ответить вручную.' },
       { icon: Megaphone, title: 'Рассылки', desc: 'Отправка массовых информационных сообщений по списку контактов бота.' },
       { icon: Users, title: 'Статистика', desc: 'Детализация активности ботов и стоимости запросов.' },
+    ],
+    waLimits: 'Управление каналами WhatsApp и лимитами Meta',
+    waLimitsGroups: [
+      {
+        title: 'Варианты подключения номеров',
+        items: [
+          'Один бот — несколько номеров. Подходит для филиалов с одинаковыми правилами и прайсом: все номера отвечают по единой базе знаний, а ответ всегда уходит с того номера, на который написал клиент.',
+          'Разные боты — разные номера. Подходит для разграничения отделов: бот «Продажи» и бот «Техподдержка» с разными инструкциями и разными базами знаний.',
+          'Лимит каналов вашего тарифа распределяется свободно: 1 WhatsApp + 1 Telegram + 1 Instagram или сразу три номера WhatsApp на одном боте.',
+        ],
+      },
+      {
+        title: 'Структура аккаунтов Meta (WABA)',
+        items: [
+          'В одном бизнес-портфолио Meta можно добавить несколько номеров в один WABA-аккаунт или создать несколько отдельных WABA.',
+          'Для отправки и приёма сообщений номера работают независимо: каждый номер — отдельный канал в up-chat со своим идентификатором.',
+          'А вот суточный лимит исходящих у них общий, если номера в одном бизнес-портфолио. Чтобы лимиты были раздельными, номера нужно держать в разных бизнес-портфолио.',
+        ],
+      },
+      {
+        title: 'Лимиты Meta: как они считаются',
+        items: [
+          'Уникальный клиент — это отдельный номер клиента, которому вы написали первыми за последние 24 часа. Пять сообщений одному человеку — это один уникальный клиент, а не пять.',
+          'Лимит скользящий: он не обнуляется в полночь. Каждое обращение перестаёт учитываться ровно через 24 часа после отправки.',
+          'Ответы на входящие сообщения клиента в течение 24 часов после его сообщения лимит НЕ расходуют. Тратят лимит только диалоги, которые начинаете вы.',
+          'Уровни: 250 → 1 000 → 10 000 → 100 000 → без ограничений уникальных клиентов за 24 часа.',
+          'Важно: с 2026 года Meta считает лимит на уровне бизнес-портфолио, а не отдельного номера. Все номера портфолио делят общий лимит, и один номер может израсходовать его целиком.',
+        ],
+      },
+      {
+        title: 'Как поднять уровень',
+        items: [
+          'Автоматически: напишите 1 000 уникальным клиентам за 7 дней, сохраняя высокое качество и не получая жалоб. Meta поднимает уровень сама.',
+          'Вручную: пройдите верификацию компании в Meta Business — загрузите документы организации.',
+          'Следите за оценкой качества во вкладке «Meta» в панели бота. При низкой (красной) оценке уровень не поднимут, а могут и понизить.',
+        ],
+      },
     ],
     faq: 'Частые вопросы',
     faqItems: [
@@ -97,6 +134,43 @@ const docsDict = {
       { icon: Megaphone, title: 'Хабарлама тарату', desc: 'Бот контактілеріне жаппай ақпараттық хабарламалар жіберу.' },
       { icon: Users, title: 'Статистика', desc: 'Боттардың белсенділігі мен сұраныстар құнының егжей-тегжейі.' },
     ],
+    waLimits: 'WhatsApp арналарын және Meta лимиттерін басқару',
+    waLimitsGroups: [
+      {
+        title: 'Нөмірлерді қосу нұсқалары',
+        items: [
+          'Бір бот — бірнеше нөмір. Ережелері мен бағасы бірдей филиалдарға қолайлы: барлық нөмірлер бірыңғай білім қоры бойынша жауап береді, ал жауап әрқашан клиент жазған нөмірден кетеді.',
+          'Әртүрлі боттар — әртүрлі нөмірлер. Бөлімдерді бөлуге қолайлы: «Сатылым» және «Техқолдау» боттары әртүрлі нұсқаулармен және білім қорларымен.',
+          'Тарифіңіздегі арна лимиті еркін бөлінеді: 1 WhatsApp + 1 Telegram + 1 Instagram немесе бір ботта бірден үш WhatsApp нөмірі.',
+        ],
+      },
+      {
+        title: 'Meta аккаунттарының құрылымы (WABA)',
+        items: [
+          'Бір Meta бизнес-портфолиосында бірнеше нөмірді бір WABA-аккаунтқа қосуға немесе бірнеше бөлек WABA құруға болады.',
+          'Хабарлама жіберу мен қабылдау үшін нөмірлер тәуелсіз жұмыс істейді: әр нөмір — up-chat-тағы жеке идентификаторы бар бөлек арна.',
+          'Ал шығыс хабарламалардың тәуліктік лимиті, егер нөмірлер бір бизнес-портфолиода болса, ортақ. Лимиттер бөлек болуы үшін нөмірлерді әртүрлі бизнес-портфолиода ұстау керек.',
+        ],
+      },
+      {
+        title: 'Meta лимиттері қалай саналады',
+        items: [
+          'Бірегей клиент — соңғы 24 сағатта сіз бірінші жазған жеке клиент нөмірі. Бір адамға бес хабарлама — бұл бес емес, бір бірегей клиент.',
+          'Лимит жылжымалы: ол түн ортасында нөлденбейді. Әр өтініш жіберілгеннен кейін дәл 24 сағаттан соң есептен шығады.',
+          'Клиенттің хабарламасынан кейінгі 24 сағат ішінде оған берілген жауаптар лимитті ЖҰМСАМАЙДЫ. Лимитті тек өзіңіз бастаған диалогтар жұмсайды.',
+          'Деңгейлер: 24 сағатта 250 → 1 000 → 10 000 → 100 000 → шектеусіз бірегей клиент.',
+          'Маңызды: 2026 жылдан бастап Meta лимитті жеке нөмір емес, бизнес-портфолио деңгейінде санайды. Портфолионың барлық нөмірлері ортақ лимитті бөліседі, ал бір нөмір оны толық жұмсай алады.',
+        ],
+      },
+      {
+        title: 'Деңгейді қалай көтеруге болады',
+        items: [
+          '7 күн ішінде 1 000 бірегей клиентке жоғары сапаны сақтай отырып және шағым алмай жазыңыз. Meta деңгейді өзі көтереді.',
+          'Қолмен: Meta Business-те компанияны растаудан өтіңіз — ұйым құжаттарын жүктеңіз.',
+          'Бот панеліндегі «Meta» бөлімінде сапа бағасын қадағалаңыз. Төмен (қызыл) бағада деңгей көтерілмейді, тіпті төмендеуі мүмкін.',
+        ],
+      },
+    ],
     faq: 'Жиі қойылатын сұрақтар',
     faqItems: [
       { q: 'Telegram ботын қалай қосуға болады?', a: 'Сізге Telegram-дағы ресми @BotFather арқылы бот жасап, мәтіндік кілтті алу және оны біздің платформаға қою қажет.' },
@@ -149,6 +223,43 @@ const docsDict = {
       { icon: MessageSquare, title: 'Live chats', desc: 'Interface to view dialogues. You can intercept control and reply manually.' },
       { icon: Megaphone, title: 'Broadcasts', desc: 'Sending mass informational messages to the bot\'s contact list.' },
       { icon: Users, title: 'Statistics', desc: 'Details on bot activity and request costs.' },
+    ],
+    waLimits: 'Managing WhatsApp channels and Meta limits',
+    waLimitsGroups: [
+      {
+        title: 'Ways to connect numbers',
+        items: [
+          'One bot, several numbers. Good for branches with the same rules and pricing: every number answers from one knowledge base, and the reply always goes out on the number the customer wrote to.',
+          'Separate bots, separate numbers. Good for separating departments: a "Sales" bot and a "Support" bot with different instructions and knowledge bases.',
+          "Your plan's channel allowance is yours to split: 1 WhatsApp + 1 Telegram + 1 Instagram, or three WhatsApp numbers on one bot.",
+        ],
+      },
+      {
+        title: 'How Meta accounts are structured (WABA)',
+        items: [
+          'Within one Meta business portfolio you can add several numbers to a single WABA, or create several separate WABAs.',
+          'For sending and receiving, the numbers work independently: each number is its own channel in up-chat with its own id.',
+          'The daily outbound limit, however, is shared if the numbers sit in the same business portfolio. For separate limits, keep the numbers in separate business portfolios.',
+        ],
+      },
+      {
+        title: 'How Meta counts the limit',
+        items: [
+          'A unique customer is one customer number you messaged first within the last 24 hours. Five messages to one person counts as one unique customer, not five.',
+          'The window is rolling, not daily: each conversation stops counting exactly 24 hours after it was started, not at midnight.',
+          'Replying within 24 hours of a customer\'s message does NOT consume the limit. Only conversations you start first do.',
+          'Tiers: 250 → 1,000 → 10,000 → 100,000 → unlimited unique customers per 24 hours.',
+          'Important: since 2026 Meta sets this limit at the business portfolio level, not per number. All numbers in a portfolio share it, and one number can consume all of it.',
+        ],
+      },
+      {
+        title: 'How to move up a tier',
+        items: [
+          'Automatically: message 1,000 unique customers over 7 days while keeping quality high and collecting no spam reports. Meta raises the tier on its own.',
+          'Manually: complete Meta Business verification by submitting your company documents.',
+          'Watch the quality rating on the "Meta" tab in the bot panel. A red rating blocks an upgrade and can get you moved down.',
+        ],
+      },
     ],
     faq: 'Frequently Asked Questions',
     faqItems: [
@@ -387,6 +498,31 @@ export default function DocsPage() {
               </div>
             );
           })}
+        </div>
+      </section>
+
+      {/* WhatsApp channels & Meta limits */}
+      <section style={{ marginBottom: '4rem' }}>
+        <SectionTitle icon={Phone} title={t.waLimits} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          {t.waLimitsGroups.map((group: { title: string; items: string[] }, gi: number) => (
+            <div key={gi} style={{
+              background: 'var(--surface-container-lowest)', borderRadius: '8px',
+              border: '1px solid var(--outline-variant)', padding: '20px 24px'
+            }}>
+              <div style={{ fontWeight: 600, fontSize: '1rem', color: 'var(--on-surface)', marginBottom: '12px' }}>
+                {group.title}
+              </div>
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {group.items.map((item: string, ii: number) => (
+                  <li key={ii} style={{ display: 'flex', gap: '10px', fontSize: '0.9rem', lineHeight: 1.6, color: 'var(--on-surface-variant)' }}>
+                    <span style={{ color: 'var(--primary)', flexShrink: 0 }}>•</span>
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </div>
       </section>
 

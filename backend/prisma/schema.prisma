@@ -87,9 +87,38 @@ model Bot {
   usage            AIUsage[]
   backgroundJobs   BackgroundJob[]
   chatAnalytics    ChatAnalytics[]
+  brainBlocks      BrainBlock[]
 
   // Adding an index on the foreign key improves query performance
   @@index([user_id])
+}
+
+// One editable piece of a bot's configuration.
+//
+// `system_prompt` and `data_prompt` above are still what the AI pipeline reads, but they are
+// now *generated* from these blocks (see composeBotPrompt in bot-routes.js). Previously every
+// correction and every uploaded file was appended to those two strings and could never be
+// removed, so contradictory instructions piled up and the bot's behaviour drifted. A block
+// can be edited, disabled or deleted on its own, and the prompt is rebuilt from scratch.
+model BrainBlock {
+  id      Int    @id @default(autoincrement())
+  botId   Int
+  bot     Bot    @relation(fields: [botId], references: [id], onDelete: Cascade)
+  // 'identity' — who the business is | 'style' — how to reply
+  // 'knowledge' — facts, prices, files | 'limits' — what the bot must not do
+  section String
+  title   String @default("")
+  content String @db.Text
+  // Where it came from: 'manual' | 'pdf' | 'agent' | 'migrated'. Shown in the UI so a user
+  // can tell hand-written rules from text extracted out of an uploaded file.
+  source    String?
+  sourceUrl String?
+  isActive  Boolean  @default(true)
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([botId, section])
 }
 
 

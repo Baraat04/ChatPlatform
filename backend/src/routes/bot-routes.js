@@ -237,6 +237,167 @@ router.put('/bot/:id', requireAuth, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }) }
 })
 
+// ─── META STATUS ────────────────────────────────────────────────────────────
+// Per-number messaging limit and quality, read live from Meta. Limits and quality belong to
+// the phone number / business portfolio — not to the bot and not to the up-chat subscription —
+// so this is reported per connected WhatsApp channel rather than once per bot.
+router.get('/bot/:id/meta-status', requireAuth, requireBotOwnership, async (req, res) => {
+    try {
+        const prisma = getPrisma()
+        const botId = Number(req.params.id)
+        const { getPhoneNumberStatus, tierToNumber } = await import('../services/whatsapp-cloud.js')
+
+        const channels = await prisma.channel.findMany({
+            where: { botId, platform: 'WHATSAPP', whatsappPhoneNumberId: { not: null } },
+            orderBy: { createdAt: 'asc' }
+        })
+
+        // Rolling 24h window, matching how Meta counts: unique recipients, not messages.
+        const since = new Date(Date.now() - 24 * 60 * 60 * 1000)
+
+        const numbers = await Promise.all(channels.map(async (ch) => {
+            const sentTo = await prisma.message.findMany({
+                where: { botId, channelId: ch.id, sender: 'bot', createdAt: { gte: since } },
+                select: { chatId: true },
+                distinct: ['chatId']
+            })
+
+            const base = {
+                channelId: ch.id,
+                phoneNumberId: ch.whatsappPhoneNumberId,
+                wabaId: ch.whatsappWabaId,
+                isActive: ch.isActive,
+                // Our own count of distinct recipients in the last 24h. It is an approximation
+                // of Meta's number: Meta only counts conversations the business started, and we
+                // cannot tell from our rows alone whether a reply fell inside the customer
+                // service window. Shown as "our count", never as Meta's official figure.
+                uniqueContacts24h: sentTo.length
+            }
+
+            try {
+                const status = await getPhoneNumberStatus(ch.whatsappPhoneNumberId, ch.apiToken)
+                return {
+                    ...base,
+                    displayPhoneNumber: status.display_phone_number || null,
+                    verifiedName: status.verified_name || null,
+                    tier: status.whatsapp_business_manager_messaging_limit || null,
+                    tierLimit: tierToNumber(status.whatsapp_business_manager_messaging_limit),
+                    qualityRating: status.quality_rating || 'UNKNOWN',
+                    platformType: status.platform_type || null,
+                    isOnBizApp: status.is_on_biz_app ?? null,
+                    codeVerificationStatus: status.code_verification_status || null,
+                    error: null
+                }
+            } catch (e) {
+                // A revoked token or a number detached on Meta's side must still render a card,
+                // with the reason on it — an empty page would look like a bug in up-chat.
+                return { ...base, error: e.message }
+            }
+        }))
+
+        res.json({ numbers })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+// ─── AI BRAIN BLOCKS ────────────────────────────────────────────────────────
+// The editable form of a bot's configuration. system_prompt/data_prompt are regenerated
+// from these on every change, so deleting a block actually removes it from the bot's
+// behaviour — which was impossible while both were append-only text fields.
+
+// GET all blocks for a bot (seeds from the legacy prompts on first open)
+router.get('/bot/:id/brain', requireAuth, requireBotOwnership, async (req, res) => {
+    try {
+        const prisma = getPrisma()
+        const botId = Number(req.params.id)
+        const { seedBrainFromPrompts } = await import('../services/brain.js')
+
+        const bot = await prisma.bot.findUnique({ where: { id: botId } })
+        const seeded = await seedBrainFromPrompts(prisma, bot)
+
+        const blocks = await prisma.brainBlock.findMany({
+            where: { botId },
+            orderBy: [{ section: 'asc' }, { order: 'asc' }, { id: 'asc' }]
+        })
+        res.json({ blocks, seeded })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+// POST create a block
+router.post('/bot/:id/brain', requireAuth, requireBotOwnership, async (req, res) => {
+    try {
+        const prisma = getPrisma()
+        const botId = Number(req.params.id)
+        const { SECTIONS, composeBotPrompt } = await import('../services/brain.js')
+        const { section, title, content, source, sourceUrl } = req.body
+
+        if (!SECTIONS.includes(section)) return res.status(400).json({ error: 'Unknown section' })
+        if (!content || !String(content).trim()) return res.status(400).json({ error: 'Content is required' })
+
+        const last = await prisma.brainBlock.findFirst({
+            where: { botId, section },
+            orderBy: { order: 'desc' },
+            select: { order: true }
+        })
+
+        const block = await prisma.brainBlock.create({
+            data: {
+                botId,
+                section,
+                title: (title || '').trim(),
+                content: String(content).trim(),
+                source: source || 'manual',
+                sourceUrl: sourceUrl || null,
+                order: (last?.order ?? -1) + 1
+            }
+        })
+
+        await composeBotPrompt(prisma, botId)
+        res.json(block)
+    } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+// PUT update a block
+router.put('/bot/:id/brain/:blockId', requireAuth, requireBotOwnership, async (req, res) => {
+    try {
+        const prisma = getPrisma()
+        const botId = Number(req.params.id)
+        const blockId = Number(req.params.blockId)
+        const { composeBotPrompt } = await import('../services/brain.js')
+        const { title, content, isActive } = req.body
+
+        // Scoped by botId as well as id — a block id from another tenant must not be editable
+        // through a bot the caller does happen to own.
+        const existing = await prisma.brainBlock.findFirst({ where: { id: blockId, botId } })
+        if (!existing) return res.status(404).json({ error: 'Block not found' })
+
+        const data = {}
+        if (title !== undefined) data.title = String(title).trim()
+        if (content !== undefined) data.content = String(content).trim()
+        if (isActive !== undefined) data.isActive = Boolean(isActive)
+
+        const block = await prisma.brainBlock.update({ where: { id: blockId }, data })
+        await composeBotPrompt(prisma, botId)
+        res.json(block)
+    } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+// DELETE a block
+router.delete('/bot/:id/brain/:blockId', requireAuth, requireBotOwnership, async (req, res) => {
+    try {
+        const prisma = getPrisma()
+        const botId = Number(req.params.id)
+        const blockId = Number(req.params.blockId)
+        const { composeBotPrompt } = await import('../services/brain.js')
+
+        const existing = await prisma.brainBlock.findFirst({ where: { id: blockId, botId } })
+        if (!existing) return res.status(404).json({ error: 'Block not found' })
+
+        await prisma.brainBlock.delete({ where: { id: blockId } })
+        await composeBotPrompt(prisma, botId)
+        res.json({ success: true })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
 // DELETE bot
 router.delete('/bot/:id', requireAuth, async (req, res) => {
     try {
@@ -300,17 +461,13 @@ router.get('/bot/:id/channels', requireAuth, async (req, res) => {
             isBaseChannelDeleted = true;
         } else if (bot.platform === 'INSTAGRAM' && !bot.apiToken) {
             isBaseChannelDeleted = true;
-        } else if (bot.platform === 'WHATSAPP' && !bot.isActive) {
-            // Only hide if the session directory does not exist on disk
-            const { default: fs } = await import('fs');
-            const { default: path } = await import('path');
-            const { fileURLToPath } = await import('url');
-            const __dirnameTmp = path.dirname(fileURLToPath(import.meta.url));
-            const sessionDir = path.join(__dirnameTmp, `../../sessions/session_${botId}`);
-            const credsFile = path.join(sessionDir, 'creds.json');
-            if (!fs.existsSync(credsFile)) {
-                isBaseChannelDeleted = true;
-            }
+        } else if (bot.platform === 'WHATSAPP') {
+            // Baileys is gone: a WhatsApp connection now always creates a real Channel row
+            // through Embedded Signup, and the credentials live on that row — never on Bot.
+            // The old check looked for a Baileys creds.json on disk, so a leftover session
+            // file from before the migration kept rendering a phantom "WhatsApp Client" card
+            // for a bot that has no WhatsApp connection at all.
+            isBaseChannelDeleted = true;
         }
         
         // Filter out disconnected WhatsApp Channel records
@@ -356,9 +513,13 @@ router.post('/bot/:id/channels', requireAuth, async (req, res) => {
         const bot = await prisma.bot.findUnique({ where: { id: botId, user_id: req.session.userId } })
         if (!bot) return res.status(404).json({ error: 'Bot not found' })
 
-        // Check no duplicate platform channel for this bot
-        const existing = await prisma.channel.findFirst({ where: { botId, platform } })
-        if (existing) return res.status(400).json({ error: `Channel for ${platform} already exists` })
+        // A bot may hold several channels of the same platform — three WhatsApp numbers, two
+        // Telegram bots — all sharing one AI brain. Only an exact duplicate credential is
+        // rejected, since that would be the same account connected twice.
+        if (apiToken) {
+            const duplicate = await prisma.channel.findFirst({ where: { botId, platform, apiToken } })
+            if (duplicate) return res.status(400).json({ error: 'This account is already connected to the bot' })
+        }
 
         const startsActive = platform === 'TELEGRAM' || platform === 'INSTAGRAM'
 
@@ -371,6 +532,14 @@ router.post('/bot/:id/channels', requireAuth, async (req, res) => {
                 slug: `ch-${botId}-${platform.toLowerCase()}-${Date.now()}`,
             }
         })
+
+        // The messenger is now chosen here rather than at bot creation, so Bot.platform is a
+        // placeholder until the first channel exists. Adopt this channel's platform so routes
+        // that still fall back to bot.platform (the send route, broadcast) resolve correctly.
+        const channelCount = await prisma.channel.count({ where: { botId } })
+        if (channelCount === 1 && bot.platform !== platform) {
+            await prisma.bot.update({ where: { id: botId }, data: { platform } })
+        }
 
         res.json(channel)
 
@@ -464,8 +633,18 @@ router.delete('/bot/:id/channels/:channelId', requireAuth, async (req, res) => {
             try { await callTelegramAPI('deleteWebhook', channel.apiToken, {}) } catch (e) {}
         }
         
-        if (channel.platform === 'WHATSAPP') {
-            // Cloud API is passive
+        if (channel.platform === 'WHATSAPP' && channel.whatsappWabaId) {
+            // Actually detach from the WhatsApp Business Platform, not just locally: otherwise
+            // Meta keeps sending this WABA's messages to our webhook after the user has
+            // "removed" the channel, and they arrive with no channel to resolve them to.
+            try {
+                const { unsubscribeWabaFromWebhook } = await import('../services/whatsapp-cloud.js')
+                await unsubscribeWabaFromWebhook(channel.whatsappWabaId, channel.apiToken)
+            } catch (e) {
+                // A revoked token or a WABA the customer already detached on Meta's side must
+                // not block the user from removing the channel here.
+                console.warn(`[Channel delete] WABA unsubscribe failed for channel ${channelId}: ${e.message}`)
+            }
         }
 
         await prisma.channel.delete({ where: { id: channelId } })
@@ -543,12 +722,21 @@ router.post('/bot/:id/pause', requireAuth, requireBotOwnership, async (req, res)
         const prisma = getPrisma()
         const botId = Number(req.params.id)
 
+        // Pause the bot *and* every channel it owns. Previously only Bot.isActive was
+        // cleared, so the channel card kept showing "Connected" next to a "PAUSED" header —
+        // two flags telling the user opposite things about the same bot.
         const bot = await prisma.bot.update({
             where: { id: botId },
             data: { isActive: false }
         })
+        const { count } = await prisma.channel.updateMany({
+            where: { botId },
+            data: { isActive: false }
+        })
 
-        // WhatsApp Cloud API is passive, no socket to stop
+        // Logged with the actor so a report of "it turned itself back on" can be traced to
+        // whoever or whatever flipped it, instead of being guesswork again.
+        console.log(`[BotState] Bot ${botId} PAUSED by user ${req.session.userId} (+${count} channel(s))`)
 
         res.json({ success: true, isActive: false })
     } catch (e) { res.status(500).json({ error: e.message }) }
@@ -565,6 +753,13 @@ router.post('/bot/:id/start', requireAuth, requireBotOwnership, async (req, res)
             where: { id: botId },
             data: { isActive: true }
         })
+        // Mirror of pause: bring the channels back up too, otherwise starting the bot leaves
+        // its channels off and nothing actually resumes.
+        const { count } = await prisma.channel.updateMany({
+            where: { botId },
+            data: { isActive: true }
+        })
+        console.log(`[BotState] Bot ${botId} STARTED by user ${req.session.userId} (+${count} channel(s))`)
 
         if (bot.platform === 'WHATSAPP') {
             // For WhatsApp Cloud, toggling isActive in DB is enough.
@@ -937,10 +1132,13 @@ router.post('/bot/:id/send', requireAuth, requireBotOwnership, upload.single('fi
         let channelId = lastMsg?.channelId || null;
         let apiToken = bot.apiToken;
 
-        // CRITICAL FIX: If there is an active WA channel for this bot, we MUST use it.
-        // Otherwise, we might fall back to a legacy botId session which has stale encryption keys,
-        // causing WhatsApp to silently drop the message (decryption failure) even though 'typing' works.
-        if (platform === 'WHATSAPP') {
+        // Reply from the number the customer actually wrote to. `lastMsg.channelId` records
+        // which channel received the conversation, so with several WhatsApp numbers on one bot
+        // the answer goes back out on the right one. Falling back to "newest active WhatsApp
+        // channel" — as this did unconditionally before — would answer a customer of number A
+        // from number B, opening a second thread on their phone under a business they never
+        // messaged. The fallback is kept only for conversations that predate channel ids.
+        if (platform === 'WHATSAPP' && !channelId) {
             try {
                 const activeWaChannel = await prisma.channel.findFirst({
                     where: { botId, platform: 'WHATSAPP', isActive: true },
@@ -948,6 +1146,7 @@ router.post('/bot/:id/send', requireAuth, requireBotOwnership, upload.single('fi
                 });
                 if (activeWaChannel) {
                     channelId = activeWaChannel.id;
+                    console.log(`[SendRoute] No channelId on history for ${rawChatId}, using channel ${channelId}`);
                 }
             } catch (e) {
                 console.error('[SendRoute] Error checking active channels:', e.message);
@@ -1632,7 +1831,7 @@ router.post('/webhook/telegram/:slug', async (req, res) => {
             take: 20
         })
         
-        let systemInstruction = `${bot.system_prompt || ''}\n\nCRITICAL: Follow the system instructions exactly. Pay extreme attention to any [Correction] or [IMPORTANT CORRECTION] tags at the end of the instructions.`;
+        let systemInstruction = `${bot.system_prompt || ''}\n\nCRITICAL: Follow the instructions above exactly, in the order given. Never invent prices, deadlines, addresses, availability or delivery terms that are not stated above — if something is missing, say you will check with a manager.`;
 
         // Setup integration config
         const integrationConfig = {
@@ -1981,7 +2180,13 @@ router.post('/integrations/whatsapp/connect', requireAuth, async (req, res) => {
         // can be moved between businesses (and Meta test numbers get reused constantly). A
         // leftover row would make the webhook resolve to the wrong tenant's bot, answering
         // with their system_prompt/data_prompt and spending their message balance.
-        let channel = await prisma.channel.findFirst({ where: { botId: bot.id, platform: 'WHATSAPP' } });
+        // Look the channel up by the *phone number*, not by platform. Matching on platform
+        // meant a bot could only ever hold one WhatsApp number: connecting a second one
+        // overwrote the first channel's phone_number_id, silently disconnecting it. One bot is
+        // supposed to serve N numbers, each an independent channel sharing the same AI brain.
+        let channel = await prisma.channel.findFirst({
+            where: { botId: bot.id, platform: 'WHATSAPP', whatsappPhoneNumberId: phoneNumberId }
+        });
         const stale = await prisma.channel.updateMany({
             where: {
                 whatsappPhoneNumberId: phoneNumberId,
@@ -2017,8 +2222,12 @@ router.post('/integrations/whatsapp/connect', requireAuth, async (req, res) => {
             });
         }
         
-        // Also activate the bot itself
-        await prisma.bot.update({ where: { id: bot.id }, data: { isActive: true } });
+        // Also activate the bot itself, and adopt WHATSAPP as its platform — the messenger is
+        // chosen by connecting a channel now, not in the creation wizard, so Bot.platform is a
+        // placeholder until this point. Logged because this is the one path that can turn a
+        // deliberately paused bot back on — if a user reports that, this line dates it.
+        await prisma.bot.update({ where: { id: bot.id }, data: { isActive: true, platform: 'WHATSAPP' } });
+        console.log(`[BotState] Bot ${bot.id} ACTIVATED by WhatsApp connect (user ${req.session.userId})`);
 
         // 6. Coexistence only: pull in the contacts and chat history that already exist in
         //    the owner's WhatsApp Business app. Meta allows each sync exactly once per
@@ -2468,7 +2677,7 @@ router.post('/webhook/whatsapp-cloud', async (req, res) => {
                 let aiResponseText = 'Извините, AI временно недоступен.';
                 let inputTokens = 0, outputTokens = 0;
                 try {
-                    let sysInstruction = `${bot.system_prompt || ''}\n\nCRITICAL: Follow the system instructions exactly. Pay extreme attention to any [Correction] or [IMPORTANT CORRECTION] tags at the end of the instructions.`;
+                    let sysInstruction = `${bot.system_prompt || ''}\n\nCRITICAL: Follow the instructions above exactly, in the order given. Never invent prices, deadlines, addresses, availability or delivery terms that are not stated above — if something is missing, say you will check with a manager.`;
 
                     const integrationConfig = {
                         googleSheetUrl: bot.googleSheetUrl,
@@ -2688,7 +2897,7 @@ router.post('/webhook/instagram', async (req, res) => {
                 let aiResponseText = 'Извините, AI временно недоступен.';
                 let inputTokens = 0, outputTokens = 0;
                 try {
-                    let sysInstruction = `${bot.system_prompt || ''}\n\nCRITICAL: Follow the system instructions exactly. Pay extreme attention to any [Correction] or [IMPORTANT CORRECTION] tags at the end of the instructions.`;
+                    let sysInstruction = `${bot.system_prompt || ''}\n\nCRITICAL: Follow the instructions above exactly, in the order given. Never invent prices, deadlines, addresses, availability or delivery terms that are not stated above — if something is missing, say you will check with a manager.`;
 
                     const integrationConfig = {
                         googleSheetUrl: bot.googleSheetUrl,
@@ -2848,56 +3057,47 @@ router.post('/bot/:id/agent-chat', requireAuth, async (req, res) => {
         const bot = await prisma.bot.findUnique({ where: { id: botId, user_id: req.session.userId } })
         if (!bot) return res.status(404).json({ error: 'Bot not found' })
 
-        const systemInstruction = `You are an expert AI configuration agent. Your task is to update the system prompt and data prompt for a bot based on user requests.
-Current system_prompt:
-${bot.system_prompt}
+        // The agent edits the bot's configuration cards. It used to rewrite system_prompt and
+        // data_prompt wholesale, and was explicitly told to *append* every new instruction and
+        // never remove anything — which is why bots accumulated contradictory rules and started
+        // answering unpredictably. Editing and deleting individual cards is what fixes that.
+        const { seedBrainFromPrompts, composeBotPrompt, SECTIONS } = await import('../services/brain.js')
+        await seedBrainFromPrompts(prisma, bot)
 
-Current data_prompt (knowledge base):
-${bot.data_prompt}
+        const currentBlocks = await prisma.brainBlock.findMany({
+            where: { botId },
+            orderBy: [{ section: 'asc' }, { order: 'asc' }],
+            select: { id: true, section: true, title: true, content: true }
+        })
 
-The user will ask you to change the bot's behavior or add knowledge. 
-Respond with a JSON object ONLY, in this exact format:
+        const systemInstruction = `Ты — помощник по настройке бота. Ты редактируешь карточки конфигурации бота.
+
+Разделы:
+- identity — кто компания, чем занимается, от чьего имени пишет бот
+- style — как отвечать: тон, длина, что уточнять
+- knowledge — факты: цены, услуги, адрес, часы работы, условия доставки
+- limits — чего боту делать нельзя
+
+Текущие карточки:
+${currentBlocks.length ? JSON.stringify(currentBlocks, null, 2) : '(пусто)'}
+
+Ответь ТОЛЬКО объектом JSON:
 {
-  "reply": "Your message to the user explaining what you changed.",
-  "new_system_prompt": "The complete updated system prompt",
-  "new_data_prompt": "The complete updated data prompt"
+  "reply": "Короткое сообщение пользователю: что именно ты изменил.",
+  "operations": [
+    { "action": "add", "section": "style", "title": "", "content": "..." },
+    { "action": "update", "id": 12, "title": "", "content": "..." },
+    { "action": "delete", "id": 7 }
+  ]
 }
 
-CRITICAL RULES FOR new_system_prompt:
-1. When the user asks you to change how the bot behaves or speaks, you MUST append this instruction clearly at the end of the new_system_prompt. 
-2. Use strong language like "[IMPORTANT CORRECTION]: " to make sure the bot follows it.
-3. PRESERVE ALL existing instructions in the system_prompt, just add the new ones at the end. DO NOT replace the whole prompt with just the new rule.
-
-CRITICAL RULES FOR new_data_prompt:
-You MUST format new_data_prompt EXACTLY like this with these specific headers, otherwise the system will break.
-IMPORTANT: If you do not have real information for a section (e.g., no real links, no real FAQ, no real manager contact), leave it completely blank. DO NOT hallucinate fake data, fake links (like example.com), or fake phone numbers.
-
-Компания:
-[Name]
-
-Описание:
-[Description]
-
-Преимущества:
-[Benefits]
-
-Цены и условия:
-[Pricing]
-
-FAQ:
-[Leave blank if no real FAQ provided by user]
-
-Полезные ссылки:
-[Leave blank if no real links provided]
-
-Контакт менеджера:
-[Leave blank if no real contact provided]
-
-Дополнительная информация:
-[Append any large unstructured text, rules, or knowledge provided by the user here exactly as they provided it. DO NOT omit any details they pasted!]
-
-Ensure the output is strictly valid JSON. Do not add markdown blocks around JSON.
-CRITICAL: If the user pastes a huge text with company details or prices, you MUST include ALL of it under the "Дополнительная информация" or appropriate sections. Do not summarize it too shortly. Preserve the details.`;
+Правила:
+1. Если новая инструкция противоречит существующей карточке — ОБНОВИ её (update) или УДАЛИ старую (delete). Не добавляй противоречащую карточку рядом со старой.
+2. Одна карточка — одна мысль. Не складывай десять правил в одну карточку.
+3. Не выдумывай данные. Если пользователь не дал телефон, ссылку, цену или адрес — не придумывай их и не создавай карточку с заглушкой.
+4. Если пользователь прислал большой текст с данными о компании — сохрани его целиком в knowledge, не сокращай.
+5. Если менять ничего не нужно — верни пустой массив operations.
+6. Только валидный JSON, без markdown-блоков.`;
 
         const geminiHistory = [];
         if (history) {
@@ -2914,15 +3114,11 @@ CRITICAL: If the user pastes a huge text with company details or prices, you MUS
             console.log("Agent Chat Gemini Response:", content.substring(0, 300));
         } catch (error) {
             console.error("Agent Chat Gemini Error:", error);
-            content = JSON.stringify({
-                reply: "Error connecting to AI. Please try again later.",
-                new_system_prompt: bot.system_prompt,
-                new_data_prompt: bot.data_prompt
-            });
+            content = JSON.stringify({ reply: "Не удалось связаться с ИИ. Попробуйте ещё раз.", operations: [] });
         }
-        
-        let parsed = { reply: "Я не смог обработать ваш запрос.", new_system_prompt: bot.system_prompt, new_data_prompt: bot.data_prompt }
-        
+
+        let parsed = { reply: "Я не смог обработать ваш запрос.", operations: [] }
+
         try {
             // Strip markdown block if model added it
             content = content.replace(/```json/g, '').replace(/```/g, '').trim();
@@ -2936,25 +3132,62 @@ CRITICAL: If the user pastes a huge text with company details or prices, you MUS
             }
         }
 
-        const replyMsg = parsed.reply || "Готово. Изменения применены.";
+        // Apply the operations. Each one is validated against this bot's own blocks — the model
+        // supplies the ids, and an id it invented or borrowed from another tenant must not be
+        // able to reach a row. Bad operations are skipped, not fatal: a partially understood
+        // request should still apply the parts that were understood.
+        const applied = { added: 0, updated: 0, deleted: 0 }
+        const ops = Array.isArray(parsed.operations) ? parsed.operations.slice(0, 25) : []
 
-        if (parsed.new_system_prompt || parsed.new_data_prompt) {
-            const finalSysPrompt = typeof parsed.new_system_prompt === 'object' ? JSON.stringify(parsed.new_system_prompt, null, 2) : (parsed.new_system_prompt || bot.system_prompt);
-            const finalDataPrompt = typeof parsed.new_data_prompt === 'object' ? JSON.stringify(parsed.new_data_prompt, null, 2) : (parsed.new_data_prompt || bot.data_prompt);
-
-            await prisma.bot.update({
-                where: { id: botId },
-                data: {
-                    system_prompt: finalSysPrompt,
-                    data_prompt: finalDataPrompt
+        for (const op of ops) {
+            try {
+                if (op.action === 'add') {
+                    if (!SECTIONS.includes(op.section) || !op.content || !String(op.content).trim()) continue
+                    const last = await prisma.brainBlock.findFirst({
+                        where: { botId, section: op.section },
+                        orderBy: { order: 'desc' },
+                        select: { order: true }
+                    })
+                    await prisma.brainBlock.create({
+                        data: {
+                            botId,
+                            section: op.section,
+                            title: String(op.title || '').trim(),
+                            content: String(op.content).trim(),
+                            source: 'agent',
+                            order: (last?.order ?? -1) + 1
+                        }
+                    })
+                    applied.added++
+                } else if (op.action === 'update') {
+                    const target = await prisma.brainBlock.findFirst({ where: { id: Number(op.id), botId } })
+                    if (!target) continue
+                    const data = {}
+                    if (op.title !== undefined) data.title = String(op.title).trim()
+                    if (op.content !== undefined && String(op.content).trim()) data.content = String(op.content).trim()
+                    if (Object.keys(data).length === 0) continue
+                    await prisma.brainBlock.update({ where: { id: target.id }, data })
+                    applied.updated++
+                } else if (op.action === 'delete') {
+                    const target = await prisma.brainBlock.findFirst({ where: { id: Number(op.id), botId } })
+                    if (!target) continue
+                    await prisma.brainBlock.delete({ where: { id: target.id } })
+                    applied.deleted++
                 }
-            })
-            
-            parsed.new_system_prompt = finalSysPrompt;
-            parsed.new_data_prompt = finalDataPrompt;
+            } catch (opErr) {
+                console.warn(`[AgentChat] Skipped operation on bot ${botId}: ${opErr.message}`)
+            }
         }
 
-        res.json({ reply: replyMsg, system_prompt: parsed.new_system_prompt, data_prompt: parsed.new_data_prompt })
+        let composed = { system_prompt: bot.system_prompt, data_prompt: bot.data_prompt }
+        if (applied.added || applied.updated || applied.deleted) {
+            composed = await composeBotPrompt(prisma, botId)
+            console.log(`[AgentChat] Bot ${botId}: +${applied.added} ~${applied.updated} -${applied.deleted}`)
+        }
+
+        const replyMsg = parsed.reply || "Готово. Изменения применены.";
+
+        res.json({ reply: replyMsg, system_prompt: composed.system_prompt, data_prompt: composed.data_prompt, applied })
     } catch (e) {
         console.error('Agent chat error:', e)
         res.status(500).json({ error: e.message })
@@ -2970,7 +3203,7 @@ router.post('/bot/:id/test-chat', requireAuth, async (req, res) => {
         const bot = await prisma.bot.findUnique({ where: { id: botId, user_id: req.session.userId } })
         if (!bot) return res.status(404).json({ error: 'Bot not found' })
 
-        const systemInstruction = `${bot.system_prompt || ''}\n\nCRITICAL: Follow the system instructions exactly. Pay extreme attention to any [Correction] or [IMPORTANT CORRECTION] tags at the end of the instructions.`;
+        const systemInstruction = `${bot.system_prompt || ''}\n\nCRITICAL: Follow the instructions above exactly, in the order given. Never invent prices, deadlines, addresses, availability or delivery terms that are not stated above — if something is missing, say you will check with a manager.`;
         const ragContext = bot.data_prompt || '';
 
         const geminiHistory = [];

@@ -114,11 +114,13 @@ WhatsApp Cloud has a hard constraint the other platforms don't: outside the **24
 
 `registerPhone()` exists but is **deliberately not called** during connect — invoking `/register` forces full migration and breaks Coexistence (the customer would lose WhatsApp on their phone).
 
+**Precondition for the whole flow:** Embedded Signup runs on Facebook Login, which for users who hold no role on the Meta app requires **Advanced Access** on `public_profile` *and* `email`. This app uses the use-case dashboard, so those live under **Use cases → (the Facebook Login use case) → Permissions**, *not* under App Review — and for a Business-type app they upgrade by direct toggle with no App Review submission. At Standard access the dialog dies with "Feature unavailable — Facebook Login is not available for this app", before Embedded Signup starts, so none of the Coexistence switches below can even be evaluated. Advanced Access itself is gated on completed Business Verification. Confirmed with Meta Support, Aug 2026. While it is pending, the flow is still testable end-to-end by anyone given an admin/developer/tester role on the app.
+
 Coexistence (connecting a number that is still live in the customer's WhatsApp Business app) has three separate switches, and all of them must be on. Two are outside the repo, so a code-only check will always say it looks fine:
 
 1. `featureType: 'whatsapp_business_app_onboarding'` in the `FB.login` extras (`frontend/app/bots/[id]/page.tsx`). **A blank `featureType` is not a neutral default** — Meta reads it as the standard flow and silently drops the "Select your setup" step, so the dialog goes straight to phone-number entry and the Coexistence option never renders.
 2. The `history`, `smb_app_state_sync` and `smb_message_echoes` webhook topics subscribed in the Meta App Dashboard.
-3. Tech Provider or Solution Partner status on the Meta business account.
+3. Tech Provider or Solution Partner status on the Meta business account. **Granted (Aug 2026)** — Use cases → Связь в WhatsApp → Станьте партнером reports "Выполнено шагов: 2 из 2".
 
 The webhook then receives three extra `change.field` values. None may reach the AI reply path: they describe messages that were already sent, so replying makes the bot answer itself and bills the owner. `Message.waMessageId` holds the wamid on inbound *and* outbound sends specifically so an echo of our own message is recognised instead of duplicated.
 

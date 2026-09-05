@@ -2,19 +2,11 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Bot, MessageCircle, Phone, Globe, ArrowRight, ArrowLeft, CheckCircle2, ChevronDown, Sparkles } from 'lucide-react';
+import { ArrowRight, ArrowLeft, CheckCircle2, ChevronDown, Sparkles } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '../contexts/LanguageContext';
 import { translations } from '../locales/translations';
 import { API_URL } from '../config';
-
-const InstagramIcon = ({ size = 24, color = 'currentColor' }: { size?: number; color?: string }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
-    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
-    <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
-  </svg>
-);
 
 // Custom Select Component — uses portal to escape overflow/z-index issues
 function CustomSelect({ options, value, onChange, placeholder }: any) {
@@ -181,18 +173,15 @@ export default function CreateBotFast() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  // Form State
-  const [platform, setPlatform] = useState('');
+  // Form State.
+  // The messenger is no longer chosen here — it is chosen in the bot's own panel, under
+  // "Каналы связи", where the connection is actually made. Asking for it up front made the
+  // user pick a platform before they had anything to connect it to, and a bot could sit
+  // labelled "WhatsApp" for weeks with no WhatsApp attached.
   const [companyName, setCompanyName] = useState('');
   const [industry, setIndustry] = useState('');
   const [tone, setTone] = useState('');
   const [goal, setGoal] = useState('');
-
-  // Data Options
-  const platforms = [
-    { id: 'TELEGRAM', name: 'Telegram', icon: <MessageCircle size={32} color="#3b82f6" />, bg: 'rgba(59,130,246,0.1)' },
-    { id: 'WHATSAPP', name: 'WhatsApp', icon: <Phone size={32} color="#22c55e" />, bg: 'rgba(34,197,94,0.1)' },
-  ];
 
   const industries = (t.createBotIndustries as string[]) || [
     "Страхование", "Право и бухгалтерия", "Недвижимость", "Ремонт", "Строительство",
@@ -211,7 +200,7 @@ export default function CreateBotFast() {
     "Ответить на частые вопросы (FAQ и техподдержка)"
   ];
 
-  const totalSteps = 3;
+  const totalSteps = 2;
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
@@ -223,8 +212,6 @@ export default function CreateBotFast() {
 Формат общения: ${tone}.
 Общайся с клиентами естественно, всегда придерживайся своего формата общения и стремись выполнить свою главную цель.`;
       
-      const pId = platforms.find(p => p.name === platform)?.id || 'TELEGRAM';
-      
       const response = await fetch(`${API_URL}/bot`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -232,7 +219,11 @@ export default function CreateBotFast() {
         body: JSON.stringify({
           system_prompt: systemPrompt,
           data_prompt: `Название компании: ${companyName}\nСфера: ${industry}`,
-          platform: pId,
+          // Bot.platform is required by the schema but no longer chosen by the user. The
+          // server overwrites it with the real platform when the first channel is connected,
+          // and no base channel is rendered while the bot has no token, so this placeholder
+          // is never shown anywhere.
+          platform: 'TELEGRAM',
           apiToken: '' // Without token for fast creation
         }),
       });
@@ -255,9 +246,8 @@ export default function CreateBotFast() {
   };
 
   const nextStep = () => {
-    if (step === 1 && !platform) return;
-    if (step === 2 && (!companyName || !industry)) return;
-    if (step === 3 && (!tone || !goal)) return;
+    if (step === 1 && (!companyName || !industry)) return;
+    if (step === 2 && (!tone || !goal)) return;
 
     if (step < totalSteps) {
       setStep(step + 1);
@@ -272,67 +262,6 @@ export default function CreateBotFast() {
 
   const renderRightPanelPreview = () => {
     if (step === 1) {
-      const selectedPlatformInfo = platforms.find(p => p.name === platform) || { name: 'Выберите платформу', icon: <Bot size={32} color="#ffffff" />, bg: 'rgba(255,255,255,0.2)' };
-      return (
-        <div className="anim-item" style={{ animationDelay: '0.2s', margin: 'auto 0', display: 'flex', justifyContent: 'center' }}>
-          <div style={{
-            width: '280px',
-            height: '240px',
-            background: '#0f172a',
-            border: '1px solid rgba(255, 255, 255, 0.15)',
-            borderRadius: '24px',
-            padding: '20px',
-            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.15)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '16px',
-            position: 'relative',
-            color: 'white'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', paddingBottom: '12px' }}>
-              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ff5f56' }}></div>
-              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ffbd2e' }}></div>
-              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#27c93f' }}></div>
-              <span style={{ fontSize: '12px', opacity: 0.5, marginLeft: 'auto' }}>Preview</span>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', marginTop: '10px' }}>
-              <div style={{ 
-                width: '60px', 
-                height: '60px', 
-                borderRadius: '50%', 
-                background: '#1e293b', 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                boxShadow: '0 8px 16px rgba(0,0,0,0.1)'
-              }}>
-                {selectedPlatformInfo.icon}
-              </div>
-              <span style={{ fontSize: '15px', fontWeight: '600' }}>{selectedPlatformInfo.name}</span>
-            </div>
-
-            <div style={{
-              background: '#1e293b',
-              borderRadius: '12px 12px 12px 0px',
-              padding: '12px',
-              fontSize: '13px',
-              lineHeight: '1.4',
-              alignSelf: 'flex-start',
-              maxWidth: '90%',
-              marginTop: '10px',
-              border: '1px solid rgba(255,255,255,0.05)'
-            }}>
-              {platform 
-                ? `Привет! Я твой новый AI-ассистент в ${platform}. Жду запуска! 🚀` 
-                : 'Выберите платформу слева, чтобы привязать своего ИИ-сотрудника.'}
-            </div>
-          </div>
-        </div>
-      );
-    }
-    
-    if (step === 2) {
       return (
         <div className="anim-item" style={{ animationDelay: '0.2s', margin: 'auto 0', display: 'flex', justifyContent: 'center' }}>
           <div style={{
@@ -372,7 +301,7 @@ export default function CreateBotFast() {
       );
     }
 
-    if (step === 3) {
+    if (step === 2) {
       const getSampleMessage = () => {
         let msg = "Здравствуйте! Чем я могу помочь вам сегодня?";
         if (tone.includes("Дружелюбный")) {
@@ -458,27 +387,23 @@ export default function CreateBotFast() {
   };
 
   // Helper for step validation
-  const isStep1Valid = !!platform;
-  const isStep2Valid = !!companyName && !!industry;
-  const isStep3Valid = !!tone && !!goal;
+  const isStep1Valid = !!companyName && !!industry;
+  const isStep2Valid = !!tone && !!goal;
   
   const canProceed = 
-    (step === 1 && isStep1Valid) || 
-    (step === 2 && isStep2Valid) || 
-    (step === 3 && isStep3Valid);
+    (step === 1 && isStep1Valid) ||
+    (step === 2 && isStep2Valid);
 
   // Right Panel Content based on step
   const getRightPanelTitle = () => {
-    if (step === 1) return t.createBotRightTitle1 || "Привет! 👋 Давай создадим твоего первого AI-агента.";
-    if (step === 2) return t.createBotRightTitle2 || "Отлично! Расскажи немного о своём бизнесе.";
-    if (step === 3) return t.createBotRightTitle3 || "Почти готово! Как твой агент должен общаться?";
+    if (step === 1) return t.createBotRightTitle2 || "Отлично! Расскажи немного о своём бизнесе.";
+    if (step === 2) return t.createBotRightTitle3 || "Почти готово! Как твой агент должен общаться?";
     return t.createBotCreating || "Создаем магию... ✨";
   };
 
   const getRightPanelDesc = () => {
-    if (step === 1) return t.createBotRightDesc1 || "Выбери платформу, где бот будет встречать твоих клиентов. Ты всегда сможешь добавить другие платформы позже.";
-    if (step === 2) return t.createBotRightDesc2 || "Эта информация поможет ИИ понять контекст вашей работы и лучше отвечать клиентам.";
-    if (step === 3) return t.createBotRightDesc3 || "Тон общения и главная цель — это то, что отличает обычного бота от гениального AI-сотрудника.";
+    if (step === 1) return t.createBotRightDesc2 || "Эта информация поможет ИИ понять контекст вашей работы и лучше отвечать клиентам.";
+    if (step === 2) return t.createBotRightDesc3 || "Тон общения и главная цель — это то, что отличает обычного бота от гениального AI-сотрудника.";
     return t.createBotCreating || "Пакуем нейросети, настраиваем серверы и готовим твой дашборд.";
   };
 
@@ -506,20 +431,6 @@ export default function CreateBotFast() {
           animation: slideInRight 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
         }
         
-        .platform-card {
-          border: 2px solid var(--outline-variant);
-          transition: all 0.2s;
-        }
-        .platform-card:hover {
-          border-color: var(--primary);
-          transform: translateY(-4px);
-          box-shadow: 0 12px 24px rgba(43, 108, 0, 0.1);
-        }
-        .platform-card.selected {
-          border-color: var(--primary);
-          background: var(--primary-container);
-        }
-
         .primary-btn {
           background: var(--primary);
           color: var(--on-primary);
@@ -657,11 +568,6 @@ export default function CreateBotFast() {
           }
         }
         
-        @media (max-width: 480px) {
-          .platform-grid {
-            grid-template-columns: 1fr !important;
-          }
-        }
       `}</style>
 
       {/* LEFT PANEL - FORM */}
@@ -698,44 +604,9 @@ export default function CreateBotFast() {
         <div className="form-outer">
           <div className="form-inner">
             
-            {/* STEP 1: PLATFORM */}
+            {/* STEP 1: COMPANY INFO */}
             {step === 1 && (
               <div key="step1" className="anim-step">
-                <h2 style={{ fontSize: '28px', fontWeight: 'bold', color: 'var(--on-surface)', marginBottom: '24px' }}>{t.createBotTitle1 || 'Где будет работать ваш ИИ-агент?'}</h2>
-                
-                <div className="platform-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
-                  {platforms.map((p, idx) => (
-                    <div 
-                      key={p.id} 
-                      className={`platform-card anim-item ${platform === p.name ? 'selected' : ''}`}
-                      style={{ animationDelay: `${idx * 0.1}s`, padding: '24px', borderRadius: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', cursor: 'pointer', background: 'var(--surface-container-lowest)' }}
-                      onClick={() => setPlatform(p.name)}
-                    >
-                      <div style={{ background: p.bg, padding: '16px', borderRadius: '50%' }}>
-                        {p.icon}
-                      </div>
-                      <span style={{ fontSize: '18px', fontWeight: '600', color: 'var(--on-surface)' }}>{p.name}</span>
-                    </div>
-                  ))}
-
-                  {/* Instagram — Coming Soon */}
-                  <div
-                    className="platform-card anim-item"
-                    style={{ animationDelay: '0.2s', padding: '24px', borderRadius: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', cursor: 'not-allowed', background: 'var(--surface-container-lowest)', opacity: 0.65, position: 'relative', overflow: 'hidden' }}
-                  >
-                    <div style={{ position: 'absolute', top: '10px', right: '10px', background: 'linear-gradient(135deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888)', color: '#fff', fontSize: '10px', fontWeight: '700', padding: '2px 8px', borderRadius: '20px', letterSpacing: '0.5px' }}>СКОРО</div>
-                    <div style={{ background: 'rgba(188,24,136,0.1)', padding: '16px', borderRadius: '50%' }}>
-                      <InstagramIcon size={32} color="#bc1888" />
-                    </div>
-                    <span style={{ fontSize: '18px', fontWeight: '600', color: 'var(--on-surface)' }}>Instagram</span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* STEP 2: COMPANY INFO */}
-            {step === 2 && (
-              <div key="step2" className="anim-step">
                 <h2 style={{ fontSize: '28px', fontWeight: 'bold', color: 'var(--on-surface)', marginBottom: '24px' }}>{t.createBotTitle2 || 'Базовая информация'}</h2>
                 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -767,9 +638,9 @@ export default function CreateBotFast() {
               </div>
             )}
 
-            {/* STEP 3: AI BEHAVIOR */}
-            {step === 3 && (
-              <div key="step3" className="anim-step">
+            {/* STEP 2: AI BEHAVIOR */}
+            {step === 2 && (
+              <div key="step2" className="anim-step">
                 <h2 style={{ fontSize: '28px', fontWeight: 'bold', color: 'var(--on-surface)', marginBottom: '24px' }}>{t.createBotTitle3 || 'Настройка ИИ-агента'}</h2>
                 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -858,9 +729,8 @@ export default function CreateBotFast() {
         {/* Progress Steps */}
         <div className="right-panel-steps" style={{ marginTop: 'auto', paddingTop: 'clamp(16px, 3vh, 32px)', display: 'flex', flexDirection: 'column', gap: 'clamp(12px, 2vh, 24px)' }}>
           {[
-            { num: 1, label: t.createBotStepPlatform || 'Платформа' },
-            { num: 2, label: t.createBotStepInfo || 'Базовая информация' },
-            { num: 3, label: t.createBotStepBehavior || 'Настройка поведения' }
+            { num: 1, label: t.createBotStepInfo || 'Базовая информация' },
+            { num: 2, label: t.createBotStepBehavior || 'Настройка поведения' }
           ].map((s) => {
             const isCompleted = step > s.num;
             const isActive = step === s.num;

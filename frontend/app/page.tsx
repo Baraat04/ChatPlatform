@@ -53,8 +53,8 @@ const localT = {
     usedWord: 'Used',
     remainingWord: 'Remaining',
     msgAbbr: 'msg',
-    pricingRules: 'Message Pricing:',
-    pricingDesc: 'Each incoming user request processed by AI deducts exactly 1 message from your balance.',
+    pricingRules: 'How messages are counted:',
+    pricingDesc: 'One balance shared across all your bots. Each AI reply costs 1 message. Replies you write yourself are free.',
     detailedStats: 'Detailed Message Statistics'
   },
   RU: {
@@ -78,8 +78,8 @@ const localT = {
     usedWord: 'Использовано',
     remainingWord: 'Осталось',
     msgAbbr: 'сообщ.',
-    pricingRules: 'Тарификация сообщений:',
-    pricingDesc: 'Каждый входящий запрос пользователя, обработанный искусственным интеллектом, списывает ровно 1 сообщение с вашего баланса.',
+    pricingRules: 'Как считаются сообщения:',
+    pricingDesc: 'Баланс один на все ваши боты. Каждый ответ ИИ списывает 1 сообщение. Ответы, которые вы пишете вручную, бесплатны.',
     detailedStats: 'Подробная статистика сообщений'
   },
   KZ: {
@@ -103,8 +103,8 @@ const localT = {
     usedWord: 'Пайдаланылды',
     remainingWord: 'Қалды',
     msgAbbr: 'хаб.',
-    pricingRules: 'Хабарламалар тарифі:',
-    pricingDesc: 'Жасанды интеллект өңдеген әрбір кіріс пайдаланушы сұранысы сіздің балансыңыздан дәл 1 хабарламаны алады.',
+    pricingRules: 'Хабарламалар қалай есептеледі:',
+    pricingDesc: 'Барлық боттарыңызға ортақ бір баланс. ЖИ-дің әрбір жауабы 1 хабарламаны алады. Өзіңіз жазған жауаптар тегін.',
     detailedStats: 'Толық хабарлама статистикасы'
   }
 };
